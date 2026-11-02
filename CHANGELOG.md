@@ -4,6 +4,12 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Fixed
+
+- Several connections on one file now behave more like SQLite: a write statement refused with `SQLITE_BUSY` counts as running until it is reset and runs again when stepped again; a `ROLLBACK` that undid writes no longer aborts pending read queries; a connection keeps the schema its own DDL produced (no read lock for the next prepare); a stale-schema `CREATE ... IF NOT EXISTS` no-op takes the locks SQLite takes; `PRAGMA journal_mode` among rollback modes, `wal_checkpoint` outside WAL and settings-only pragmas no longer take file locks SQLite does not; `PRAGMA journal_mode=off` is accepted. The remaining differences are listed in docs/engine.md.
+- Informational pragmas and `integrity_check` now notice a schema change made by another connection instead of reporting false errors.
+- A PERSIST-mode journal reserve resumed in the wrong state and could stop with an internal error.
+
 ## [0.2.0-preview.2]
 
 ### Fixed

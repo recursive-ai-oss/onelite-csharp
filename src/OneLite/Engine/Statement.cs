@@ -229,7 +229,7 @@ public sealed class Statement : IDisposable
                     RunResult rr;
                     try
                     {
-                        rr = _conn.Catalog is null ? _conn.ReloadSchemaStep() : RunResult.Done;
+                        rr = _conn.Catalog is null || _conn.SchemaReloading ? _conn.ReloadSchemaStep() : RunResult.Done;
                     }
                     catch (OneLiteException e)
                     {

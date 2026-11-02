@@ -667,6 +667,8 @@ internal sealed partial class Machine
                     if (!_fwReloading)
                     {
                         _fwReloading = true;
+                        // The reload's own read nests inside this write transaction: hold one reader count so it never ends the pager's transaction.
+                        _conn.ReaderStarted();
                         _conn.BeginSchemaRefresh();
                     }
 
@@ -688,6 +690,7 @@ internal sealed partial class Machine
                     }
 
                     _fwReloading = false;
+                    _conn.ReaderDone();
                     _fwReloaded = true;
                     _fw = _conn.AutoCommit ? 3 : 8;
                     break;

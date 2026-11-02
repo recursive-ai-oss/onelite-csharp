@@ -399,12 +399,15 @@ readers; each read must show one committed state, and the states must never go b
 
 Several connections to one file (one `Database`, several, or other processes) are checked step by step against the native library with the schedule differential (`ScheduleDifferentialTests`: named schedules, plus random ones over DELETE, TRUNCATE, PERSIST, WAL and MEMORY). Lock failures are `SQLITE_BUSY` with the reference's text, and a refused statement leaves the transaction as the reference does. What still differs, each outside the default schedules:
 
-- A write statement that returned `SQLITE_BUSY` stays "in progress" on the reference until it is reset: a later `COMMIT` then fails with "cannot commit transaction - SQL statements in progress", and an autocommit statement after it does not commit. OneLite ends such a statement at the error. Reset a statement after an error, as the `sqlite3_step` documentation asks.
-- A `ROLLBACK` that undoes writes aborts the connection's pending queries with `SQLITE_ABORT_ROLLBACK`; the reference lets read queries go on.
-- After its own DDL a connection reads the schema again at the next prepare, which needs a read lock; the reference keeps the schema it updated.
-- A statement that compiles against a stale schema and is a no-op after re-preparing (`CREATE TABLE IF NOT EXISTS` of a table another connection made) does not take the write lock first.
-- Writing through a second name of the same file (`ATTACH` of the main file, then `UPDATE alias.t`) fails with `SQLITE_MISUSE` where the reference succeeds.
-- `PRAGMA journal_mode` changes and `ATTACH` while another connection holds a lock, and `PRAGMA wal_checkpoint` outside WAL mode, can fail with `SQLITE_BUSY` where the reference answers without touching the file, or the other way round. `journal_mode=off` is refused as in the shell; the library accepts it.
+Behaviour that matches (named schedules in the test): a write statement refused with `SQLITE_BUSY` counts as running until it is reset (a checkpoint, a journal-mode change into or out of WAL, `COMMIT` and `SAVEPOINT` see it) and stepping it again runs it again; a `ROLLBACK` that undid writes lets pending read queries continue; a connection keeps the schema its own DDL produced and needs no read lock for the next statement; a no-op `CREATE ... IF NOT EXISTS` compiled against a stale schema takes the locks the reference takes; `journal_mode=off` is accepted as in the library; journal-mode switches among the rollback modes, `wal_checkpoint` outside WAL mode and settings-only pragmas take no file lock where the reference takes none.
+
+What still differs (each is outside the default random schedules; the named schedule or the environment switch reproduces it):
+
+- **Writing through a second name of the same file** (`ATTACH` of the main file, then `UPDATE alias.t`): the reference begins a transaction only on the databases a statement uses, OneLite always begins one on main as well, so the write fails or blocks differently when another connection holds a lock. Run `WritesThroughAnAttachOfTheSameFile` with `ONELITE_SCHEDULE_ATTACH` set.
+- **Leaving WAL while another connection is attached to the idle WAL file**: OneLite answers `SQLITE_BUSY`, the reference changes the mode. `ATTACH` followed by a prepare while another connection holds EXCLUSIVE can differ in which statement is refused.
+- **`journal_mode=off`** under random schedules: the reference sometimes reports "query aborted" at a different step. "cannot change out of wal mode" is reported for a merely prepared statement where the reference allows it.
+- **Locks taken by a few pragmas**: `page_size=N` on a non-empty file, `PRAGMA index_list`/`foreign_key_check` of an unknown table, `data_version`, `optimize` and `incremental_vacuum` (no-ops) take the lock the reference does not, or the reverse. `wal_checkpoint(TRUNCATE)` while a writer is active reports partial counts (`1 5 0` where the reference reports `1 5 5`).
+- **A pending join `SELECT` after an `UPDATE` on the same connection** can see stale values of the outer cursor.
 
 ## JSON and JSONB
 

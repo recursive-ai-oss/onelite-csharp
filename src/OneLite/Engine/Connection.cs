@@ -864,6 +864,9 @@ public sealed partial class Connection : IDisposable
     /// <summary>The schema cookie the last stale check saw in the file; a catalog with this cookie is current and need not be read again.</summary>
     internal uint FileCookie;
 
+    /// <summary>True while a schema load is part-way (it must be resumed, not skipped, even though the new catalog is already installed).</summary>
+    internal bool SchemaReloading => _rs != 0;
+
     /// <summary>True when a statement that changed the schema should rebuild the catalog itself (only for a plain main database with nothing temporary or attached in the way).</summary>
     internal bool ReloadAfterDdl => _catalog is not null && _temp is null && Attached.Count == 0;
 
