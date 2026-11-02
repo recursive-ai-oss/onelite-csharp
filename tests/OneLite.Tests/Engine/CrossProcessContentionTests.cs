@@ -46,7 +46,7 @@ public sealed class CrossProcessContentionTests : IDisposable
             _ = Run(".bail off");
         }
 
-        public string Run(string script)
+        public string Run(string script, bool expectError = false)
         {
             _p.StandardInput.WriteLine(script);
             _p.StandardInput.WriteLine(".print @@done");
@@ -55,6 +55,20 @@ public sealed class CrossProcessContentionTests : IDisposable
             for (string? line; (line = _p.StandardOutput.ReadLine()) != null && line != "@@done";)
             {
                 sb.AppendLine(line);
+            }
+
+            // Standard error arrives on its own thread: wait for the message a refused statement prints.
+            for (int i = 0; i < 100 && expectError; i++)
+            {
+                lock (_err)
+                {
+                    if (_err.Length > 0)
+                    {
+                        break;
+                    }
+                }
+
+                System.Threading.Thread.Sleep(30);
             }
 
             System.Threading.Thread.Sleep(50);
@@ -140,7 +154,7 @@ public sealed class CrossProcessContentionTests : IDisposable
         Assert.True(reading.Step());
 
         using var shell = new Shell(path);
-        string outcome = shell.Run("INSERT INTO t VALUES (9);");
+        string outcome = shell.Run("INSERT INTO t VALUES (9);", true);
         Assert.Contains("database is locked", outcome, StringComparison.Ordinal);
         reading.Reset();
         Assert.Equal(3, Count(c));
@@ -177,7 +191,7 @@ public sealed class CrossProcessContentionTests : IDisposable
             s.Step();
         }
 
-        Assert.Contains("database is locked", shell.Run("INSERT INTO t VALUES (21);"), StringComparison.Ordinal);
+        Assert.Contains("database is locked", shell.Run("INSERT INTO t VALUES (21);", true), StringComparison.Ordinal);
         using (Statement s = c.Prepare("COMMIT"))
         {
             s.Step();
