@@ -291,7 +291,7 @@ public sealed class Statement : IDisposable
                             {
                                 _blocked = true;
                                 _conn.BlockedStatements++;
-                                _conn.BlockedAtReadBegins = _conn.ReadBegins;
+                                
                             }
                             else if (_machine.BlockedAtRead && !_blockedRead && !_blocked)
                             {
@@ -315,12 +315,14 @@ public sealed class Statement : IDisposable
         {
             _blocked = false;
             _conn.BlockedStatements--;
+            _conn.ReleaseBlockedHold();
         }
 
         if (_blockedRead)
         {
             _blockedRead = false;
             _conn.BlockedReadStatements--;
+            _conn.ReleaseBlockedHold();
         }
     }
 

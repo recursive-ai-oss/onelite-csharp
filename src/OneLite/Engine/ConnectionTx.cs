@@ -158,14 +158,35 @@ public sealed partial class Connection
     /// </summary>
     internal int BlockedStatements;
 
-    /// <summary>
-    /// Reads begun by statements so far. Observed on the reference: a checkpoint counts a statement refused with SQLITE_BUSY as running only once
-    /// something has read the file since the refusal; straight after it does not.
-    /// </summary>
-    internal int ReadBegins, BlockedAtReadBegins;
+    /// <summary>True when the read transaction was kept open for the sake of a statement refused with SQLITE_BUSY.</summary>
+    internal bool BlockedHold;
 
-    /// <summary>True when the refused statement counts for a checkpoint; <paramref name="ownReads"/> is the read the checkpoint statement began itself.</summary>
-    internal bool BlockedCountsForCheckpoint(int ownReads) => BlockedStatements > 0 && ReadBegins - BlockedAtReadBegins > ownReads;
+    /// <summary>
+    /// Called when the last running statement is about to end its read transaction. If a refused statement is still active the transaction stays
+    /// open (the reference ends it only when no statement is active); returns true then.
+    /// </summary>
+    internal bool HoldReadForBlocked(Vm.Machine m)
+    {
+        if (_readers != 1 || TxHeld || m.BlockedByBusy || m.BlockedAtRead || BlockedStatements + BlockedReadStatements == 0)
+        {
+            return false;
+        }
+
+        BlockedHold = true;
+        return true;
+    }
+
+    /// <summary>Ends the read transaction kept for refused statements once the last of them is reset.</summary>
+    internal void ReleaseBlockedHold()
+    {
+        if (BlockedHold && BlockedStatements + BlockedReadStatements == 0 && _readers == 0 && !TxHeld)
+        {
+            BlockedHold = false;
+            AbortRead();
+        }
+    }
+
+    internal bool BlockedCountsForCheckpoint(int ownReads) => BlockedHold;
 
     /// <summary>Statements refused with SQLITE_BUSY asking for the read lock; they block COMMIT, RELEASE and SAVEPOINT until reset.</summary>
     internal int BlockedReadStatements;

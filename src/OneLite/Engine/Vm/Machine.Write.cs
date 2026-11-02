@@ -921,6 +921,11 @@ internal sealed partial class Machine
                             }
 
                             _tmpRowid = i;
+                            if (_conn.HasWritableBlob || _conn.BlockedStatements > 0 || _conn.BlockedReadStatements > 0 || _conn.ActiveWriters > 0)
+                            {
+                                throw new OneLiteException(ResultCode.Busy, "cannot release savepoint - SQL statements in progress");
+                            }
+
                             if (i == 0 && !_conn.ExplicitTx)
                             {
                                 CheckDeferredForeignKeys();
@@ -932,11 +937,6 @@ internal sealed partial class Machine
                                 // Releasing the outermost savepoint of a transaction no BEGIN opened commits it (lang_savepoint). If the commit is
                                 // refused (SQLITE_BUSY) the savepoints and the transaction must still be there, so nothing is taken apart before
                                 // it succeeds; EndTransactionState clears them afterwards.
-                                if (_conn.HasWritableBlob || _conn.BlockedStatements > 0 || _conn.BlockedReadStatements > 0 || _conn.ActiveWriters > 0)
-                                {
-                                    throw new OneLiteException(ResultCode.Busy, "cannot release savepoint - SQL statements in progress");
-                                }
-
                                 _wstep = 10;
                                 break;
                             }

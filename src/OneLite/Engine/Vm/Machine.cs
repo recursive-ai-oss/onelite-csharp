@@ -252,7 +252,14 @@ internal sealed partial class Machine
         }
 
         DropTransient();
-        if (_holdsRead)
+        if (_holdsRead && _conn.HoldReadForBlocked(this))
+        {
+            // c3ref/step: a statement refused with SQLITE_BUSY is still active, so the read transaction of the statements that ran after it
+            // does not end when they finish; it ends when the refused statement is reset.
+            _holdsRead = false;
+            _conn.ReaderDone();
+        }
+        else if (_holdsRead)
         {
             PagerStatus s = _conn.EndReadStep();
             if (s == PagerStatus.Pending)
@@ -1510,7 +1517,6 @@ internal sealed partial class Machine
                 return RunResult.Error;
             }
 
-            _conn.ReadBegins++;
             if (!_holdsRead)
             {
                 _holdsRead = true;
