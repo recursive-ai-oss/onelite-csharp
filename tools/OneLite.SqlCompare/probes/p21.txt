@@ -1,0 +1,59 @@
+select #1
+%%
+select #a
+%%
+select #
+%%
+select # 1
+%%
+select #a::b
+%%
+select #a(b)
+%%
+select #é
+%%
+select :
+%%
+select @
+%%
+select $
+%%
+select #1a
+%%
+select #a1_
+%%
+select ?#1
+%%
+select 1 #
+%%
+select #$
+%%
+select #a.b
+%%
+select 1#1
+%%
+select a#1
+%%
+select t#
+%%
+select 1
+%%
+select 1+1
+%%
+select 1
+%%
+select 1
+%%
+select1
+%%
+select 1
+%%
+select 1
+%%
+select 1 +1
+%%
+select　 1
+%%
+select ~#
+%%
+select #;

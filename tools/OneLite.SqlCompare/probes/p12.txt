@@ -1,0 +1,17 @@
+create table x(b int generated always as (1 in (select 1 where 2)) stored)
+%%
+create table x(b int generated always as (select 1 where 2) stored)
+%%
+create table x(b int generated always as (exists (select 1 from t left outer join (f(1)) as c2 on a.u)) stored)
+%%
+create table x(b int generated always as (exists (select * from t4 `b` left outer join (name(E'x', c4)) as col2 on a.u)) stored)
+%%
+create table x(b int generated always as (1 between t9 + current_date and 'drop' in (select 1)) stored)
+%%
+create table x(b int generated always as (select right.v .last as col2 where 727) stored)
+%%
+create table x(b int generated always as (1 is a collate Tbl = 2) stored)
+%%
+create table x(b int generated always as (select 1 from t `b` left join u) stored)
+%%
+create table x(b int generated always as (select 1 from t `b` join (name(1)) as c on 1) stored)

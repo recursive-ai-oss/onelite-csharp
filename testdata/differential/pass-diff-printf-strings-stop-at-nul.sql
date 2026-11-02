@@ -1,0 +1,12 @@
+-- OneLite differential repro
+-- status: pass
+-- class: none
+-- engine: ours
+-- families: expr
+-- utf16: false
+-- oracle: diff
+-- ordered: false
+-- query: select hex(printf('%s|%z|%q|%w|%Q|%10s', 'a'||char(0)||'b', x'610062', 'c'||char(0)||'d', 'e'||char(0), 'f'||char(0)||'g', 'h'||char(0)||'i'))
+-- detail: 
+-- run
+select hex(printf('%s|%z|%q|%w|%Q|%10s', 'a'||char(0)||'b', x'610062', 'c'||char(0)||'d', 'e'||char(0), 'f'||char(0)||'g', 'h'||char(0)||'i'));

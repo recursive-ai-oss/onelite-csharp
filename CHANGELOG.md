@@ -1,0 +1,48 @@
+# Changelog
+
+All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+## [0.2.0-preview.1]
+
+The SQL engine: reads and writes through SQL, ADO.NET, the happy-path API and the first extensions. Measured compatibility is in [docs/compatibility.md](docs/compatibility.md).
+
+### Added
+
+- SQL writes: `INSERT`, `UPDATE`, `DELETE`, upsert, `RETURNING`, transactions and savepoints, on the rollback journal and WAL.
+- The SQL surface: joins, subqueries, CTEs (recursive too), compound queries, aggregates, window functions, views, triggers, generated columns, `STRICT` and `WITHOUT ROWID` tables, `ALTER TABLE`, `ATTACH`, pragmas, JSON and JSONB, math functions, `generate_series`, `json_each` and `json_tree`.
+- Clearer errors: exceptions carry the position in the SQL with a caret, the offending name and suggestions; codes and messages are unchanged. Readable plans: a plan tree with estimated and optional actual row counts.
+- `RecursiveAI.OneLite.Data`: an ADO.NET provider (`DbConnection`, `DbDataReader`, `DbDataSource`, batching) with real async.
+- The happy path: `Database.OpenAsync`, interpolated-SQL queries that bind parameters, `WriteAsync` transactions with retry, `Table<T>`, source-generated mapping and `MigrateAsync`.
+- Virtual tables: the module interface, R*Tree, `dbstat`, FTS5, FTS3 and FTS4 (with `fts4aux`) on the documented shadow-table layouts, and `vec0` for exact k-nearest-neighbour search over float32, int8 and bit vectors.
+- `SearchAsync` and `Search` on the happy path: full-text (FTS5, bm25) and vector (`vec0`, exact k-NN) results fused by reciprocal rank, with an optional filter.
+- The backup API, `VACUUM INTO` and incremental blob I/O.
+- `:memory:` databases.
+
+### Changed
+
+- The encryption path (SQLCipher-4-compatible) has passed its review against the published SQLCipher design and test vectors. Encrypted databases sort in memory only, so no plaintext reaches temporary files.
+
+### Notes
+
+- The `RecursiveAI.OneLite.SQLitePCLRaw` and `.Cli` packages are still placeholders.
+- Known differences from SQLite 3.53.4 are listed in docs/compatibility.md.
+
+## [0.1.0-preview.1]
+
+First preview: the storage layer and a read-only SQL engine. Files are the standard SQLite-compatible format; anything not listed here is not implemented yet.
+
+### Added
+
+- Storage layer: the database file format (all page types, overflow chains, freelist, pointer maps and auto-vacuum, UTF-8 and UTF-16, page sizes 512 to 65536, `WITHOUT ROWID`), records, the B-tree with balancing, the pager and page cache, the rollback journal (DELETE, TRUNCATE, PERSIST, MEMORY) with hot-journal recovery, and WAL with the shared `-shm` index, file locking that coexists with other processes, recovery and every checkpoint mode.
+- A resumable core: every I/O is a suspend point, so the same code runs under the sync driver (`Statement.Step`) and the async driver (`Statement.StepAsync`) with no allocation on cached reads.
+- A pluggable VFS: local files and memory, plus browser OPFS (main thread and worker), Web Locks and database import and export; fault injection for durability tests.
+- Engine layer, read-only: `Database.OpenReadOnly`, `Connection.Prepare`, `Statement.Step`/`StepAsync`, typed column readers and `OneLiteException` with result and extended codes. `SELECT` with joins, subqueries, CTEs, compound selects, grouping and aggregates is coming in the next preview; this preview runs single-table queries with expressions, affinity, collation and the core, math and date functions.
+- SQLCipher-4-compatible encryption at the storage layer: encrypted database, journal and WAL, passphrase and raw keys, and crash-safe online rekey.
+- Forensic reader (`ForensicDatabase`): read-only snapshots as of any WAL commit, free-space reports and record carving; it takes no locks and never writes.
+
+### Notes
+
+- The `RecursiveAI.OneLite.Data`, `.SQLitePCLRaw` and `.Cli` packages are placeholders in this preview.
+- The encryption code has not had its independent review yet; don't rely on it for protecting data.

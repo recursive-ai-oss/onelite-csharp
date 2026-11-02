@@ -1,0 +1,257 @@
+create trigger r after insert on t begin select 1; end
+%%
+create trigger r after insert on t begin select 1 end
+%%
+create trigger r after insert on t begin  end
+%%
+create trigger r after insert on t begin ; end
+%%
+create trigger r after insert on t begin select 1;; end
+%%
+create trigger r after insert on t begin insert into main.u values(1); end
+%%
+create trigger r after insert on t begin update main.u set a=1; end
+%%
+create trigger r after insert on t begin delete from main.u; end
+%%
+create trigger r after insert on t begin update u set a=1 from v; end
+%%
+create trigger r after insert on t begin update u set a=1 returning *; end
+%%
+create trigger r after insert on t begin insert into u values(1) returning *; end
+%%
+create trigger r after insert on t begin delete from u returning *; end
+%%
+create trigger r after insert on t begin delete from u indexed by i; end
+%%
+create trigger r after insert on t begin delete from u as x; end
+%%
+create trigger r after insert on t begin update u as x set a=1; end
+%%
+create trigger r after insert on t begin insert into u as x values(1); end
+%%
+create trigger r after insert on t begin with x as (select 1) select * from x; end
+%%
+create trigger r after insert on t begin with x as (select 1) insert into u select * from x; end
+%%
+create trigger r after insert on t begin with x as (select 1) update u set a=1; end
+%%
+create trigger r after insert on t begin with x as (select 1) delete from u; end
+%%
+create trigger r after insert on t begin select raise(ignore); end
+%%
+create trigger r after insert on t begin select raise(abort,'x'), raise(fail,'y'), raise(rollback,'z'); end
+%%
+create trigger r after insert on t begin select raise(foo,'x'); end
+%%
+create trigger r after insert on t begin select raise(ignore,'x'); end
+%%
+create trigger r after insert on t begin select raise(abort); end
+%%
+create trigger r after insert on t begin select raise(abort,x); end
+%%
+create trigger r after insert on t begin insert or replace into u values(1) on conflict do nothing; end
+%%
+create trigger r after insert on t begin create table x(a); end
+%%
+create trigger r after insert on t begin pragma foo; end
+%%
+create trigger r after insert on t begin select 1; select 2 end
+%%
+create trigger r after insert on t begin select case when 1 then 2 end; end
+%%
+create trigger r after insert on t begin select end from t; end
+%%
+create trigger r after insert on t begin values (1); end
+%%
+create trigger r after insert on t begin update u set a=1 order by a; end
+%%
+create trigger r after insert on t begin delete from u limit 1; end
+%%
+create trigger r after insert on t begin select new.a, old.b; end
+%%
+create trigger r after insert on t begin select 1 from t union select 2; end
+%%
+create trigger r after insert on t begin replace into u values(1); end
+%%
+create trigger r after insert on t begin insert into u default values; end
+%%
+create trigger r after insert on t begin update or ignore u set a=1; end
+%%
+create trigger r after insert on t begin update u indexed by i set a=1; end
+%%
+create trigger r after insert on t begin update u not indexed set a=1; end
+%%
+create trigger r after insert on t begin delete from u where a; end
+%%
+create trigger r after insert on t begin select 1; end end
+%%
+create trigger r after insert on t begin end end
+%%
+create trigger r after insert on t begin begin select 1; end end
+%%
+create trigger r after insert on t begin explain select 1; end
+%%
+create trigger r after insert on t begin vacuum; end
+%%
+create trigger r after insert on t begin insert into u select * from t on conflict do nothing; end
+%%
+create trigger r after insert on t begin insert into u select * from t where true on conflict do nothing; end
+%%
+create trigger r after insert on t begin select 1; end; select 2
+%%
+create trigger r after insert on t begin select 1; end select 2
+%%
+create trigger r after insert on t when new.a begin select 1; end
+%%
+create trigger r after insert of a on t begin select 1; end
+%%
+create trigger r instead of insert on v begin select 1; end
+%%
+create trigger r before instead of insert on v begin select 1; end
+%%
+create trigger r after on t begin select 1; end
+%%
+create trigger r insert on t begin select 1; end
+%%
+create trigger r after insert t begin select 1; end
+%%
+create trigger r after insert on t for each row begin select 1; end
+%%
+create trigger r after insert on t for each row for each row begin select 1; end
+%%
+create trigger if not exists r after insert on t begin select 1; end
+%%
+create trigger r after update of a on t begin select 1; end
+%%
+create trigger r after update of a.b on t begin select 1; end
+%%
+create trigger r after delete of a on t begin select 1; end
+%%
+create trigger r after insert on main.t begin select 1; end
+%%
+create trigger r.s after insert on t begin select 1; end
+%%
+create trigger r after insert on t
+%%
+create trigger r after insert on t begin
+%%
+create trigger r after insert on t begin select 1;
+%%
+create trigger r
+%%
+create trigger
+%%
+select (1) over ()
+%%
+select f(1) over 'w'
+%%
+select f(1) over "w"
+%%
+select f(1) over window
+%%
+select f(1) over x y
+%%
+select f(1) filter (where 1) filter (where 1)
+%%
+select f(1) over () over ()
+%%
+select f(1) filter (where 1) x
+%%
+select 1 window
+%%
+select 1 window w
+%%
+select 1 window w as
+%%
+select 1 window "w" as ()
+%%
+select 1 window 'w' as ()
+%%
+select 1 window window as ()
+%%
+select 1 window w as (), 
+%%
+select 1 window w as (partition by 1)
+%%
+select 1 from t window w as (order by a rows 1 preceding)
+%%
+select (1) filter (where 1)
+%%
+select count(*) filter (where 1)
+%%
+select count(*) over w from t window w as ()
+%%
+select count(*) over (partition by) from t
+%%
+select count(*) over (order by) from t
+%%
+select count(*) over (w1 w2) from t
+%%
+select count(*) over (rows between 1 following and 1 preceding) from t
+%%
+select count(*) over (rows between current row and unbounded preceding) from t
+%%
+select count(*) over (rows between unbounded preceding and unbounded following) from t
+%%
+select count(*) over (rows between unbounded following and unbounded following) from t
+%%
+select count(*) over (rows exclude no others) from t
+%%
+select count(*) over (rows between 1 preceding and 2 preceding exclude current row) from t
+%%
+select count(*) over (rows 1) from t
+%%
+select count(*) over (rows) from t
+%%
+select count(*) over (rows between 1 preceding) from t
+%%
+select count(*) over (range between x preceding and current row) from t
+%%
+select count(*) over (partition by a, b order by c desc nulls last, d) from t
+%%
+select count(*) over (order by a collate nocase) from t
+%%
+select count(*) over (frame) from t
+%%
+select count(*) over (rows between current and current) from t
+%%
+select count(distinct a) over () from t
+%%
+select count(a order by b) from t
+%%
+select count(distinct a order by b) from t
+%%
+select group_concat(a, ',' order by b desc) from t
+%%
+select count(* order by b) from t
+%%
+select count(a order by) from t
+%%
+select count() from t
+%%
+select count(*) filter (where a) over () from t
+%%
+select count(*) over () filter (where a) from t
+%%
+select f.g(1)
+%%
+select main.f(1)
+%%
+select "f"(1)
+%%
+select 'f'(1)
+%%
+select [f](1)
+%%
+select cross(1)
+%%
+select left(1,2)
+%%
+select indexed(1)
+%%
+select current_date(1)
+%%
+select cast(1)
+%%
+select cast(1 as int) collate nocase

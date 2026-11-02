@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>RecursiveAI.OneLite.Differential.Tests</RootNamespace>
+    <IsTestProject>true</IsTestProject>
+    <NoWarn>$(NoWarn);CA1861</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Using Include="System" />
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../tools/OneLite.Differential/OneLite.Differential.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The committed regression corpus, replayed by CorpusTests. -->
+    <None Include="../../testdata/differential/*.sql" LinkBase="differential" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

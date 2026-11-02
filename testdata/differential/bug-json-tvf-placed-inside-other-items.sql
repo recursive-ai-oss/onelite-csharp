@@ -1,0 +1,13 @@
+-- OneLite differential repro
+-- status: pass
+-- class: bug:tvf-placed-inside-other-items
+-- engine: ours
+-- families: json
+-- utf16: false
+-- oracle: diff
+-- ordered: false
+-- query: /*json*/ SELECT value FROM generate_series(1,3), (SELECT 1 UNION ALL SELECT 2)
+-- detail: a function with constant arguments is the inner loop
+-- setup
+-- run
+/*json*/ SELECT value FROM generate_series(1,3), (SELECT 1 UNION ALL SELECT 2);

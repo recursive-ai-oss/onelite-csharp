@@ -1,0 +1,42 @@
+<Project>
+
+  <PropertyGroup Label="Name">
+    <!-- The one place the library name lives. Namespaces are RecursiveAI.$(LibName)[.Area]. -->
+    <LibName>OneLite</LibName>
+    <!-- NuGet package IDs and assembly names carry the publisher prefix; this is the only place it is written. -->
+    <PackagePrefix>RecursiveAI.</PackagePrefix>
+  </PropertyGroup>
+
+  <PropertyGroup Label="Output">
+    <!-- Build output stays out of the source folders. Set ONELITE_ARTIFACTS to choose where (parallel checkouts should each use their own);
+         the default is artifacts/ at the repository root, which .gitignore covers. -->
+    <UseArtifactsOutput>true</UseArtifactsOutput>
+    <ArtifactsPath Condition="'$(ONELITE_ARTIFACTS)' != ''">$(ONELITE_ARTIFACTS)</ArtifactsPath>
+    <ArtifactsPath Condition="'$(ONELITE_ARTIFACTS)' == ''">$(MSBuildThisFileDirectory)artifacts</ArtifactsPath>
+  </PropertyGroup>
+
+  <PropertyGroup Label="Configurations">
+    <!-- Checked is Release code with the engine's bounds assertions and buffer poisoning switched on (the CHECKED symbol). Tests and fuzzing run in it. -->
+    <Configurations>Debug;Release;Checked</Configurations>
+    <Optimize Condition="'$(Configuration)' == 'Release' or '$(Configuration)' == 'Checked'">true</Optimize>
+    <DebugType>portable</DebugType>
+    <DefineConstants Condition="'$(Configuration)' == 'Checked'">$(DefineConstants);CHECKED</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup Label="Language and analysis">
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <!-- Off by default. A project that needs pointers (the page cache, record decoding) turns it on for itself. -->
+    <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <Deterministic>true</Deterministic>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+</Project>

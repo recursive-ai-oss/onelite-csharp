@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>RecursiveAI.OneLite.QueryDiff</RootNamespace>
+    <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/OneLite/OneLite.csproj" />
+    <ProjectReference Include="../OneLite.Oracle/OneLite.Oracle.csproj" />
+  </ItemGroup>
+
+</Project>

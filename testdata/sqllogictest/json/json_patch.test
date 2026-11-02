@@ -1,0 +1,473 @@
+# JSON functions, group 'patch'. Expected results are the output of sqlite 3.53.4 (the pinned shell).
+
+query T nosort
+select replace(json_patch('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}', '{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}'), char(10), '~')
+----
+{"a":1,"b":[1,2,{"c":"x"}],"e":true,"f":1.5}
+
+query T nosort
+select replace(json_patch('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}', '[1,2,3,[4,5],{"k":"v"}]'), char(10), '~')
+----
+[1,2,3,[4,5],{"k":"v"}]
+
+query T nosort
+select replace(json_patch('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}', '  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  '), char(10), '~')
+----
+{"a":[1,2],"b":"s\u00e9\n","d":null,"e":true,"f":1.5}
+
+statement error
+select json_patch('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}', '{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}')
+
+query T nosort
+select replace(json_patch('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}', '{"a":{"b":{"c":{"d":[[[]]]}}}}'), char(10), '~')
+----
+{"a":{"b":{"c":{"d":[[[]]]}}},"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}
+
+query T nosort
+select replace(json_patch('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}', '"text"'), char(10), '~')
+----
+"text"
+
+query T nosort
+select replace(json_patch('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}', '12345678901234567890'), char(10), '~')
+----
+12345678901234567890
+
+query T nosort
+select replace(json_patch('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}', '-0'), char(10), '~')
+----
+-0
+
+query T nosort
+select replace(json_patch('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}', '1e400'), char(10), '~')
+----
+1e400
+
+query T nosort
+select replace(json_patch('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}', '0.1'), char(10), '~')
+----
+0.1
+
+query T nosort
+select replace(json_patch('[1,2,3,[4,5],{"k":"v"}]', '{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}'), char(10), '~')
+----
+{"a":1,"b":[1,2,{"c":"x"}],"e":true,"f":1.5}
+
+query T nosort
+select replace(json_patch('[1,2,3,[4,5],{"k":"v"}]', '[1,2,3,[4,5],{"k":"v"}]'), char(10), '~')
+----
+[1,2,3,[4,5],{"k":"v"}]
+
+query T nosort
+select replace(json_patch('[1,2,3,[4,5],{"k":"v"}]', '  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  '), char(10), '~')
+----
+{"a":[1,2],"b":"s\u00e9\n"}
+
+statement error
+select json_patch('[1,2,3,[4,5],{"k":"v"}]', '{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}')
+
+query T nosort
+select replace(json_patch('[1,2,3,[4,5],{"k":"v"}]', '{"a":{"b":{"c":{"d":[[[]]]}}}}'), char(10), '~')
+----
+{"a":{"b":{"c":{"d":[[[]]]}}}}
+
+query T nosort
+select replace(json_patch('[1,2,3,[4,5],{"k":"v"}]', '"text"'), char(10), '~')
+----
+"text"
+
+query T nosort
+select replace(json_patch('[1,2,3,[4,5],{"k":"v"}]', '12345678901234567890'), char(10), '~')
+----
+12345678901234567890
+
+query T nosort
+select replace(json_patch('[1,2,3,[4,5],{"k":"v"}]', '-0'), char(10), '~')
+----
+-0
+
+query T nosort
+select replace(json_patch('[1,2,3,[4,5],{"k":"v"}]', '1e400'), char(10), '~')
+----
+1e400
+
+query T nosort
+select replace(json_patch('[1,2,3,[4,5],{"k":"v"}]', '0.1'), char(10), '~')
+----
+0.1
+
+query T nosort
+select replace(json_patch('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ', '{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}'), char(10), '~')
+----
+{"a":1,"b":[1,2,{"c":"x"}],"e":true,"f":1.5}
+
+query T nosort
+select replace(json_patch('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ', '[1,2,3,[4,5],{"k":"v"}]'), char(10), '~')
+----
+[1,2,3,[4,5],{"k":"v"}]
+
+query T nosort
+select replace(json_patch('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ', '  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  '), char(10), '~')
+----
+{"a":[1,2],"b":"s\u00e9\n"}
+
+statement error
+select json_patch('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ', '{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}')
+
+query T nosort
+select replace(json_patch('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ', '{"a":{"b":{"c":{"d":[[[]]]}}}}'), char(10), '~')
+----
+{"a":{"b":{"c":{"d":[[[]]]}}},"b":"s\u00e9\n"}
+
+query T nosort
+select replace(json_patch('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ', '"text"'), char(10), '~')
+----
+"text"
+
+query T nosort
+select replace(json_patch('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ', '12345678901234567890'), char(10), '~')
+----
+12345678901234567890
+
+query T nosort
+select replace(json_patch('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ', '-0'), char(10), '~')
+----
+-0
+
+query T nosort
+select replace(json_patch('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ', '1e400'), char(10), '~')
+----
+1e400
+
+query T nosort
+select replace(json_patch('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ', '0.1'), char(10), '~')
+----
+0.1
+
+statement error
+select json_patch('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}', '{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}')
+
+statement error
+select json_patch('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}', '[1,2,3,[4,5],{"k":"v"}]')
+
+statement error
+select json_patch('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}', '  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ')
+
+statement error
+select json_patch('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}', '{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}')
+
+statement error
+select json_patch('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}', '{"a":{"b":{"c":{"d":[[[]]]}}}}')
+
+statement error
+select json_patch('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}', '"text"')
+
+statement error
+select json_patch('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}', '12345678901234567890')
+
+statement error
+select json_patch('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}', '-0')
+
+statement error
+select json_patch('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}', '1e400')
+
+statement error
+select json_patch('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}', '0.1')
+
+query T nosort
+select replace(json_patch('{"a":{"b":{"c":{"d":[[[]]]}}}}', '{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}'), char(10), '~')
+----
+{"a":1,"b":[1,2,{"c":"x"}],"e":true,"f":1.5}
+
+query T nosort
+select replace(json_patch('{"a":{"b":{"c":{"d":[[[]]]}}}}', '[1,2,3,[4,5],{"k":"v"}]'), char(10), '~')
+----
+[1,2,3,[4,5],{"k":"v"}]
+
+query T nosort
+select replace(json_patch('{"a":{"b":{"c":{"d":[[[]]]}}}}', '  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  '), char(10), '~')
+----
+{"a":[1,2],"b":"s\u00e9\n"}
+
+statement error
+select json_patch('{"a":{"b":{"c":{"d":[[[]]]}}}}', '{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}')
+
+query T nosort
+select replace(json_patch('{"a":{"b":{"c":{"d":[[[]]]}}}}', '{"a":{"b":{"c":{"d":[[[]]]}}}}'), char(10), '~')
+----
+{"a":{"b":{"c":{"d":[[[]]]}}}}
+
+query T nosort
+select replace(json_patch('{"a":{"b":{"c":{"d":[[[]]]}}}}', '"text"'), char(10), '~')
+----
+"text"
+
+query T nosort
+select replace(json_patch('{"a":{"b":{"c":{"d":[[[]]]}}}}', '12345678901234567890'), char(10), '~')
+----
+12345678901234567890
+
+query T nosort
+select replace(json_patch('{"a":{"b":{"c":{"d":[[[]]]}}}}', '-0'), char(10), '~')
+----
+-0
+
+query T nosort
+select replace(json_patch('{"a":{"b":{"c":{"d":[[[]]]}}}}', '1e400'), char(10), '~')
+----
+1e400
+
+query T nosort
+select replace(json_patch('{"a":{"b":{"c":{"d":[[[]]]}}}}', '0.1'), char(10), '~')
+----
+0.1
+
+query T nosort
+select replace(json_patch('"text"', '{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}'), char(10), '~')
+----
+{"a":1,"b":[1,2,{"c":"x"}],"e":true,"f":1.5}
+
+query T nosort
+select replace(json_patch('"text"', '[1,2,3,[4,5],{"k":"v"}]'), char(10), '~')
+----
+[1,2,3,[4,5],{"k":"v"}]
+
+query T nosort
+select replace(json_patch('"text"', '  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  '), char(10), '~')
+----
+{"a":[1,2],"b":"s\u00e9\n"}
+
+statement error
+select json_patch('"text"', '{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}')
+
+query T nosort
+select replace(json_patch('"text"', '{"a":{"b":{"c":{"d":[[[]]]}}}}'), char(10), '~')
+----
+{"a":{"b":{"c":{"d":[[[]]]}}}}
+
+query T nosort
+select replace(json_patch('"text"', '"text"'), char(10), '~')
+----
+"text"
+
+query T nosort
+select replace(json_patch('"text"', '12345678901234567890'), char(10), '~')
+----
+12345678901234567890
+
+query T nosort
+select replace(json_patch('"text"', '-0'), char(10), '~')
+----
+-0
+
+query T nosort
+select replace(json_patch('"text"', '1e400'), char(10), '~')
+----
+1e400
+
+query T nosort
+select replace(json_patch('"text"', '0.1'), char(10), '~')
+----
+0.1
+
+query T nosort
+select replace(json_patch('12345678901234567890', '{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}'), char(10), '~')
+----
+{"a":1,"b":[1,2,{"c":"x"}],"e":true,"f":1.5}
+
+query T nosort
+select replace(json_patch('12345678901234567890', '[1,2,3,[4,5],{"k":"v"}]'), char(10), '~')
+----
+[1,2,3,[4,5],{"k":"v"}]
+
+query T nosort
+select replace(json_patch('12345678901234567890', '  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  '), char(10), '~')
+----
+{"a":[1,2],"b":"s\u00e9\n"}
+
+statement error
+select json_patch('12345678901234567890', '{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}')
+
+query T nosort
+select replace(json_patch('12345678901234567890', '{"a":{"b":{"c":{"d":[[[]]]}}}}'), char(10), '~')
+----
+{"a":{"b":{"c":{"d":[[[]]]}}}}
+
+query T nosort
+select replace(json_patch('12345678901234567890', '"text"'), char(10), '~')
+----
+"text"
+
+query T nosort
+select replace(json_patch('12345678901234567890', '12345678901234567890'), char(10), '~')
+----
+12345678901234567890
+
+query T nosort
+select replace(json_patch('12345678901234567890', '-0'), char(10), '~')
+----
+-0
+
+query T nosort
+select replace(json_patch('12345678901234567890', '1e400'), char(10), '~')
+----
+1e400
+
+query T nosort
+select replace(json_patch('12345678901234567890', '0.1'), char(10), '~')
+----
+0.1
+
+query T nosort
+select replace(json_patch('-0', '{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}'), char(10), '~')
+----
+{"a":1,"b":[1,2,{"c":"x"}],"e":true,"f":1.5}
+
+query T nosort
+select replace(json_patch('-0', '[1,2,3,[4,5],{"k":"v"}]'), char(10), '~')
+----
+[1,2,3,[4,5],{"k":"v"}]
+
+query T nosort
+select replace(json_patch('-0', '  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  '), char(10), '~')
+----
+{"a":[1,2],"b":"s\u00e9\n"}
+
+statement error
+select json_patch('-0', '{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}')
+
+query T nosort
+select replace(json_patch('-0', '{"a":{"b":{"c":{"d":[[[]]]}}}}'), char(10), '~')
+----
+{"a":{"b":{"c":{"d":[[[]]]}}}}
+
+query T nosort
+select replace(json_patch('-0', '"text"'), char(10), '~')
+----
+"text"
+
+query T nosort
+select replace(json_patch('-0', '12345678901234567890'), char(10), '~')
+----
+12345678901234567890
+
+query T nosort
+select replace(json_patch('-0', '-0'), char(10), '~')
+----
+-0
+
+query T nosort
+select replace(json_patch('-0', '1e400'), char(10), '~')
+----
+1e400
+
+query T nosort
+select replace(json_patch('-0', '0.1'), char(10), '~')
+----
+0.1
+
+query T nosort
+select replace(json_patch('1e400', '{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}'), char(10), '~')
+----
+{"a":1,"b":[1,2,{"c":"x"}],"e":true,"f":1.5}
+
+query T nosort
+select replace(json_patch('1e400', '[1,2,3,[4,5],{"k":"v"}]'), char(10), '~')
+----
+[1,2,3,[4,5],{"k":"v"}]
+
+query T nosort
+select replace(json_patch('1e400', '  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  '), char(10), '~')
+----
+{"a":[1,2],"b":"s\u00e9\n"}
+
+statement error
+select json_patch('1e400', '{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}')
+
+query T nosort
+select replace(json_patch('1e400', '{"a":{"b":{"c":{"d":[[[]]]}}}}'), char(10), '~')
+----
+{"a":{"b":{"c":{"d":[[[]]]}}}}
+
+query T nosort
+select replace(json_patch('1e400', '"text"'), char(10), '~')
+----
+"text"
+
+query T nosort
+select replace(json_patch('1e400', '12345678901234567890'), char(10), '~')
+----
+12345678901234567890
+
+query T nosort
+select replace(json_patch('1e400', '-0'), char(10), '~')
+----
+-0
+
+query T nosort
+select replace(json_patch('1e400', '1e400'), char(10), '~')
+----
+1e400
+
+query T nosort
+select replace(json_patch('1e400', '0.1'), char(10), '~')
+----
+0.1
+
+query T nosort
+select replace(json_patch('0.1', '{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}'), char(10), '~')
+----
+{"a":1,"b":[1,2,{"c":"x"}],"e":true,"f":1.5}
+
+query T nosort
+select replace(json_patch('0.1', '[1,2,3,[4,5],{"k":"v"}]'), char(10), '~')
+----
+[1,2,3,[4,5],{"k":"v"}]
+
+query T nosort
+select replace(json_patch('0.1', '  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  '), char(10), '~')
+----
+{"a":[1,2],"b":"s\u00e9\n"}
+
+statement error
+select json_patch('0.1', '{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}')
+
+query T nosort
+select replace(json_patch('0.1', '{"a":{"b":{"c":{"d":[[[]]]}}}}'), char(10), '~')
+----
+{"a":{"b":{"c":{"d":[[[]]]}}}}
+
+query T nosort
+select replace(json_patch('0.1', '"text"'), char(10), '~')
+----
+"text"
+
+query T nosort
+select replace(json_patch('0.1', '12345678901234567890'), char(10), '~')
+----
+12345678901234567890
+
+query T nosort
+select replace(json_patch('0.1', '-0'), char(10), '~')
+----
+-0
+
+query T nosort
+select replace(json_patch('0.1', '1e400'), char(10), '~')
+----
+1e400
+
+query T nosort
+select replace(json_patch('0.1', '0.1'), char(10), '~')
+----
+0.1
+
+query T nosort
+select replace(json_patch('{"a":{"b":1}}', '{"a":{"b":null,"c":2}}'), char(10), '~')
+----
+{"a":{"c":2}}
+
+query T nosort
+select replace(hex(jsonb_patch('{"a":1}', '{"b":2}')), char(10), '~')
+----
+8C1761133117621332

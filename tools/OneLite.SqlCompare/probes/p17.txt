@@ -1,0 +1,41 @@
+RELEASE SAVEPOINT /*
+%%
+select 1 /*
+%%
+select 1 /* x
+%%
+release savepoint /* x
+%%
+release savepoint /*/ x
+%%
+select /*
+%%
+release /*
+%%
+release savepoint x /*
+%%
+select f(order by 1)
+%%
+select f(distinct order by 1)
+%%
+select f(all order by 1)
+%%
+select f(* order by 1)
+%%
+select f(order by 1 desc, 2)
+%%
+select f(1 order by)
+%%
+select f(order by 1) filter (where 1)
+%%
+select f(order by 1) over ()
+%%
+select f(distinct)
+%%
+select f(all)
+%%
+select f(distinct order by 1, 2)
+%%
+select f(a,b order by 1)
+%%
+select f(a,b order by 1,)

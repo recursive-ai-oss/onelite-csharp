@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <PropertyGroup>
+    <!-- ShmAccessor.cs uses pointers over the mapped wal-index; NativeFile.cs uses LibraryImport, whose generated stubs need unsafe code. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Description>OneLite is a pure-managed, SQLite-compatible embedded SQL database for .NET: it reads and writes SQLite database, journal and WAL files and depends on nothing beyond the .NET base class library. $(PackageDescriptionNotice)</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="OneLite.Tests" />
+    <InternalsVisibleTo Include="OneLite.SqlCompare" />
+    <InternalsVisibleTo Include="OneLite.Fuzz" />
+    <InternalsVisibleTo Include="OneLite.AotSmoke" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The source generator ships inside this package as an analyzer; it is a build-time tool, not a dependency. -->
+    <ProjectReference Include="../OneLite.Generators/OneLite.Generators.csproj" ReferenceOutputAssembly="false" OutputItemType="Analyzer" PrivateAssets="all" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);PackGenerator</TargetsForTfmSpecificContentInPackage>
+  </PropertyGroup>
+  <Target Name="PackGenerator">
+    <MSBuild Projects="../OneLite.Generators/OneLite.Generators.csproj" Targets="GetTargetPath" Properties="Configuration=$(Configuration)">
+      <Output TaskParameter="TargetOutputs" ItemName="_GeneratorAssembly" />
+    </MSBuild>
+    <ItemGroup>
+      <TfmSpecificPackageFile Include="@(_GeneratorAssembly)" PackagePath="analyzers/dotnet/cs" />
+    </ItemGroup>
+  </Target>
+
+</Project>

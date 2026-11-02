@@ -1,0 +1,13 @@
+-- OneLite differential repro
+-- status: pass
+-- class: bug:remembered-result-plain-floats
+-- engine: ours
+-- families: json
+-- utf16: false
+-- oracle: diff
+-- ordered: false
+-- query: /*json*/ SELECT hex(jsonb_set(json_insert('[0.]', '$[1]', 1), '$[3]', 7)), hex(jsonb_array_insert(json_insert('["a\\'b"]', '$[9]', 1), '$[0]', 7))
+-- detail: a remembered result has its JSON5 floats and strings in plain form
+-- setup
+-- run
+/*json*/ SELECT hex(jsonb_set(json_insert('[0.]', '$[1]', 1), '$[3]', 7)), hex(jsonb_array_insert(json_insert('["a\\'b"]', '$[9]', 1), '$[0]', 7));

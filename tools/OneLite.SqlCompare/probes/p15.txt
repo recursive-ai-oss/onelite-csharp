@@ -1,0 +1,29 @@
+create table x(t (19))
+%%
+create table x(t generated (19) as (1))
+%%
+create table x(t generated(19))
+%%
+create table x(t (19) as (1))
+%%
+create table x(t generated (19,2) always as (1))
+%%
+create table x(t int generated (19) as (1))
+%%
+create table x(t as (1) "VIRTUAL")
+%%
+create table x(t u generated)
+%%
+create table x(t generated always)
+%%
+create table x(t generated always (1))
+%%
+create table x(t always as (1))
+%%
+create table x(t u always as (1))
+%%
+create table x(t u generated always generated always as (1))
+%%
+create table x(t u generated always as (1) generated always as (2))
+%%
+create table x(t u always generated as (1))

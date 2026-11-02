@@ -1,0 +1,13 @@
+-- OneLite differential repro
+-- status: pass
+-- class: bug:json-each-null-path-reads-document
+-- engine: ours
+-- families: json
+-- utf16: false
+-- oracle: diff
+-- ordered: false
+-- query: /*json*/ SELECT path, id, parent FROM json_each('-[]', NULL)
+-- detail: the document is read, and a malformed one reported, before a NULL path gives no rows
+-- setup
+-- run
+/*json*/ SELECT path, id, parent FROM json_each('-[]', NULL);

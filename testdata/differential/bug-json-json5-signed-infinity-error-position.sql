@@ -1,0 +1,13 @@
+-- OneLite differential repro
+-- status: pass
+-- class: bug:json5-signed-infinity-error-position
+-- engine: ours
+-- families: json
+-- utf16: false
+-- oracle: diff
+-- ordered: false
+-- query: /*json*/ SELECT json_error_position('+Ixnf'), json_error_position('[1,-Infx]'), json_error_position('{"a":+Infinity1}'), json_error_position('[Infx]')
+-- detail: after a sign, Inf and Infinity are values whatever follows; any other word is reported at the sign
+-- setup
+-- run
+/*json*/ SELECT json_error_position('+Ixnf'), json_error_position('[1,-Infx]'), json_error_position('{"a":+Infinity1}'), json_error_position('[Infx]');

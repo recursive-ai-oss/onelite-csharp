@@ -1,0 +1,137 @@
+pragma key='secret';
+create table t(a, b);
+insert into t values (1, 'x'), (2, 'y');
+select * from t;
+pragma cipher_page_size;
+pragma kdf_iter;
+pragma cipher_hmac_algorithm;
+pragma cipher_kdf_algorithm;
+pragma cipher_plaintext_header_size;
+pragma cipher_use_hmac;
+%%
+pragma cipher_page_size;
+pragma kdf_iter;
+pragma cipher_hmac_algorithm;
+pragma cipher_page_size=8192;
+pragma cipher_page_size;
+pragma cipher_default_page_size;
+pragma cipher_default_kdf_iter;
+%%
+pragma key='k';
+pragma cipher_page_size=8192;
+pragma kdf_iter=1000;
+pragma cipher_hmac_algorithm=HMAC_SHA256;
+pragma cipher_kdf_algorithm=PBKDF2_HMAC_SHA1;
+pragma cipher_page_size;
+pragma kdf_iter;
+pragma cipher_hmac_algorithm;
+pragma cipher_kdf_algorithm;
+create table t(a);
+insert into t values (7);
+select * from t;
+pragma page_size;
+%%
+pragma key='k';
+pragma cipher_compatibility=3;
+pragma cipher_page_size;
+pragma kdf_iter;
+pragma cipher_hmac_algorithm;
+pragma cipher_kdf_algorithm;
+create table t(a);
+insert into t values (3);
+select * from t;
+pragma page_size;
+%%
+pragma key='k';
+pragma cipher_page_size=bogus;
+pragma cipher_page_size=1000;
+pragma cipher_hmac_algorithm=BOGUS;
+pragma kdf_iter=-5;
+pragma cipher_page_size;
+pragma kdf_iter;
+pragma cipher_hmac_algorithm;
+%%
+pragma key='';
+pragma key;
+pragma rekey;
+pragma rekey='x';
+%%
+pragma key='old';
+create table t(a);
+insert into t values (1), (2), (3);
+pragma rekey='new';
+select count(*) from t;
+pragma integrity_check;
+%%
+pragma key="x'0123456789012345678901234567890123456789012345678901234567890123'";
+create table t(a);
+insert into t values (5);
+select * from t;
+%%
+pragma hexkey='0123456789012345678901234567890123456789012345678901234567890123';
+create table t(a);
+insert into t values (5);
+select * from t;
+%%
+pragma cipher_default_page_size=8192;
+pragma cipher_default_page_size;
+pragma key='k';
+pragma cipher_page_size;
+create table t(a);
+pragma page_size;
+%%
+pragma cipher_default_compatibility=3;
+pragma key='k';
+pragma cipher_page_size;
+pragma kdf_iter;
+pragma cipher_hmac_algorithm;
+%%
+pragma key='k';
+pragma cipher_memory_security;
+pragma cipher_use_hmac=off;
+pragma cipher_use_hmac;
+select 1;
+%%
+pragma key='k1';
+create table m(a); insert into m values(1);
+attach 'a.db' as a key 'k2';
+create table a.t(x); insert into a.t values(2);
+select * from a.t;
+select * from m;
+detach a;
+attach 'a.db' as a key 'k2';
+select * from a.t;
+detach a;
+%%
+pragma key='k1';
+create table m(a); insert into m values(1);
+attach 'a.db' as a key 'k2';
+create table a.t(x); insert into a.t values(2);
+detach a;
+attach 'a.db' as a key 'bad';
+select * from a.t;
+attach 'a.db' as b;
+select * from m;
+%%
+pragma key='k1';
+create table m(a); insert into m values(1);
+attach 'p.db' as p key '';
+create table p.u(y); insert into p.u values(3);
+select * from p.u;
+detach p;
+attach 'p.db' as p key '';
+select * from p.u;
+%%
+pragma key='k1';
+create table m(a); insert into m values(1);
+attach 'c.db' as c;
+create table c.v(z); insert into c.v values(4);
+select * from c.v;
+detach c;
+attach 'c.db' as c;
+select * from c.v;
+begin;
+insert into m values(5);
+insert into c.v values(6);
+commit;
+select * from m; select * from c.v;

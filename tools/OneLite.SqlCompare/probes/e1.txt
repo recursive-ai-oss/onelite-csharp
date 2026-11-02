@@ -1,0 +1,41 @@
+select 1 between 0 and 2 = 1
+%%
+select 1 between 0 and 2 = 0
+%%
+select 0 between 0 and 2 = 1
+%%
+select 1 between 0 and 0 in (0)
+%%
+select 1 between 0 and 1 in (1)
+%%
+select 3 between 0 and 2 + 5
+%%
+select 1 between 0 and 2 or 5
+%%
+select 0 between 0 and 2 is null
+%%
+select 5 between 0 and 2 is 0
+%%
+select 5 between 0 and 2 isnull
+%%
+select 5 not between 0 and 2 is 1
+%%
+select 1 between 0 or 1 and 2
+%%
+select 2 between 1 = 1 and 3
+%%
+select 2 between 1 in (1) and 3
+%%
+select 1 in (1) between 0 and 2
+%%
+select 1 = 1 between 0 and 2
+%%
+select 0 = 0 is 1
+%%
+select 1 like 1 = 1
+%%
+select 1 like 1 between 1 and 1
+%%
+select 2 between 1 and 3 and 0
+%%
+select 2 between 1 and 3 and 1 between 1 and 1

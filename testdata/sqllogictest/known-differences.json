@@ -1,0 +1,7 @@
+[
+  {
+    "file": "evidence/slt_lang_aggfunc.test",
+    "line": 480,
+    "reason": "the script expects an empty result for SUM over integers that overflow; SQLite 3.53.4 raises 'integer overflow' (query errors fail the record)"
+  }
+]

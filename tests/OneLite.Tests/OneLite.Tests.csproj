@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>RecursiveAI.OneLite.Tests</RootNamespace>
+    <IsTestProject>true</IsTestProject>
+    <!-- the pinned native library is called through LibraryImport in Engine/NativeApi.cs (test oracle only) -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Using Include="System" />
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/OneLite/OneLite.csproj" />
+    <ProjectReference Include="../../src/OneLite.Data/OneLite.Data.csproj" />
+    <ProjectReference Include="../../fuzz/OneLite.Fuzz/OneLite.Fuzz.csproj" />
+    <ProjectReference Include="../../tools/OneLite.Durability/OneLite.Durability.csproj" />
+    <ProjectReference Include="../../tools/OneLite.Oracle/OneLite.Oracle.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="../../testdata/btree-fuzz/*" LinkBase="btree-fuzz" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../testdata/pager-btree-fuzz/*" LinkBase="pager-btree-fuzz" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../testdata/cipher/*.db" LinkBase="cipher" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../testdata/vec/*.jsonl" LinkBase="vec" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

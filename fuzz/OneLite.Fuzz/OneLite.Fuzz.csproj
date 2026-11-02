@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>RecursiveAI.OneLite.Fuzz</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- the statement generator doubles as the seed source of the SQL target -->
+    <Compile Include="../../tools/OneLite.SqlCompare/Gen.cs" Link="Gen.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="SharpFuzz" />
+    <ProjectReference Include="../../src/OneLite/OneLite.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,2645 @@
+select 1 from t window ABORT as ()
+%%
+select count(*) over ABORT from t window ABORT as ()
+%%
+select count(*) over (ABORT) from t window ABORT as ()
+%%
+select 1 from t window w as (ABORT partition by 1)
+%%
+select 1 from t as ABORT window w as ()
+%%
+select count(*) ABORT (where 1)
+%%
+select count(*) filter (where 1) ABORT
+%%
+select count(*) filter (where 1) ABORT w
+%%
+select count(*) filter (where 1) ABORT (w)
+%%
+select 1 from t window ACTION as ()
+%%
+select count(*) over ACTION from t window ACTION as ()
+%%
+select count(*) over (ACTION) from t window ACTION as ()
+%%
+select 1 from t window w as (ACTION partition by 1)
+%%
+select 1 from t as ACTION window w as ()
+%%
+select count(*) ACTION (where 1)
+%%
+select count(*) filter (where 1) ACTION
+%%
+select count(*) filter (where 1) ACTION w
+%%
+select count(*) filter (where 1) ACTION (w)
+%%
+select 1 from t window ADD as ()
+%%
+select count(*) over ADD from t window ADD as ()
+%%
+select count(*) over (ADD) from t window ADD as ()
+%%
+select 1 from t window w as (ADD partition by 1)
+%%
+select 1 from t as ADD window w as ()
+%%
+select count(*) ADD (where 1)
+%%
+select count(*) filter (where 1) ADD
+%%
+select count(*) filter (where 1) ADD w
+%%
+select count(*) filter (where 1) ADD (w)
+%%
+select 1 from t window AFTER as ()
+%%
+select count(*) over AFTER from t window AFTER as ()
+%%
+select count(*) over (AFTER) from t window AFTER as ()
+%%
+select 1 from t window w as (AFTER partition by 1)
+%%
+select 1 from t as AFTER window w as ()
+%%
+select count(*) AFTER (where 1)
+%%
+select count(*) filter (where 1) AFTER
+%%
+select count(*) filter (where 1) AFTER w
+%%
+select count(*) filter (where 1) AFTER (w)
+%%
+select 1 from t window ALL as ()
+%%
+select count(*) over ALL from t window ALL as ()
+%%
+select count(*) over (ALL) from t window ALL as ()
+%%
+select 1 from t window w as (ALL partition by 1)
+%%
+select 1 from t as ALL window w as ()
+%%
+select count(*) ALL (where 1)
+%%
+select count(*) filter (where 1) ALL
+%%
+select count(*) filter (where 1) ALL w
+%%
+select count(*) filter (where 1) ALL (w)
+%%
+select 1 from t window ALTER as ()
+%%
+select count(*) over ALTER from t window ALTER as ()
+%%
+select count(*) over (ALTER) from t window ALTER as ()
+%%
+select 1 from t window w as (ALTER partition by 1)
+%%
+select 1 from t as ALTER window w as ()
+%%
+select count(*) ALTER (where 1)
+%%
+select count(*) filter (where 1) ALTER
+%%
+select count(*) filter (where 1) ALTER w
+%%
+select count(*) filter (where 1) ALTER (w)
+%%
+select 1 from t window ALWAYS as ()
+%%
+select count(*) over ALWAYS from t window ALWAYS as ()
+%%
+select count(*) over (ALWAYS) from t window ALWAYS as ()
+%%
+select 1 from t window w as (ALWAYS partition by 1)
+%%
+select 1 from t as ALWAYS window w as ()
+%%
+select count(*) ALWAYS (where 1)
+%%
+select count(*) filter (where 1) ALWAYS
+%%
+select count(*) filter (where 1) ALWAYS w
+%%
+select count(*) filter (where 1) ALWAYS (w)
+%%
+select 1 from t window ANALYZE as ()
+%%
+select count(*) over ANALYZE from t window ANALYZE as ()
+%%
+select count(*) over (ANALYZE) from t window ANALYZE as ()
+%%
+select 1 from t window w as (ANALYZE partition by 1)
+%%
+select 1 from t as ANALYZE window w as ()
+%%
+select count(*) ANALYZE (where 1)
+%%
+select count(*) filter (where 1) ANALYZE
+%%
+select count(*) filter (where 1) ANALYZE w
+%%
+select count(*) filter (where 1) ANALYZE (w)
+%%
+select 1 from t window AND as ()
+%%
+select count(*) over AND from t window AND as ()
+%%
+select count(*) over (AND) from t window AND as ()
+%%
+select 1 from t window w as (AND partition by 1)
+%%
+select 1 from t as AND window w as ()
+%%
+select count(*) AND (where 1)
+%%
+select count(*) filter (where 1) AND
+%%
+select count(*) filter (where 1) AND w
+%%
+select count(*) filter (where 1) AND (w)
+%%
+select 1 from t window AS as ()
+%%
+select count(*) over AS from t window AS as ()
+%%
+select count(*) over (AS) from t window AS as ()
+%%
+select 1 from t window w as (AS partition by 1)
+%%
+select 1 from t as AS window w as ()
+%%
+select count(*) AS (where 1)
+%%
+select count(*) filter (where 1) AS
+%%
+select count(*) filter (where 1) AS w
+%%
+select count(*) filter (where 1) AS (w)
+%%
+select 1 from t window ASC as ()
+%%
+select count(*) over ASC from t window ASC as ()
+%%
+select count(*) over (ASC) from t window ASC as ()
+%%
+select 1 from t window w as (ASC partition by 1)
+%%
+select 1 from t as ASC window w as ()
+%%
+select count(*) ASC (where 1)
+%%
+select count(*) filter (where 1) ASC
+%%
+select count(*) filter (where 1) ASC w
+%%
+select count(*) filter (where 1) ASC (w)
+%%
+select 1 from t window ATTACH as ()
+%%
+select count(*) over ATTACH from t window ATTACH as ()
+%%
+select count(*) over (ATTACH) from t window ATTACH as ()
+%%
+select 1 from t window w as (ATTACH partition by 1)
+%%
+select 1 from t as ATTACH window w as ()
+%%
+select count(*) ATTACH (where 1)
+%%
+select count(*) filter (where 1) ATTACH
+%%
+select count(*) filter (where 1) ATTACH w
+%%
+select count(*) filter (where 1) ATTACH (w)
+%%
+select 1 from t window AUTOINCREMENT as ()
+%%
+select count(*) over AUTOINCREMENT from t window AUTOINCREMENT as ()
+%%
+select count(*) over (AUTOINCREMENT) from t window AUTOINCREMENT as ()
+%%
+select 1 from t window w as (AUTOINCREMENT partition by 1)
+%%
+select 1 from t as AUTOINCREMENT window w as ()
+%%
+select count(*) AUTOINCREMENT (where 1)
+%%
+select count(*) filter (where 1) AUTOINCREMENT
+%%
+select count(*) filter (where 1) AUTOINCREMENT w
+%%
+select count(*) filter (where 1) AUTOINCREMENT (w)
+%%
+select 1 from t window BEFORE as ()
+%%
+select count(*) over BEFORE from t window BEFORE as ()
+%%
+select count(*) over (BEFORE) from t window BEFORE as ()
+%%
+select 1 from t window w as (BEFORE partition by 1)
+%%
+select 1 from t as BEFORE window w as ()
+%%
+select count(*) BEFORE (where 1)
+%%
+select count(*) filter (where 1) BEFORE
+%%
+select count(*) filter (where 1) BEFORE w
+%%
+select count(*) filter (where 1) BEFORE (w)
+%%
+select 1 from t window BEGIN as ()
+%%
+select count(*) over BEGIN from t window BEGIN as ()
+%%
+select count(*) over (BEGIN) from t window BEGIN as ()
+%%
+select 1 from t window w as (BEGIN partition by 1)
+%%
+select 1 from t as BEGIN window w as ()
+%%
+select count(*) BEGIN (where 1)
+%%
+select count(*) filter (where 1) BEGIN
+%%
+select count(*) filter (where 1) BEGIN w
+%%
+select count(*) filter (where 1) BEGIN (w)
+%%
+select 1 from t window BETWEEN as ()
+%%
+select count(*) over BETWEEN from t window BETWEEN as ()
+%%
+select count(*) over (BETWEEN) from t window BETWEEN as ()
+%%
+select 1 from t window w as (BETWEEN partition by 1)
+%%
+select 1 from t as BETWEEN window w as ()
+%%
+select count(*) BETWEEN (where 1)
+%%
+select count(*) filter (where 1) BETWEEN
+%%
+select count(*) filter (where 1) BETWEEN w
+%%
+select count(*) filter (where 1) BETWEEN (w)
+%%
+select 1 from t window BY as ()
+%%
+select count(*) over BY from t window BY as ()
+%%
+select count(*) over (BY) from t window BY as ()
+%%
+select 1 from t window w as (BY partition by 1)
+%%
+select 1 from t as BY window w as ()
+%%
+select count(*) BY (where 1)
+%%
+select count(*) filter (where 1) BY
+%%
+select count(*) filter (where 1) BY w
+%%
+select count(*) filter (where 1) BY (w)
+%%
+select 1 from t window CASCADE as ()
+%%
+select count(*) over CASCADE from t window CASCADE as ()
+%%
+select count(*) over (CASCADE) from t window CASCADE as ()
+%%
+select 1 from t window w as (CASCADE partition by 1)
+%%
+select 1 from t as CASCADE window w as ()
+%%
+select count(*) CASCADE (where 1)
+%%
+select count(*) filter (where 1) CASCADE
+%%
+select count(*) filter (where 1) CASCADE w
+%%
+select count(*) filter (where 1) CASCADE (w)
+%%
+select 1 from t window CASE as ()
+%%
+select count(*) over CASE from t window CASE as ()
+%%
+select count(*) over (CASE) from t window CASE as ()
+%%
+select 1 from t window w as (CASE partition by 1)
+%%
+select 1 from t as CASE window w as ()
+%%
+select count(*) CASE (where 1)
+%%
+select count(*) filter (where 1) CASE
+%%
+select count(*) filter (where 1) CASE w
+%%
+select count(*) filter (where 1) CASE (w)
+%%
+select 1 from t window CAST as ()
+%%
+select count(*) over CAST from t window CAST as ()
+%%
+select count(*) over (CAST) from t window CAST as ()
+%%
+select 1 from t window w as (CAST partition by 1)
+%%
+select 1 from t as CAST window w as ()
+%%
+select count(*) CAST (where 1)
+%%
+select count(*) filter (where 1) CAST
+%%
+select count(*) filter (where 1) CAST w
+%%
+select count(*) filter (where 1) CAST (w)
+%%
+select 1 from t window CHECK as ()
+%%
+select count(*) over CHECK from t window CHECK as ()
+%%
+select count(*) over (CHECK) from t window CHECK as ()
+%%
+select 1 from t window w as (CHECK partition by 1)
+%%
+select 1 from t as CHECK window w as ()
+%%
+select count(*) CHECK (where 1)
+%%
+select count(*) filter (where 1) CHECK
+%%
+select count(*) filter (where 1) CHECK w
+%%
+select count(*) filter (where 1) CHECK (w)
+%%
+select 1 from t window COLLATE as ()
+%%
+select count(*) over COLLATE from t window COLLATE as ()
+%%
+select count(*) over (COLLATE) from t window COLLATE as ()
+%%
+select 1 from t window w as (COLLATE partition by 1)
+%%
+select 1 from t as COLLATE window w as ()
+%%
+select count(*) COLLATE (where 1)
+%%
+select count(*) filter (where 1) COLLATE
+%%
+select count(*) filter (where 1) COLLATE w
+%%
+select count(*) filter (where 1) COLLATE (w)
+%%
+select 1 from t window COLUMN as ()
+%%
+select count(*) over COLUMN from t window COLUMN as ()
+%%
+select count(*) over (COLUMN) from t window COLUMN as ()
+%%
+select 1 from t window w as (COLUMN partition by 1)
+%%
+select 1 from t as COLUMN window w as ()
+%%
+select count(*) COLUMN (where 1)
+%%
+select count(*) filter (where 1) COLUMN
+%%
+select count(*) filter (where 1) COLUMN w
+%%
+select count(*) filter (where 1) COLUMN (w)
+%%
+select 1 from t window COMMIT as ()
+%%
+select count(*) over COMMIT from t window COMMIT as ()
+%%
+select count(*) over (COMMIT) from t window COMMIT as ()
+%%
+select 1 from t window w as (COMMIT partition by 1)
+%%
+select 1 from t as COMMIT window w as ()
+%%
+select count(*) COMMIT (where 1)
+%%
+select count(*) filter (where 1) COMMIT
+%%
+select count(*) filter (where 1) COMMIT w
+%%
+select count(*) filter (where 1) COMMIT (w)
+%%
+select 1 from t window CONFLICT as ()
+%%
+select count(*) over CONFLICT from t window CONFLICT as ()
+%%
+select count(*) over (CONFLICT) from t window CONFLICT as ()
+%%
+select 1 from t window w as (CONFLICT partition by 1)
+%%
+select 1 from t as CONFLICT window w as ()
+%%
+select count(*) CONFLICT (where 1)
+%%
+select count(*) filter (where 1) CONFLICT
+%%
+select count(*) filter (where 1) CONFLICT w
+%%
+select count(*) filter (where 1) CONFLICT (w)
+%%
+select 1 from t window CONSTRAINT as ()
+%%
+select count(*) over CONSTRAINT from t window CONSTRAINT as ()
+%%
+select count(*) over (CONSTRAINT) from t window CONSTRAINT as ()
+%%
+select 1 from t window w as (CONSTRAINT partition by 1)
+%%
+select 1 from t as CONSTRAINT window w as ()
+%%
+select count(*) CONSTRAINT (where 1)
+%%
+select count(*) filter (where 1) CONSTRAINT
+%%
+select count(*) filter (where 1) CONSTRAINT w
+%%
+select count(*) filter (where 1) CONSTRAINT (w)
+%%
+select 1 from t window CREATE as ()
+%%
+select count(*) over CREATE from t window CREATE as ()
+%%
+select count(*) over (CREATE) from t window CREATE as ()
+%%
+select 1 from t window w as (CREATE partition by 1)
+%%
+select 1 from t as CREATE window w as ()
+%%
+select count(*) CREATE (where 1)
+%%
+select count(*) filter (where 1) CREATE
+%%
+select count(*) filter (where 1) CREATE w
+%%
+select count(*) filter (where 1) CREATE (w)
+%%
+select 1 from t window CROSS as ()
+%%
+select count(*) over CROSS from t window CROSS as ()
+%%
+select count(*) over (CROSS) from t window CROSS as ()
+%%
+select 1 from t window w as (CROSS partition by 1)
+%%
+select 1 from t as CROSS window w as ()
+%%
+select count(*) CROSS (where 1)
+%%
+select count(*) filter (where 1) CROSS
+%%
+select count(*) filter (where 1) CROSS w
+%%
+select count(*) filter (where 1) CROSS (w)
+%%
+select 1 from t window CURRENT as ()
+%%
+select count(*) over CURRENT from t window CURRENT as ()
+%%
+select count(*) over (CURRENT) from t window CURRENT as ()
+%%
+select 1 from t window w as (CURRENT partition by 1)
+%%
+select 1 from t as CURRENT window w as ()
+%%
+select count(*) CURRENT (where 1)
+%%
+select count(*) filter (where 1) CURRENT
+%%
+select count(*) filter (where 1) CURRENT w
+%%
+select count(*) filter (where 1) CURRENT (w)
+%%
+select 1 from t window CURRENT_DATE as ()
+%%
+select count(*) over CURRENT_DATE from t window CURRENT_DATE as ()
+%%
+select count(*) over (CURRENT_DATE) from t window CURRENT_DATE as ()
+%%
+select 1 from t window w as (CURRENT_DATE partition by 1)
+%%
+select 1 from t as CURRENT_DATE window w as ()
+%%
+select count(*) CURRENT_DATE (where 1)
+%%
+select count(*) filter (where 1) CURRENT_DATE
+%%
+select count(*) filter (where 1) CURRENT_DATE w
+%%
+select count(*) filter (where 1) CURRENT_DATE (w)
+%%
+select 1 from t window CURRENT_TIME as ()
+%%
+select count(*) over CURRENT_TIME from t window CURRENT_TIME as ()
+%%
+select count(*) over (CURRENT_TIME) from t window CURRENT_TIME as ()
+%%
+select 1 from t window w as (CURRENT_TIME partition by 1)
+%%
+select 1 from t as CURRENT_TIME window w as ()
+%%
+select count(*) CURRENT_TIME (where 1)
+%%
+select count(*) filter (where 1) CURRENT_TIME
+%%
+select count(*) filter (where 1) CURRENT_TIME w
+%%
+select count(*) filter (where 1) CURRENT_TIME (w)
+%%
+select 1 from t window CURRENT_TIMESTAMP as ()
+%%
+select count(*) over CURRENT_TIMESTAMP from t window CURRENT_TIMESTAMP as ()
+%%
+select count(*) over (CURRENT_TIMESTAMP) from t window CURRENT_TIMESTAMP as ()
+%%
+select 1 from t window w as (CURRENT_TIMESTAMP partition by 1)
+%%
+select 1 from t as CURRENT_TIMESTAMP window w as ()
+%%
+select count(*) CURRENT_TIMESTAMP (where 1)
+%%
+select count(*) filter (where 1) CURRENT_TIMESTAMP
+%%
+select count(*) filter (where 1) CURRENT_TIMESTAMP w
+%%
+select count(*) filter (where 1) CURRENT_TIMESTAMP (w)
+%%
+select 1 from t window DATABASE as ()
+%%
+select count(*) over DATABASE from t window DATABASE as ()
+%%
+select count(*) over (DATABASE) from t window DATABASE as ()
+%%
+select 1 from t window w as (DATABASE partition by 1)
+%%
+select 1 from t as DATABASE window w as ()
+%%
+select count(*) DATABASE (where 1)
+%%
+select count(*) filter (where 1) DATABASE
+%%
+select count(*) filter (where 1) DATABASE w
+%%
+select count(*) filter (where 1) DATABASE (w)
+%%
+select 1 from t window DEFAULT as ()
+%%
+select count(*) over DEFAULT from t window DEFAULT as ()
+%%
+select count(*) over (DEFAULT) from t window DEFAULT as ()
+%%
+select 1 from t window w as (DEFAULT partition by 1)
+%%
+select 1 from t as DEFAULT window w as ()
+%%
+select count(*) DEFAULT (where 1)
+%%
+select count(*) filter (where 1) DEFAULT
+%%
+select count(*) filter (where 1) DEFAULT w
+%%
+select count(*) filter (where 1) DEFAULT (w)
+%%
+select 1 from t window DEFERRABLE as ()
+%%
+select count(*) over DEFERRABLE from t window DEFERRABLE as ()
+%%
+select count(*) over (DEFERRABLE) from t window DEFERRABLE as ()
+%%
+select 1 from t window w as (DEFERRABLE partition by 1)
+%%
+select 1 from t as DEFERRABLE window w as ()
+%%
+select count(*) DEFERRABLE (where 1)
+%%
+select count(*) filter (where 1) DEFERRABLE
+%%
+select count(*) filter (where 1) DEFERRABLE w
+%%
+select count(*) filter (where 1) DEFERRABLE (w)
+%%
+select 1 from t window DEFERRED as ()
+%%
+select count(*) over DEFERRED from t window DEFERRED as ()
+%%
+select count(*) over (DEFERRED) from t window DEFERRED as ()
+%%
+select 1 from t window w as (DEFERRED partition by 1)
+%%
+select 1 from t as DEFERRED window w as ()
+%%
+select count(*) DEFERRED (where 1)
+%%
+select count(*) filter (where 1) DEFERRED
+%%
+select count(*) filter (where 1) DEFERRED w
+%%
+select count(*) filter (where 1) DEFERRED (w)
+%%
+select 1 from t window DELETE as ()
+%%
+select count(*) over DELETE from t window DELETE as ()
+%%
+select count(*) over (DELETE) from t window DELETE as ()
+%%
+select 1 from t window w as (DELETE partition by 1)
+%%
+select 1 from t as DELETE window w as ()
+%%
+select count(*) DELETE (where 1)
+%%
+select count(*) filter (where 1) DELETE
+%%
+select count(*) filter (where 1) DELETE w
+%%
+select count(*) filter (where 1) DELETE (w)
+%%
+select 1 from t window DESC as ()
+%%
+select count(*) over DESC from t window DESC as ()
+%%
+select count(*) over (DESC) from t window DESC as ()
+%%
+select 1 from t window w as (DESC partition by 1)
+%%
+select 1 from t as DESC window w as ()
+%%
+select count(*) DESC (where 1)
+%%
+select count(*) filter (where 1) DESC
+%%
+select count(*) filter (where 1) DESC w
+%%
+select count(*) filter (where 1) DESC (w)
+%%
+select 1 from t window DETACH as ()
+%%
+select count(*) over DETACH from t window DETACH as ()
+%%
+select count(*) over (DETACH) from t window DETACH as ()
+%%
+select 1 from t window w as (DETACH partition by 1)
+%%
+select 1 from t as DETACH window w as ()
+%%
+select count(*) DETACH (where 1)
+%%
+select count(*) filter (where 1) DETACH
+%%
+select count(*) filter (where 1) DETACH w
+%%
+select count(*) filter (where 1) DETACH (w)
+%%
+select 1 from t window DISTINCT as ()
+%%
+select count(*) over DISTINCT from t window DISTINCT as ()
+%%
+select count(*) over (DISTINCT) from t window DISTINCT as ()
+%%
+select 1 from t window w as (DISTINCT partition by 1)
+%%
+select 1 from t as DISTINCT window w as ()
+%%
+select count(*) DISTINCT (where 1)
+%%
+select count(*) filter (where 1) DISTINCT
+%%
+select count(*) filter (where 1) DISTINCT w
+%%
+select count(*) filter (where 1) DISTINCT (w)
+%%
+select 1 from t window DO as ()
+%%
+select count(*) over DO from t window DO as ()
+%%
+select count(*) over (DO) from t window DO as ()
+%%
+select 1 from t window w as (DO partition by 1)
+%%
+select 1 from t as DO window w as ()
+%%
+select count(*) DO (where 1)
+%%
+select count(*) filter (where 1) DO
+%%
+select count(*) filter (where 1) DO w
+%%
+select count(*) filter (where 1) DO (w)
+%%
+select 1 from t window DROP as ()
+%%
+select count(*) over DROP from t window DROP as ()
+%%
+select count(*) over (DROP) from t window DROP as ()
+%%
+select 1 from t window w as (DROP partition by 1)
+%%
+select 1 from t as DROP window w as ()
+%%
+select count(*) DROP (where 1)
+%%
+select count(*) filter (where 1) DROP
+%%
+select count(*) filter (where 1) DROP w
+%%
+select count(*) filter (where 1) DROP (w)
+%%
+select 1 from t window EACH as ()
+%%
+select count(*) over EACH from t window EACH as ()
+%%
+select count(*) over (EACH) from t window EACH as ()
+%%
+select 1 from t window w as (EACH partition by 1)
+%%
+select 1 from t as EACH window w as ()
+%%
+select count(*) EACH (where 1)
+%%
+select count(*) filter (where 1) EACH
+%%
+select count(*) filter (where 1) EACH w
+%%
+select count(*) filter (where 1) EACH (w)
+%%
+select 1 from t window ELSE as ()
+%%
+select count(*) over ELSE from t window ELSE as ()
+%%
+select count(*) over (ELSE) from t window ELSE as ()
+%%
+select 1 from t window w as (ELSE partition by 1)
+%%
+select 1 from t as ELSE window w as ()
+%%
+select count(*) ELSE (where 1)
+%%
+select count(*) filter (where 1) ELSE
+%%
+select count(*) filter (where 1) ELSE w
+%%
+select count(*) filter (where 1) ELSE (w)
+%%
+select 1 from t window END as ()
+%%
+select count(*) over END from t window END as ()
+%%
+select count(*) over (END) from t window END as ()
+%%
+select 1 from t window w as (END partition by 1)
+%%
+select 1 from t as END window w as ()
+%%
+select count(*) END (where 1)
+%%
+select count(*) filter (where 1) END
+%%
+select count(*) filter (where 1) END w
+%%
+select count(*) filter (where 1) END (w)
+%%
+select 1 from t window ESCAPE as ()
+%%
+select count(*) over ESCAPE from t window ESCAPE as ()
+%%
+select count(*) over (ESCAPE) from t window ESCAPE as ()
+%%
+select 1 from t window w as (ESCAPE partition by 1)
+%%
+select 1 from t as ESCAPE window w as ()
+%%
+select count(*) ESCAPE (where 1)
+%%
+select count(*) filter (where 1) ESCAPE
+%%
+select count(*) filter (where 1) ESCAPE w
+%%
+select count(*) filter (where 1) ESCAPE (w)
+%%
+select 1 from t window EXCEPT as ()
+%%
+select count(*) over EXCEPT from t window EXCEPT as ()
+%%
+select count(*) over (EXCEPT) from t window EXCEPT as ()
+%%
+select 1 from t window w as (EXCEPT partition by 1)
+%%
+select 1 from t as EXCEPT window w as ()
+%%
+select count(*) EXCEPT (where 1)
+%%
+select count(*) filter (where 1) EXCEPT
+%%
+select count(*) filter (where 1) EXCEPT w
+%%
+select count(*) filter (where 1) EXCEPT (w)
+%%
+select 1 from t window EXCLUDE as ()
+%%
+select count(*) over EXCLUDE from t window EXCLUDE as ()
+%%
+select count(*) over (EXCLUDE) from t window EXCLUDE as ()
+%%
+select 1 from t window w as (EXCLUDE partition by 1)
+%%
+select 1 from t as EXCLUDE window w as ()
+%%
+select count(*) EXCLUDE (where 1)
+%%
+select count(*) filter (where 1) EXCLUDE
+%%
+select count(*) filter (where 1) EXCLUDE w
+%%
+select count(*) filter (where 1) EXCLUDE (w)
+%%
+select 1 from t window EXCLUSIVE as ()
+%%
+select count(*) over EXCLUSIVE from t window EXCLUSIVE as ()
+%%
+select count(*) over (EXCLUSIVE) from t window EXCLUSIVE as ()
+%%
+select 1 from t window w as (EXCLUSIVE partition by 1)
+%%
+select 1 from t as EXCLUSIVE window w as ()
+%%
+select count(*) EXCLUSIVE (where 1)
+%%
+select count(*) filter (where 1) EXCLUSIVE
+%%
+select count(*) filter (where 1) EXCLUSIVE w
+%%
+select count(*) filter (where 1) EXCLUSIVE (w)
+%%
+select 1 from t window EXISTS as ()
+%%
+select count(*) over EXISTS from t window EXISTS as ()
+%%
+select count(*) over (EXISTS) from t window EXISTS as ()
+%%
+select 1 from t window w as (EXISTS partition by 1)
+%%
+select 1 from t as EXISTS window w as ()
+%%
+select count(*) EXISTS (where 1)
+%%
+select count(*) filter (where 1) EXISTS
+%%
+select count(*) filter (where 1) EXISTS w
+%%
+select count(*) filter (where 1) EXISTS (w)
+%%
+select 1 from t window EXPLAIN as ()
+%%
+select count(*) over EXPLAIN from t window EXPLAIN as ()
+%%
+select count(*) over (EXPLAIN) from t window EXPLAIN as ()
+%%
+select 1 from t window w as (EXPLAIN partition by 1)
+%%
+select 1 from t as EXPLAIN window w as ()
+%%
+select count(*) EXPLAIN (where 1)
+%%
+select count(*) filter (where 1) EXPLAIN
+%%
+select count(*) filter (where 1) EXPLAIN w
+%%
+select count(*) filter (where 1) EXPLAIN (w)
+%%
+select 1 from t window FAIL as ()
+%%
+select count(*) over FAIL from t window FAIL as ()
+%%
+select count(*) over (FAIL) from t window FAIL as ()
+%%
+select 1 from t window w as (FAIL partition by 1)
+%%
+select 1 from t as FAIL window w as ()
+%%
+select count(*) FAIL (where 1)
+%%
+select count(*) filter (where 1) FAIL
+%%
+select count(*) filter (where 1) FAIL w
+%%
+select count(*) filter (where 1) FAIL (w)
+%%
+select 1 from t window FILTER as ()
+%%
+select count(*) over FILTER from t window FILTER as ()
+%%
+select count(*) over (FILTER) from t window FILTER as ()
+%%
+select 1 from t window w as (FILTER partition by 1)
+%%
+select 1 from t as FILTER window w as ()
+%%
+select count(*) FILTER (where 1)
+%%
+select count(*) filter (where 1) FILTER
+%%
+select count(*) filter (where 1) FILTER w
+%%
+select count(*) filter (where 1) FILTER (w)
+%%
+select 1 from t window FIRST as ()
+%%
+select count(*) over FIRST from t window FIRST as ()
+%%
+select count(*) over (FIRST) from t window FIRST as ()
+%%
+select 1 from t window w as (FIRST partition by 1)
+%%
+select 1 from t as FIRST window w as ()
+%%
+select count(*) FIRST (where 1)
+%%
+select count(*) filter (where 1) FIRST
+%%
+select count(*) filter (where 1) FIRST w
+%%
+select count(*) filter (where 1) FIRST (w)
+%%
+select 1 from t window FOLLOWING as ()
+%%
+select count(*) over FOLLOWING from t window FOLLOWING as ()
+%%
+select count(*) over (FOLLOWING) from t window FOLLOWING as ()
+%%
+select 1 from t window w as (FOLLOWING partition by 1)
+%%
+select 1 from t as FOLLOWING window w as ()
+%%
+select count(*) FOLLOWING (where 1)
+%%
+select count(*) filter (where 1) FOLLOWING
+%%
+select count(*) filter (where 1) FOLLOWING w
+%%
+select count(*) filter (where 1) FOLLOWING (w)
+%%
+select 1 from t window FOR as ()
+%%
+select count(*) over FOR from t window FOR as ()
+%%
+select count(*) over (FOR) from t window FOR as ()
+%%
+select 1 from t window w as (FOR partition by 1)
+%%
+select 1 from t as FOR window w as ()
+%%
+select count(*) FOR (where 1)
+%%
+select count(*) filter (where 1) FOR
+%%
+select count(*) filter (where 1) FOR w
+%%
+select count(*) filter (where 1) FOR (w)
+%%
+select 1 from t window FOREIGN as ()
+%%
+select count(*) over FOREIGN from t window FOREIGN as ()
+%%
+select count(*) over (FOREIGN) from t window FOREIGN as ()
+%%
+select 1 from t window w as (FOREIGN partition by 1)
+%%
+select 1 from t as FOREIGN window w as ()
+%%
+select count(*) FOREIGN (where 1)
+%%
+select count(*) filter (where 1) FOREIGN
+%%
+select count(*) filter (where 1) FOREIGN w
+%%
+select count(*) filter (where 1) FOREIGN (w)
+%%
+select 1 from t window FROM as ()
+%%
+select count(*) over FROM from t window FROM as ()
+%%
+select count(*) over (FROM) from t window FROM as ()
+%%
+select 1 from t window w as (FROM partition by 1)
+%%
+select 1 from t as FROM window w as ()
+%%
+select count(*) FROM (where 1)
+%%
+select count(*) filter (where 1) FROM
+%%
+select count(*) filter (where 1) FROM w
+%%
+select count(*) filter (where 1) FROM (w)
+%%
+select 1 from t window FULL as ()
+%%
+select count(*) over FULL from t window FULL as ()
+%%
+select count(*) over (FULL) from t window FULL as ()
+%%
+select 1 from t window w as (FULL partition by 1)
+%%
+select 1 from t as FULL window w as ()
+%%
+select count(*) FULL (where 1)
+%%
+select count(*) filter (where 1) FULL
+%%
+select count(*) filter (where 1) FULL w
+%%
+select count(*) filter (where 1) FULL (w)
+%%
+select 1 from t window GENERATED as ()
+%%
+select count(*) over GENERATED from t window GENERATED as ()
+%%
+select count(*) over (GENERATED) from t window GENERATED as ()
+%%
+select 1 from t window w as (GENERATED partition by 1)
+%%
+select 1 from t as GENERATED window w as ()
+%%
+select count(*) GENERATED (where 1)
+%%
+select count(*) filter (where 1) GENERATED
+%%
+select count(*) filter (where 1) GENERATED w
+%%
+select count(*) filter (where 1) GENERATED (w)
+%%
+select 1 from t window GLOB as ()
+%%
+select count(*) over GLOB from t window GLOB as ()
+%%
+select count(*) over (GLOB) from t window GLOB as ()
+%%
+select 1 from t window w as (GLOB partition by 1)
+%%
+select 1 from t as GLOB window w as ()
+%%
+select count(*) GLOB (where 1)
+%%
+select count(*) filter (where 1) GLOB
+%%
+select count(*) filter (where 1) GLOB w
+%%
+select count(*) filter (where 1) GLOB (w)
+%%
+select 1 from t window GROUP as ()
+%%
+select count(*) over GROUP from t window GROUP as ()
+%%
+select count(*) over (GROUP) from t window GROUP as ()
+%%
+select 1 from t window w as (GROUP partition by 1)
+%%
+select 1 from t as GROUP window w as ()
+%%
+select count(*) GROUP (where 1)
+%%
+select count(*) filter (where 1) GROUP
+%%
+select count(*) filter (where 1) GROUP w
+%%
+select count(*) filter (where 1) GROUP (w)
+%%
+select 1 from t window GROUPS as ()
+%%
+select count(*) over GROUPS from t window GROUPS as ()
+%%
+select count(*) over (GROUPS) from t window GROUPS as ()
+%%
+select 1 from t window w as (GROUPS partition by 1)
+%%
+select 1 from t as GROUPS window w as ()
+%%
+select count(*) GROUPS (where 1)
+%%
+select count(*) filter (where 1) GROUPS
+%%
+select count(*) filter (where 1) GROUPS w
+%%
+select count(*) filter (where 1) GROUPS (w)
+%%
+select 1 from t window HAVING as ()
+%%
+select count(*) over HAVING from t window HAVING as ()
+%%
+select count(*) over (HAVING) from t window HAVING as ()
+%%
+select 1 from t window w as (HAVING partition by 1)
+%%
+select 1 from t as HAVING window w as ()
+%%
+select count(*) HAVING (where 1)
+%%
+select count(*) filter (where 1) HAVING
+%%
+select count(*) filter (where 1) HAVING w
+%%
+select count(*) filter (where 1) HAVING (w)
+%%
+select 1 from t window IF as ()
+%%
+select count(*) over IF from t window IF as ()
+%%
+select count(*) over (IF) from t window IF as ()
+%%
+select 1 from t window w as (IF partition by 1)
+%%
+select 1 from t as IF window w as ()
+%%
+select count(*) IF (where 1)
+%%
+select count(*) filter (where 1) IF
+%%
+select count(*) filter (where 1) IF w
+%%
+select count(*) filter (where 1) IF (w)
+%%
+select 1 from t window IGNORE as ()
+%%
+select count(*) over IGNORE from t window IGNORE as ()
+%%
+select count(*) over (IGNORE) from t window IGNORE as ()
+%%
+select 1 from t window w as (IGNORE partition by 1)
+%%
+select 1 from t as IGNORE window w as ()
+%%
+select count(*) IGNORE (where 1)
+%%
+select count(*) filter (where 1) IGNORE
+%%
+select count(*) filter (where 1) IGNORE w
+%%
+select count(*) filter (where 1) IGNORE (w)
+%%
+select 1 from t window IMMEDIATE as ()
+%%
+select count(*) over IMMEDIATE from t window IMMEDIATE as ()
+%%
+select count(*) over (IMMEDIATE) from t window IMMEDIATE as ()
+%%
+select 1 from t window w as (IMMEDIATE partition by 1)
+%%
+select 1 from t as IMMEDIATE window w as ()
+%%
+select count(*) IMMEDIATE (where 1)
+%%
+select count(*) filter (where 1) IMMEDIATE
+%%
+select count(*) filter (where 1) IMMEDIATE w
+%%
+select count(*) filter (where 1) IMMEDIATE (w)
+%%
+select 1 from t window IN as ()
+%%
+select count(*) over IN from t window IN as ()
+%%
+select count(*) over (IN) from t window IN as ()
+%%
+select 1 from t window w as (IN partition by 1)
+%%
+select 1 from t as IN window w as ()
+%%
+select count(*) IN (where 1)
+%%
+select count(*) filter (where 1) IN
+%%
+select count(*) filter (where 1) IN w
+%%
+select count(*) filter (where 1) IN (w)
+%%
+select 1 from t window INDEX as ()
+%%
+select count(*) over INDEX from t window INDEX as ()
+%%
+select count(*) over (INDEX) from t window INDEX as ()
+%%
+select 1 from t window w as (INDEX partition by 1)
+%%
+select 1 from t as INDEX window w as ()
+%%
+select count(*) INDEX (where 1)
+%%
+select count(*) filter (where 1) INDEX
+%%
+select count(*) filter (where 1) INDEX w
+%%
+select count(*) filter (where 1) INDEX (w)
+%%
+select 1 from t window INDEXED as ()
+%%
+select count(*) over INDEXED from t window INDEXED as ()
+%%
+select count(*) over (INDEXED) from t window INDEXED as ()
+%%
+select 1 from t window w as (INDEXED partition by 1)
+%%
+select 1 from t as INDEXED window w as ()
+%%
+select count(*) INDEXED (where 1)
+%%
+select count(*) filter (where 1) INDEXED
+%%
+select count(*) filter (where 1) INDEXED w
+%%
+select count(*) filter (where 1) INDEXED (w)
+%%
+select 1 from t window INITIALLY as ()
+%%
+select count(*) over INITIALLY from t window INITIALLY as ()
+%%
+select count(*) over (INITIALLY) from t window INITIALLY as ()
+%%
+select 1 from t window w as (INITIALLY partition by 1)
+%%
+select 1 from t as INITIALLY window w as ()
+%%
+select count(*) INITIALLY (where 1)
+%%
+select count(*) filter (where 1) INITIALLY
+%%
+select count(*) filter (where 1) INITIALLY w
+%%
+select count(*) filter (where 1) INITIALLY (w)
+%%
+select 1 from t window INNER as ()
+%%
+select count(*) over INNER from t window INNER as ()
+%%
+select count(*) over (INNER) from t window INNER as ()
+%%
+select 1 from t window w as (INNER partition by 1)
+%%
+select 1 from t as INNER window w as ()
+%%
+select count(*) INNER (where 1)
+%%
+select count(*) filter (where 1) INNER
+%%
+select count(*) filter (where 1) INNER w
+%%
+select count(*) filter (where 1) INNER (w)
+%%
+select 1 from t window INSERT as ()
+%%
+select count(*) over INSERT from t window INSERT as ()
+%%
+select count(*) over (INSERT) from t window INSERT as ()
+%%
+select 1 from t window w as (INSERT partition by 1)
+%%
+select 1 from t as INSERT window w as ()
+%%
+select count(*) INSERT (where 1)
+%%
+select count(*) filter (where 1) INSERT
+%%
+select count(*) filter (where 1) INSERT w
+%%
+select count(*) filter (where 1) INSERT (w)
+%%
+select 1 from t window INSTEAD as ()
+%%
+select count(*) over INSTEAD from t window INSTEAD as ()
+%%
+select count(*) over (INSTEAD) from t window INSTEAD as ()
+%%
+select 1 from t window w as (INSTEAD partition by 1)
+%%
+select 1 from t as INSTEAD window w as ()
+%%
+select count(*) INSTEAD (where 1)
+%%
+select count(*) filter (where 1) INSTEAD
+%%
+select count(*) filter (where 1) INSTEAD w
+%%
+select count(*) filter (where 1) INSTEAD (w)
+%%
+select 1 from t window INTERSECT as ()
+%%
+select count(*) over INTERSECT from t window INTERSECT as ()
+%%
+select count(*) over (INTERSECT) from t window INTERSECT as ()
+%%
+select 1 from t window w as (INTERSECT partition by 1)
+%%
+select 1 from t as INTERSECT window w as ()
+%%
+select count(*) INTERSECT (where 1)
+%%
+select count(*) filter (where 1) INTERSECT
+%%
+select count(*) filter (where 1) INTERSECT w
+%%
+select count(*) filter (where 1) INTERSECT (w)
+%%
+select 1 from t window INTO as ()
+%%
+select count(*) over INTO from t window INTO as ()
+%%
+select count(*) over (INTO) from t window INTO as ()
+%%
+select 1 from t window w as (INTO partition by 1)
+%%
+select 1 from t as INTO window w as ()
+%%
+select count(*) INTO (where 1)
+%%
+select count(*) filter (where 1) INTO
+%%
+select count(*) filter (where 1) INTO w
+%%
+select count(*) filter (where 1) INTO (w)
+%%
+select 1 from t window IS as ()
+%%
+select count(*) over IS from t window IS as ()
+%%
+select count(*) over (IS) from t window IS as ()
+%%
+select 1 from t window w as (IS partition by 1)
+%%
+select 1 from t as IS window w as ()
+%%
+select count(*) IS (where 1)
+%%
+select count(*) filter (where 1) IS
+%%
+select count(*) filter (where 1) IS w
+%%
+select count(*) filter (where 1) IS (w)
+%%
+select 1 from t window ISNULL as ()
+%%
+select count(*) over ISNULL from t window ISNULL as ()
+%%
+select count(*) over (ISNULL) from t window ISNULL as ()
+%%
+select 1 from t window w as (ISNULL partition by 1)
+%%
+select 1 from t as ISNULL window w as ()
+%%
+select count(*) ISNULL (where 1)
+%%
+select count(*) filter (where 1) ISNULL
+%%
+select count(*) filter (where 1) ISNULL w
+%%
+select count(*) filter (where 1) ISNULL (w)
+%%
+select 1 from t window JOIN as ()
+%%
+select count(*) over JOIN from t window JOIN as ()
+%%
+select count(*) over (JOIN) from t window JOIN as ()
+%%
+select 1 from t window w as (JOIN partition by 1)
+%%
+select 1 from t as JOIN window w as ()
+%%
+select count(*) JOIN (where 1)
+%%
+select count(*) filter (where 1) JOIN
+%%
+select count(*) filter (where 1) JOIN w
+%%
+select count(*) filter (where 1) JOIN (w)
+%%
+select 1 from t window KEY as ()
+%%
+select count(*) over KEY from t window KEY as ()
+%%
+select count(*) over (KEY) from t window KEY as ()
+%%
+select 1 from t window w as (KEY partition by 1)
+%%
+select 1 from t as KEY window w as ()
+%%
+select count(*) KEY (where 1)
+%%
+select count(*) filter (where 1) KEY
+%%
+select count(*) filter (where 1) KEY w
+%%
+select count(*) filter (where 1) KEY (w)
+%%
+select 1 from t window LAST as ()
+%%
+select count(*) over LAST from t window LAST as ()
+%%
+select count(*) over (LAST) from t window LAST as ()
+%%
+select 1 from t window w as (LAST partition by 1)
+%%
+select 1 from t as LAST window w as ()
+%%
+select count(*) LAST (where 1)
+%%
+select count(*) filter (where 1) LAST
+%%
+select count(*) filter (where 1) LAST w
+%%
+select count(*) filter (where 1) LAST (w)
+%%
+select 1 from t window LEFT as ()
+%%
+select count(*) over LEFT from t window LEFT as ()
+%%
+select count(*) over (LEFT) from t window LEFT as ()
+%%
+select 1 from t window w as (LEFT partition by 1)
+%%
+select 1 from t as LEFT window w as ()
+%%
+select count(*) LEFT (where 1)
+%%
+select count(*) filter (where 1) LEFT
+%%
+select count(*) filter (where 1) LEFT w
+%%
+select count(*) filter (where 1) LEFT (w)
+%%
+select 1 from t window LIKE as ()
+%%
+select count(*) over LIKE from t window LIKE as ()
+%%
+select count(*) over (LIKE) from t window LIKE as ()
+%%
+select 1 from t window w as (LIKE partition by 1)
+%%
+select 1 from t as LIKE window w as ()
+%%
+select count(*) LIKE (where 1)
+%%
+select count(*) filter (where 1) LIKE
+%%
+select count(*) filter (where 1) LIKE w
+%%
+select count(*) filter (where 1) LIKE (w)
+%%
+select 1 from t window LIMIT as ()
+%%
+select count(*) over LIMIT from t window LIMIT as ()
+%%
+select count(*) over (LIMIT) from t window LIMIT as ()
+%%
+select 1 from t window w as (LIMIT partition by 1)
+%%
+select 1 from t as LIMIT window w as ()
+%%
+select count(*) LIMIT (where 1)
+%%
+select count(*) filter (where 1) LIMIT
+%%
+select count(*) filter (where 1) LIMIT w
+%%
+select count(*) filter (where 1) LIMIT (w)
+%%
+select 1 from t window MATCH as ()
+%%
+select count(*) over MATCH from t window MATCH as ()
+%%
+select count(*) over (MATCH) from t window MATCH as ()
+%%
+select 1 from t window w as (MATCH partition by 1)
+%%
+select 1 from t as MATCH window w as ()
+%%
+select count(*) MATCH (where 1)
+%%
+select count(*) filter (where 1) MATCH
+%%
+select count(*) filter (where 1) MATCH w
+%%
+select count(*) filter (where 1) MATCH (w)
+%%
+select 1 from t window MATERIALIZED as ()
+%%
+select count(*) over MATERIALIZED from t window MATERIALIZED as ()
+%%
+select count(*) over (MATERIALIZED) from t window MATERIALIZED as ()
+%%
+select 1 from t window w as (MATERIALIZED partition by 1)
+%%
+select 1 from t as MATERIALIZED window w as ()
+%%
+select count(*) MATERIALIZED (where 1)
+%%
+select count(*) filter (where 1) MATERIALIZED
+%%
+select count(*) filter (where 1) MATERIALIZED w
+%%
+select count(*) filter (where 1) MATERIALIZED (w)
+%%
+select 1 from t window NATURAL as ()
+%%
+select count(*) over NATURAL from t window NATURAL as ()
+%%
+select count(*) over (NATURAL) from t window NATURAL as ()
+%%
+select 1 from t window w as (NATURAL partition by 1)
+%%
+select 1 from t as NATURAL window w as ()
+%%
+select count(*) NATURAL (where 1)
+%%
+select count(*) filter (where 1) NATURAL
+%%
+select count(*) filter (where 1) NATURAL w
+%%
+select count(*) filter (where 1) NATURAL (w)
+%%
+select 1 from t window NO as ()
+%%
+select count(*) over NO from t window NO as ()
+%%
+select count(*) over (NO) from t window NO as ()
+%%
+select 1 from t window w as (NO partition by 1)
+%%
+select 1 from t as NO window w as ()
+%%
+select count(*) NO (where 1)
+%%
+select count(*) filter (where 1) NO
+%%
+select count(*) filter (where 1) NO w
+%%
+select count(*) filter (where 1) NO (w)
+%%
+select 1 from t window NOT as ()
+%%
+select count(*) over NOT from t window NOT as ()
+%%
+select count(*) over (NOT) from t window NOT as ()
+%%
+select 1 from t window w as (NOT partition by 1)
+%%
+select 1 from t as NOT window w as ()
+%%
+select count(*) NOT (where 1)
+%%
+select count(*) filter (where 1) NOT
+%%
+select count(*) filter (where 1) NOT w
+%%
+select count(*) filter (where 1) NOT (w)
+%%
+select 1 from t window NOTHING as ()
+%%
+select count(*) over NOTHING from t window NOTHING as ()
+%%
+select count(*) over (NOTHING) from t window NOTHING as ()
+%%
+select 1 from t window w as (NOTHING partition by 1)
+%%
+select 1 from t as NOTHING window w as ()
+%%
+select count(*) NOTHING (where 1)
+%%
+select count(*) filter (where 1) NOTHING
+%%
+select count(*) filter (where 1) NOTHING w
+%%
+select count(*) filter (where 1) NOTHING (w)
+%%
+select 1 from t window NOTNULL as ()
+%%
+select count(*) over NOTNULL from t window NOTNULL as ()
+%%
+select count(*) over (NOTNULL) from t window NOTNULL as ()
+%%
+select 1 from t window w as (NOTNULL partition by 1)
+%%
+select 1 from t as NOTNULL window w as ()
+%%
+select count(*) NOTNULL (where 1)
+%%
+select count(*) filter (where 1) NOTNULL
+%%
+select count(*) filter (where 1) NOTNULL w
+%%
+select count(*) filter (where 1) NOTNULL (w)
+%%
+select 1 from t window NULL as ()
+%%
+select count(*) over NULL from t window NULL as ()
+%%
+select count(*) over (NULL) from t window NULL as ()
+%%
+select 1 from t window w as (NULL partition by 1)
+%%
+select 1 from t as NULL window w as ()
+%%
+select count(*) NULL (where 1)
+%%
+select count(*) filter (where 1) NULL
+%%
+select count(*) filter (where 1) NULL w
+%%
+select count(*) filter (where 1) NULL (w)
+%%
+select 1 from t window NULLS as ()
+%%
+select count(*) over NULLS from t window NULLS as ()
+%%
+select count(*) over (NULLS) from t window NULLS as ()
+%%
+select 1 from t window w as (NULLS partition by 1)
+%%
+select 1 from t as NULLS window w as ()
+%%
+select count(*) NULLS (where 1)
+%%
+select count(*) filter (where 1) NULLS
+%%
+select count(*) filter (where 1) NULLS w
+%%
+select count(*) filter (where 1) NULLS (w)
+%%
+select 1 from t window OF as ()
+%%
+select count(*) over OF from t window OF as ()
+%%
+select count(*) over (OF) from t window OF as ()
+%%
+select 1 from t window w as (OF partition by 1)
+%%
+select 1 from t as OF window w as ()
+%%
+select count(*) OF (where 1)
+%%
+select count(*) filter (where 1) OF
+%%
+select count(*) filter (where 1) OF w
+%%
+select count(*) filter (where 1) OF (w)
+%%
+select 1 from t window OFFSET as ()
+%%
+select count(*) over OFFSET from t window OFFSET as ()
+%%
+select count(*) over (OFFSET) from t window OFFSET as ()
+%%
+select 1 from t window w as (OFFSET partition by 1)
+%%
+select 1 from t as OFFSET window w as ()
+%%
+select count(*) OFFSET (where 1)
+%%
+select count(*) filter (where 1) OFFSET
+%%
+select count(*) filter (where 1) OFFSET w
+%%
+select count(*) filter (where 1) OFFSET (w)
+%%
+select 1 from t window ON as ()
+%%
+select count(*) over ON from t window ON as ()
+%%
+select count(*) over (ON) from t window ON as ()
+%%
+select 1 from t window w as (ON partition by 1)
+%%
+select 1 from t as ON window w as ()
+%%
+select count(*) ON (where 1)
+%%
+select count(*) filter (where 1) ON
+%%
+select count(*) filter (where 1) ON w
+%%
+select count(*) filter (where 1) ON (w)
+%%
+select 1 from t window OR as ()
+%%
+select count(*) over OR from t window OR as ()
+%%
+select count(*) over (OR) from t window OR as ()
+%%
+select 1 from t window w as (OR partition by 1)
+%%
+select 1 from t as OR window w as ()
+%%
+select count(*) OR (where 1)
+%%
+select count(*) filter (where 1) OR
+%%
+select count(*) filter (where 1) OR w
+%%
+select count(*) filter (where 1) OR (w)
+%%
+select 1 from t window ORDER as ()
+%%
+select count(*) over ORDER from t window ORDER as ()
+%%
+select count(*) over (ORDER) from t window ORDER as ()
+%%
+select 1 from t window w as (ORDER partition by 1)
+%%
+select 1 from t as ORDER window w as ()
+%%
+select count(*) ORDER (where 1)
+%%
+select count(*) filter (where 1) ORDER
+%%
+select count(*) filter (where 1) ORDER w
+%%
+select count(*) filter (where 1) ORDER (w)
+%%
+select 1 from t window OTHERS as ()
+%%
+select count(*) over OTHERS from t window OTHERS as ()
+%%
+select count(*) over (OTHERS) from t window OTHERS as ()
+%%
+select 1 from t window w as (OTHERS partition by 1)
+%%
+select 1 from t as OTHERS window w as ()
+%%
+select count(*) OTHERS (where 1)
+%%
+select count(*) filter (where 1) OTHERS
+%%
+select count(*) filter (where 1) OTHERS w
+%%
+select count(*) filter (where 1) OTHERS (w)
+%%
+select 1 from t window OUTER as ()
+%%
+select count(*) over OUTER from t window OUTER as ()
+%%
+select count(*) over (OUTER) from t window OUTER as ()
+%%
+select 1 from t window w as (OUTER partition by 1)
+%%
+select 1 from t as OUTER window w as ()
+%%
+select count(*) OUTER (where 1)
+%%
+select count(*) filter (where 1) OUTER
+%%
+select count(*) filter (where 1) OUTER w
+%%
+select count(*) filter (where 1) OUTER (w)
+%%
+select 1 from t window OVER as ()
+%%
+select count(*) over OVER from t window OVER as ()
+%%
+select count(*) over (OVER) from t window OVER as ()
+%%
+select 1 from t window w as (OVER partition by 1)
+%%
+select 1 from t as OVER window w as ()
+%%
+select count(*) OVER (where 1)
+%%
+select count(*) filter (where 1) OVER
+%%
+select count(*) filter (where 1) OVER w
+%%
+select count(*) filter (where 1) OVER (w)
+%%
+select 1 from t window PARTITION as ()
+%%
+select count(*) over PARTITION from t window PARTITION as ()
+%%
+select count(*) over (PARTITION) from t window PARTITION as ()
+%%
+select 1 from t window w as (PARTITION partition by 1)
+%%
+select 1 from t as PARTITION window w as ()
+%%
+select count(*) PARTITION (where 1)
+%%
+select count(*) filter (where 1) PARTITION
+%%
+select count(*) filter (where 1) PARTITION w
+%%
+select count(*) filter (where 1) PARTITION (w)
+%%
+select 1 from t window PLAN as ()
+%%
+select count(*) over PLAN from t window PLAN as ()
+%%
+select count(*) over (PLAN) from t window PLAN as ()
+%%
+select 1 from t window w as (PLAN partition by 1)
+%%
+select 1 from t as PLAN window w as ()
+%%
+select count(*) PLAN (where 1)
+%%
+select count(*) filter (where 1) PLAN
+%%
+select count(*) filter (where 1) PLAN w
+%%
+select count(*) filter (where 1) PLAN (w)
+%%
+select 1 from t window PRAGMA as ()
+%%
+select count(*) over PRAGMA from t window PRAGMA as ()
+%%
+select count(*) over (PRAGMA) from t window PRAGMA as ()
+%%
+select 1 from t window w as (PRAGMA partition by 1)
+%%
+select 1 from t as PRAGMA window w as ()
+%%
+select count(*) PRAGMA (where 1)
+%%
+select count(*) filter (where 1) PRAGMA
+%%
+select count(*) filter (where 1) PRAGMA w
+%%
+select count(*) filter (where 1) PRAGMA (w)
+%%
+select 1 from t window PRECEDING as ()
+%%
+select count(*) over PRECEDING from t window PRECEDING as ()
+%%
+select count(*) over (PRECEDING) from t window PRECEDING as ()
+%%
+select 1 from t window w as (PRECEDING partition by 1)
+%%
+select 1 from t as PRECEDING window w as ()
+%%
+select count(*) PRECEDING (where 1)
+%%
+select count(*) filter (where 1) PRECEDING
+%%
+select count(*) filter (where 1) PRECEDING w
+%%
+select count(*) filter (where 1) PRECEDING (w)
+%%
+select 1 from t window PRIMARY as ()
+%%
+select count(*) over PRIMARY from t window PRIMARY as ()
+%%
+select count(*) over (PRIMARY) from t window PRIMARY as ()
+%%
+select 1 from t window w as (PRIMARY partition by 1)
+%%
+select 1 from t as PRIMARY window w as ()
+%%
+select count(*) PRIMARY (where 1)
+%%
+select count(*) filter (where 1) PRIMARY
+%%
+select count(*) filter (where 1) PRIMARY w
+%%
+select count(*) filter (where 1) PRIMARY (w)
+%%
+select 1 from t window QUERY as ()
+%%
+select count(*) over QUERY from t window QUERY as ()
+%%
+select count(*) over (QUERY) from t window QUERY as ()
+%%
+select 1 from t window w as (QUERY partition by 1)
+%%
+select 1 from t as QUERY window w as ()
+%%
+select count(*) QUERY (where 1)
+%%
+select count(*) filter (where 1) QUERY
+%%
+select count(*) filter (where 1) QUERY w
+%%
+select count(*) filter (where 1) QUERY (w)
+%%
+select 1 from t window RAISE as ()
+%%
+select count(*) over RAISE from t window RAISE as ()
+%%
+select count(*) over (RAISE) from t window RAISE as ()
+%%
+select 1 from t window w as (RAISE partition by 1)
+%%
+select 1 from t as RAISE window w as ()
+%%
+select count(*) RAISE (where 1)
+%%
+select count(*) filter (where 1) RAISE
+%%
+select count(*) filter (where 1) RAISE w
+%%
+select count(*) filter (where 1) RAISE (w)
+%%
+select 1 from t window RANGE as ()
+%%
+select count(*) over RANGE from t window RANGE as ()
+%%
+select count(*) over (RANGE) from t window RANGE as ()
+%%
+select 1 from t window w as (RANGE partition by 1)
+%%
+select 1 from t as RANGE window w as ()
+%%
+select count(*) RANGE (where 1)
+%%
+select count(*) filter (where 1) RANGE
+%%
+select count(*) filter (where 1) RANGE w
+%%
+select count(*) filter (where 1) RANGE (w)
+%%
+select 1 from t window RECURSIVE as ()
+%%
+select count(*) over RECURSIVE from t window RECURSIVE as ()
+%%
+select count(*) over (RECURSIVE) from t window RECURSIVE as ()
+%%
+select 1 from t window w as (RECURSIVE partition by 1)
+%%
+select 1 from t as RECURSIVE window w as ()
+%%
+select count(*) RECURSIVE (where 1)
+%%
+select count(*) filter (where 1) RECURSIVE
+%%
+select count(*) filter (where 1) RECURSIVE w
+%%
+select count(*) filter (where 1) RECURSIVE (w)
+%%
+select 1 from t window REFERENCES as ()
+%%
+select count(*) over REFERENCES from t window REFERENCES as ()
+%%
+select count(*) over (REFERENCES) from t window REFERENCES as ()
+%%
+select 1 from t window w as (REFERENCES partition by 1)
+%%
+select 1 from t as REFERENCES window w as ()
+%%
+select count(*) REFERENCES (where 1)
+%%
+select count(*) filter (where 1) REFERENCES
+%%
+select count(*) filter (where 1) REFERENCES w
+%%
+select count(*) filter (where 1) REFERENCES (w)
+%%
+select 1 from t window REGEXP as ()
+%%
+select count(*) over REGEXP from t window REGEXP as ()
+%%
+select count(*) over (REGEXP) from t window REGEXP as ()
+%%
+select 1 from t window w as (REGEXP partition by 1)
+%%
+select 1 from t as REGEXP window w as ()
+%%
+select count(*) REGEXP (where 1)
+%%
+select count(*) filter (where 1) REGEXP
+%%
+select count(*) filter (where 1) REGEXP w
+%%
+select count(*) filter (where 1) REGEXP (w)
+%%
+select 1 from t window REINDEX as ()
+%%
+select count(*) over REINDEX from t window REINDEX as ()
+%%
+select count(*) over (REINDEX) from t window REINDEX as ()
+%%
+select 1 from t window w as (REINDEX partition by 1)
+%%
+select 1 from t as REINDEX window w as ()
+%%
+select count(*) REINDEX (where 1)
+%%
+select count(*) filter (where 1) REINDEX
+%%
+select count(*) filter (where 1) REINDEX w
+%%
+select count(*) filter (where 1) REINDEX (w)
+%%
+select 1 from t window RELEASE as ()
+%%
+select count(*) over RELEASE from t window RELEASE as ()
+%%
+select count(*) over (RELEASE) from t window RELEASE as ()
+%%
+select 1 from t window w as (RELEASE partition by 1)
+%%
+select 1 from t as RELEASE window w as ()
+%%
+select count(*) RELEASE (where 1)
+%%
+select count(*) filter (where 1) RELEASE
+%%
+select count(*) filter (where 1) RELEASE w
+%%
+select count(*) filter (where 1) RELEASE (w)
+%%
+select 1 from t window RENAME as ()
+%%
+select count(*) over RENAME from t window RENAME as ()
+%%
+select count(*) over (RENAME) from t window RENAME as ()
+%%
+select 1 from t window w as (RENAME partition by 1)
+%%
+select 1 from t as RENAME window w as ()
+%%
+select count(*) RENAME (where 1)
+%%
+select count(*) filter (where 1) RENAME
+%%
+select count(*) filter (where 1) RENAME w
+%%
+select count(*) filter (where 1) RENAME (w)
+%%
+select 1 from t window REPLACE as ()
+%%
+select count(*) over REPLACE from t window REPLACE as ()
+%%
+select count(*) over (REPLACE) from t window REPLACE as ()
+%%
+select 1 from t window w as (REPLACE partition by 1)
+%%
+select 1 from t as REPLACE window w as ()
+%%
+select count(*) REPLACE (where 1)
+%%
+select count(*) filter (where 1) REPLACE
+%%
+select count(*) filter (where 1) REPLACE w
+%%
+select count(*) filter (where 1) REPLACE (w)
+%%
+select 1 from t window RESTRICT as ()
+%%
+select count(*) over RESTRICT from t window RESTRICT as ()
+%%
+select count(*) over (RESTRICT) from t window RESTRICT as ()
+%%
+select 1 from t window w as (RESTRICT partition by 1)
+%%
+select 1 from t as RESTRICT window w as ()
+%%
+select count(*) RESTRICT (where 1)
+%%
+select count(*) filter (where 1) RESTRICT
+%%
+select count(*) filter (where 1) RESTRICT w
+%%
+select count(*) filter (where 1) RESTRICT (w)
+%%
+select 1 from t window RETURNING as ()
+%%
+select count(*) over RETURNING from t window RETURNING as ()
+%%
+select count(*) over (RETURNING) from t window RETURNING as ()
+%%
+select 1 from t window w as (RETURNING partition by 1)
+%%
+select 1 from t as RETURNING window w as ()
+%%
+select count(*) RETURNING (where 1)
+%%
+select count(*) filter (where 1) RETURNING
+%%
+select count(*) filter (where 1) RETURNING w
+%%
+select count(*) filter (where 1) RETURNING (w)
+%%
+select 1 from t window RIGHT as ()
+%%
+select count(*) over RIGHT from t window RIGHT as ()
+%%
+select count(*) over (RIGHT) from t window RIGHT as ()
+%%
+select 1 from t window w as (RIGHT partition by 1)
+%%
+select 1 from t as RIGHT window w as ()
+%%
+select count(*) RIGHT (where 1)
+%%
+select count(*) filter (where 1) RIGHT
+%%
+select count(*) filter (where 1) RIGHT w
+%%
+select count(*) filter (where 1) RIGHT (w)
+%%
+select 1 from t window ROLLBACK as ()
+%%
+select count(*) over ROLLBACK from t window ROLLBACK as ()
+%%
+select count(*) over (ROLLBACK) from t window ROLLBACK as ()
+%%
+select 1 from t window w as (ROLLBACK partition by 1)
+%%
+select 1 from t as ROLLBACK window w as ()
+%%
+select count(*) ROLLBACK (where 1)
+%%
+select count(*) filter (where 1) ROLLBACK
+%%
+select count(*) filter (where 1) ROLLBACK w
+%%
+select count(*) filter (where 1) ROLLBACK (w)
+%%
+select 1 from t window ROW as ()
+%%
+select count(*) over ROW from t window ROW as ()
+%%
+select count(*) over (ROW) from t window ROW as ()
+%%
+select 1 from t window w as (ROW partition by 1)
+%%
+select 1 from t as ROW window w as ()
+%%
+select count(*) ROW (where 1)
+%%
+select count(*) filter (where 1) ROW
+%%
+select count(*) filter (where 1) ROW w
+%%
+select count(*) filter (where 1) ROW (w)
+%%
+select 1 from t window ROWS as ()
+%%
+select count(*) over ROWS from t window ROWS as ()
+%%
+select count(*) over (ROWS) from t window ROWS as ()
+%%
+select 1 from t window w as (ROWS partition by 1)
+%%
+select 1 from t as ROWS window w as ()
+%%
+select count(*) ROWS (where 1)
+%%
+select count(*) filter (where 1) ROWS
+%%
+select count(*) filter (where 1) ROWS w
+%%
+select count(*) filter (where 1) ROWS (w)
+%%
+select 1 from t window SAVEPOINT as ()
+%%
+select count(*) over SAVEPOINT from t window SAVEPOINT as ()
+%%
+select count(*) over (SAVEPOINT) from t window SAVEPOINT as ()
+%%
+select 1 from t window w as (SAVEPOINT partition by 1)
+%%
+select 1 from t as SAVEPOINT window w as ()
+%%
+select count(*) SAVEPOINT (where 1)
+%%
+select count(*) filter (where 1) SAVEPOINT
+%%
+select count(*) filter (where 1) SAVEPOINT w
+%%
+select count(*) filter (where 1) SAVEPOINT (w)
+%%
+select 1 from t window SELECT as ()
+%%
+select count(*) over SELECT from t window SELECT as ()
+%%
+select count(*) over (SELECT) from t window SELECT as ()
+%%
+select 1 from t window w as (SELECT partition by 1)
+%%
+select 1 from t as SELECT window w as ()
+%%
+select count(*) SELECT (where 1)
+%%
+select count(*) filter (where 1) SELECT
+%%
+select count(*) filter (where 1) SELECT w
+%%
+select count(*) filter (where 1) SELECT (w)
+%%
+select 1 from t window SET as ()
+%%
+select count(*) over SET from t window SET as ()
+%%
+select count(*) over (SET) from t window SET as ()
+%%
+select 1 from t window w as (SET partition by 1)
+%%
+select 1 from t as SET window w as ()
+%%
+select count(*) SET (where 1)
+%%
+select count(*) filter (where 1) SET
+%%
+select count(*) filter (where 1) SET w
+%%
+select count(*) filter (where 1) SET (w)
+%%
+select 1 from t window TABLE as ()
+%%
+select count(*) over TABLE from t window TABLE as ()
+%%
+select count(*) over (TABLE) from t window TABLE as ()
+%%
+select 1 from t window w as (TABLE partition by 1)
+%%
+select 1 from t as TABLE window w as ()
+%%
+select count(*) TABLE (where 1)
+%%
+select count(*) filter (where 1) TABLE
+%%
+select count(*) filter (where 1) TABLE w
+%%
+select count(*) filter (where 1) TABLE (w)
+%%
+select 1 from t window TEMP as ()
+%%
+select count(*) over TEMP from t window TEMP as ()
+%%
+select count(*) over (TEMP) from t window TEMP as ()
+%%
+select 1 from t window w as (TEMP partition by 1)
+%%
+select 1 from t as TEMP window w as ()
+%%
+select count(*) TEMP (where 1)
+%%
+select count(*) filter (where 1) TEMP
+%%
+select count(*) filter (where 1) TEMP w
+%%
+select count(*) filter (where 1) TEMP (w)
+%%
+select 1 from t window TEMPORARY as ()
+%%
+select count(*) over TEMPORARY from t window TEMPORARY as ()
+%%
+select count(*) over (TEMPORARY) from t window TEMPORARY as ()
+%%
+select 1 from t window w as (TEMPORARY partition by 1)
+%%
+select 1 from t as TEMPORARY window w as ()
+%%
+select count(*) TEMPORARY (where 1)
+%%
+select count(*) filter (where 1) TEMPORARY
+%%
+select count(*) filter (where 1) TEMPORARY w
+%%
+select count(*) filter (where 1) TEMPORARY (w)
+%%
+select 1 from t window THEN as ()
+%%
+select count(*) over THEN from t window THEN as ()
+%%
+select count(*) over (THEN) from t window THEN as ()
+%%
+select 1 from t window w as (THEN partition by 1)
+%%
+select 1 from t as THEN window w as ()
+%%
+select count(*) THEN (where 1)
+%%
+select count(*) filter (where 1) THEN
+%%
+select count(*) filter (where 1) THEN w
+%%
+select count(*) filter (where 1) THEN (w)
+%%
+select 1 from t window TIES as ()
+%%
+select count(*) over TIES from t window TIES as ()
+%%
+select count(*) over (TIES) from t window TIES as ()
+%%
+select 1 from t window w as (TIES partition by 1)
+%%
+select 1 from t as TIES window w as ()
+%%
+select count(*) TIES (where 1)
+%%
+select count(*) filter (where 1) TIES
+%%
+select count(*) filter (where 1) TIES w
+%%
+select count(*) filter (where 1) TIES (w)
+%%
+select 1 from t window TO as ()
+%%
+select count(*) over TO from t window TO as ()
+%%
+select count(*) over (TO) from t window TO as ()
+%%
+select 1 from t window w as (TO partition by 1)
+%%
+select 1 from t as TO window w as ()
+%%
+select count(*) TO (where 1)
+%%
+select count(*) filter (where 1) TO
+%%
+select count(*) filter (where 1) TO w
+%%
+select count(*) filter (where 1) TO (w)
+%%
+select 1 from t window TRANSACTION as ()
+%%
+select count(*) over TRANSACTION from t window TRANSACTION as ()
+%%
+select count(*) over (TRANSACTION) from t window TRANSACTION as ()
+%%
+select 1 from t window w as (TRANSACTION partition by 1)
+%%
+select 1 from t as TRANSACTION window w as ()
+%%
+select count(*) TRANSACTION (where 1)
+%%
+select count(*) filter (where 1) TRANSACTION
+%%
+select count(*) filter (where 1) TRANSACTION w
+%%
+select count(*) filter (where 1) TRANSACTION (w)
+%%
+select 1 from t window TRIGGER as ()
+%%
+select count(*) over TRIGGER from t window TRIGGER as ()
+%%
+select count(*) over (TRIGGER) from t window TRIGGER as ()
+%%
+select 1 from t window w as (TRIGGER partition by 1)
+%%
+select 1 from t as TRIGGER window w as ()
+%%
+select count(*) TRIGGER (where 1)
+%%
+select count(*) filter (where 1) TRIGGER
+%%
+select count(*) filter (where 1) TRIGGER w
+%%
+select count(*) filter (where 1) TRIGGER (w)
+%%
+select 1 from t window UNBOUNDED as ()
+%%
+select count(*) over UNBOUNDED from t window UNBOUNDED as ()
+%%
+select count(*) over (UNBOUNDED) from t window UNBOUNDED as ()
+%%
+select 1 from t window w as (UNBOUNDED partition by 1)
+%%
+select 1 from t as UNBOUNDED window w as ()
+%%
+select count(*) UNBOUNDED (where 1)
+%%
+select count(*) filter (where 1) UNBOUNDED
+%%
+select count(*) filter (where 1) UNBOUNDED w
+%%
+select count(*) filter (where 1) UNBOUNDED (w)
+%%
+select 1 from t window UNION as ()
+%%
+select count(*) over UNION from t window UNION as ()
+%%
+select count(*) over (UNION) from t window UNION as ()
+%%
+select 1 from t window w as (UNION partition by 1)
+%%
+select 1 from t as UNION window w as ()
+%%
+select count(*) UNION (where 1)
+%%
+select count(*) filter (where 1) UNION
+%%
+select count(*) filter (where 1) UNION w
+%%
+select count(*) filter (where 1) UNION (w)
+%%
+select 1 from t window UNIQUE as ()
+%%
+select count(*) over UNIQUE from t window UNIQUE as ()
+%%
+select count(*) over (UNIQUE) from t window UNIQUE as ()
+%%
+select 1 from t window w as (UNIQUE partition by 1)
+%%
+select 1 from t as UNIQUE window w as ()
+%%
+select count(*) UNIQUE (where 1)
+%%
+select count(*) filter (where 1) UNIQUE
+%%
+select count(*) filter (where 1) UNIQUE w
+%%
+select count(*) filter (where 1) UNIQUE (w)
+%%
+select 1 from t window UPDATE as ()
+%%
+select count(*) over UPDATE from t window UPDATE as ()
+%%
+select count(*) over (UPDATE) from t window UPDATE as ()
+%%
+select 1 from t window w as (UPDATE partition by 1)
+%%
+select 1 from t as UPDATE window w as ()
+%%
+select count(*) UPDATE (where 1)
+%%
+select count(*) filter (where 1) UPDATE
+%%
+select count(*) filter (where 1) UPDATE w
+%%
+select count(*) filter (where 1) UPDATE (w)
+%%
+select 1 from t window USING as ()
+%%
+select count(*) over USING from t window USING as ()
+%%
+select count(*) over (USING) from t window USING as ()
+%%
+select 1 from t window w as (USING partition by 1)
+%%
+select 1 from t as USING window w as ()
+%%
+select count(*) USING (where 1)
+%%
+select count(*) filter (where 1) USING
+%%
+select count(*) filter (where 1) USING w
+%%
+select count(*) filter (where 1) USING (w)
+%%
+select 1 from t window VACUUM as ()
+%%
+select count(*) over VACUUM from t window VACUUM as ()
+%%
+select count(*) over (VACUUM) from t window VACUUM as ()
+%%
+select 1 from t window w as (VACUUM partition by 1)
+%%
+select 1 from t as VACUUM window w as ()
+%%
+select count(*) VACUUM (where 1)
+%%
+select count(*) filter (where 1) VACUUM
+%%
+select count(*) filter (where 1) VACUUM w
+%%
+select count(*) filter (where 1) VACUUM (w)
+%%
+select 1 from t window VALUES as ()
+%%
+select count(*) over VALUES from t window VALUES as ()
+%%
+select count(*) over (VALUES) from t window VALUES as ()
+%%
+select 1 from t window w as (VALUES partition by 1)
+%%
+select 1 from t as VALUES window w as ()
+%%
+select count(*) VALUES (where 1)
+%%
+select count(*) filter (where 1) VALUES
+%%
+select count(*) filter (where 1) VALUES w
+%%
+select count(*) filter (where 1) VALUES (w)
+%%
+select 1 from t window VIEW as ()
+%%
+select count(*) over VIEW from t window VIEW as ()
+%%
+select count(*) over (VIEW) from t window VIEW as ()
+%%
+select 1 from t window w as (VIEW partition by 1)
+%%
+select 1 from t as VIEW window w as ()
+%%
+select count(*) VIEW (where 1)
+%%
+select count(*) filter (where 1) VIEW
+%%
+select count(*) filter (where 1) VIEW w
+%%
+select count(*) filter (where 1) VIEW (w)
+%%
+select 1 from t window VIRTUAL as ()
+%%
+select count(*) over VIRTUAL from t window VIRTUAL as ()
+%%
+select count(*) over (VIRTUAL) from t window VIRTUAL as ()
+%%
+select 1 from t window w as (VIRTUAL partition by 1)
+%%
+select 1 from t as VIRTUAL window w as ()
+%%
+select count(*) VIRTUAL (where 1)
+%%
+select count(*) filter (where 1) VIRTUAL
+%%
+select count(*) filter (where 1) VIRTUAL w
+%%
+select count(*) filter (where 1) VIRTUAL (w)
+%%
+select 1 from t window WHEN as ()
+%%
+select count(*) over WHEN from t window WHEN as ()
+%%
+select count(*) over (WHEN) from t window WHEN as ()
+%%
+select 1 from t window w as (WHEN partition by 1)
+%%
+select 1 from t as WHEN window w as ()
+%%
+select count(*) WHEN (where 1)
+%%
+select count(*) filter (where 1) WHEN
+%%
+select count(*) filter (where 1) WHEN w
+%%
+select count(*) filter (where 1) WHEN (w)
+%%
+select 1 from t window WHERE as ()
+%%
+select count(*) over WHERE from t window WHERE as ()
+%%
+select count(*) over (WHERE) from t window WHERE as ()
+%%
+select 1 from t window w as (WHERE partition by 1)
+%%
+select 1 from t as WHERE window w as ()
+%%
+select count(*) WHERE (where 1)
+%%
+select count(*) filter (where 1) WHERE
+%%
+select count(*) filter (where 1) WHERE w
+%%
+select count(*) filter (where 1) WHERE (w)
+%%
+select 1 from t window WINDOW as ()
+%%
+select count(*) over WINDOW from t window WINDOW as ()
+%%
+select count(*) over (WINDOW) from t window WINDOW as ()
+%%
+select 1 from t window w as (WINDOW partition by 1)
+%%
+select 1 from t as WINDOW window w as ()
+%%
+select count(*) WINDOW (where 1)
+%%
+select count(*) filter (where 1) WINDOW
+%%
+select count(*) filter (where 1) WINDOW w
+%%
+select count(*) filter (where 1) WINDOW (w)
+%%
+select 1 from t window WITH as ()
+%%
+select count(*) over WITH from t window WITH as ()
+%%
+select count(*) over (WITH) from t window WITH as ()
+%%
+select 1 from t window w as (WITH partition by 1)
+%%
+select 1 from t as WITH window w as ()
+%%
+select count(*) WITH (where 1)
+%%
+select count(*) filter (where 1) WITH
+%%
+select count(*) filter (where 1) WITH w
+%%
+select count(*) filter (where 1) WITH (w)
+%%
+select 1 from t window WITHOUT as ()
+%%
+select count(*) over WITHOUT from t window WITHOUT as ()
+%%
+select count(*) over (WITHOUT) from t window WITHOUT as ()
+%%
+select 1 from t window w as (WITHOUT partition by 1)
+%%
+select 1 from t as WITHOUT window w as ()
+%%
+select count(*) WITHOUT (where 1)
+%%
+select count(*) filter (where 1) WITHOUT
+%%
+select count(*) filter (where 1) WITHOUT w
+%%
+select count(*) filter (where 1) WITHOUT (w)

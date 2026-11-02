@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>RecursiveAI.OneLite.Differential</RootNamespace>
+    <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
+    <!-- Performance advice about allocation in a generator that builds small option arrays and runs on one thread per case; it is not on any hot path. -->
+    <NoWarn>$(NoWarn);CA1861;CA1859;CA1869</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The shell runner, the outcome comparison and the result types are shared with the query comparison tool. -->
+    <Compile Include="../OneLite.QueryDiff/Runners.cs" Link="Shared/Runners.cs" />
+    <Compile Include="../OneLite.QueryDiff/GlobalUsings.cs" Link="Shared/GlobalUsings.cs" />
+    <Compile Include="../OneLite.QueryDiff/Qd.cs" Link="Shared/Qd.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="OneLite.Differential.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/OneLite/OneLite.csproj" />
+    <ProjectReference Include="../OneLite.Oracle/OneLite.Oracle.csproj" />
+  </ItemGroup>
+
+</Project>

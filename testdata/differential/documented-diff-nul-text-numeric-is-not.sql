@@ -1,0 +1,13 @@
+-- OneLite differential repro
+-- status: pass
+-- class: bug:nul-text-numeric
+-- engine: ours
+-- families: cast,expr,window
+-- utf16: false
+-- oracle: diff
+-- ordered: false
+-- query: SELECT (CAST(-9223372036854775808 AS INTEGER) IS NOT (-9223372036854775809 || x'00'))
+-- detail: row 0: ours (1); sqlite3 (0)
+-- setup
+-- run
+SELECT (CAST(-9223372036854775808 AS INTEGER) IS NOT (-9223372036854775809 || x'00'));

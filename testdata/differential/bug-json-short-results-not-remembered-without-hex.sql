@@ -1,0 +1,13 @@
+-- OneLite differential repro
+-- status: pass
+-- class: bug:short-results-not-remembered-without-hex
+-- engine: ours
+-- families: json
+-- utf16: false
+-- oracle: diff
+-- ordered: false
+-- query: /*json*/ SELECT hex(jsonb(json_set('{'||char(160)||'"a":[]}', '$."a b"', NULL))), hex(jsonb(json_insert('{"x":"a very long string that goes past eleven bytes","e":2.5E2,"a b":"q\\"uote"}', '$.b', 'tab'||char(9)||'here')))
+-- detail: a result is remembered from 100 bytes (97 with a raw tab) or when it holds a hexadecimal integer
+-- setup
+-- run
+/*json*/ SELECT hex(jsonb(json_set('{'||char(160)||'"a":[]}', '$."a b"', NULL))), hex(jsonb(json_insert('{"x":"a very long string that goes past eleven bytes","e":2.5E2,"a b":"q\\"uote"}', '$.b', 'tab'||char(9)||'here')));

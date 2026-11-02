@@ -1,0 +1,325 @@
+select :a(1)
+%%
+select @a::b
+%%
+select $a(1 2)
+%%
+select $a(1
+%%
+select ?1a
+%%
+select ?a
+%%
+select ??
+%%
+select $::a
+%%
+select $1
+%%
+select :1
+%%
+select :a::
+%%
+select $a::b::c
+%%
+select $a(1)(2)
+%%
+delete from t limit 1
+%%
+delete from t order by a
+%%
+update t set a=1 limit 1
+%%
+update t set a=1 order by a
+%%
+delete from t returning *
+%%
+delete from t where 1 returning a, b as c
+%%
+update t set a=1 returning *
+%%
+update t set a=1 from u where 1
+%%
+update or replace t set a=1
+%%
+update or foo t set a=1
+%%
+update t set (a,b)=(1,2)
+%%
+update t set a=1, (b,c)=(1,2)
+%%
+update main.t as x set a=1
+%%
+update t indexed by i set a=1
+%%
+update t not indexed set a=1
+%%
+update t set
+%%
+update t set a
+%%
+update t set a=
+%%
+update t set a.b=1
+%%
+update t set 'a'=1
+%%
+update t set "a"=1
+%%
+delete from main.t as x where 1
+%%
+delete from t indexed by i
+%%
+delete t
+%%
+delete from t, u
+%%
+insert into t values (1)
+%%
+insert or replace into t values (1)
+%%
+insert or foo into t values (1)
+%%
+replace into t values (1)
+%%
+replace or ignore into t values (1)
+%%
+insert into t(a,b) values (1,2),(3,4)
+%%
+insert into t() values()
+%%
+insert into t(a) select 1
+%%
+insert into t select 1 union select 2
+%%
+insert into t default values
+%%
+insert into t default values returning *
+%%
+insert into t values (1) returning *
+%%
+insert into t(a) default values
+%%
+insert into main.t as x values (1)
+%%
+insert into t as x(a) values (1)
+%%
+insert into t select * from u on conflict do nothing
+%%
+insert into t select * from u where true on conflict do nothing
+%%
+insert into t values(1) on conflict do nothing
+%%
+insert into t values(1) on conflict(a) do nothing
+%%
+insert into t values(1) on conflict(a) where 1 do update set a=2 where 3
+%%
+insert into t values(1) on conflict(a) do nothing on conflict(b) do update set a=1
+%%
+insert into t values(1) on conflict do nothing on conflict(b) do nothing
+%%
+insert into t values(1) on conflict do update set a=1 returning *
+%%
+insert into t values(1) on conflict(a) do update set a=1 returning *
+%%
+insert into t values(1) on conflict(a) do nothing returning *
+%%
+insert into t values(1) on conflict do update set a=excluded.a
+%%
+insert into t values(1) on conflict (a collate nocase desc, b+1) do nothing
+%%
+insert into t values(1) on conflict
+%%
+insert into t values(1) on conflict do
+%%
+insert into t values(1) on
+%%
+with x as (select 1) insert into t select * from x
+%%
+with recursive x(a) as (select 1 union all select a+1 from x) select * from x
+%%
+with x as materialized (select 1) select 1
+%%
+with x as not materialized (select 1) select 1
+%%
+with x as not (select 1) select 1
+%%
+with x select 1
+%%
+with select 1
+%%
+with x as (select 1), y as (select 2) select 1
+%%
+with x(a,b) as (select 1,2) select 1
+%%
+with x as (values (1)) update t set a=1
+%%
+with x as (select 1) delete from t
+%%
+with x as (select 1) create table t(a)
+%%
+create table t(a)
+%%
+create temp table t(a)
+%%
+create temporary table if not exists main.t(a)
+%%
+create temp table temp.t(a)
+%%
+create table t(a) without rowid
+%%
+create table t(a) strict
+%%
+create table t(a) strict, without rowid
+%%
+create table t(a) without rowid, strict, foo
+%%
+create table t(a) foo
+%%
+create table t(a) without foo
+%%
+create table t(a) strict strict
+%%
+create table t as select 1
+%%
+create table t(a) as select 1
+%%
+create table t as select 1 without rowid
+%%
+create table t(a int primary key autoincrement)
+%%
+create table t(a int primary key desc autoincrement)
+%%
+create table t(a int primary key asc on conflict replace autoincrement)
+%%
+create table t(a int constraint c primary key)
+%%
+create table t(a int constraint)
+%%
+create table t(a int not null on conflict abort unique on conflict ignore check (a>1) default 5 collate nocase)
+%%
+create table t(a default -1)
+%%
+create table t(a default +1.5)
+%%
+create table t(a default 'x')
+%%
+create table t(a default x'ab')
+%%
+create table t(a default null)
+%%
+create table t(a default current_timestamp)
+%%
+create table t(a default (1+1))
+%%
+create table t(a default 1+1)
+%%
+create table t(a default abc)
+%%
+create table t(a default "abc")
+%%
+create table t(a default true)
+%%
+create table t(a default key)
+%%
+create table t(a default cross)
+%%
+create table t(a default - 'x')
+%%
+create table t(a default -x)
+%%
+create table t(a default +null)
+%%
+create table t(a default)
+%%
+create table t(a references u)
+%%
+create table t(a references u(b))
+%%
+create table t(a references u(b,c) on delete cascade on update set null match full deferrable initially deferred)
+%%
+create table t(a references u on delete no action not deferrable initially immediate)
+%%
+create table t(a references u on delete set default)
+%%
+create table t(a references u on delete restrict)
+%%
+create table t(a references u on delete foo)
+%%
+create table t(a references main.u)
+%%
+create table t(a references)
+%%
+create table t(a generated always as (1))
+%%
+create table t(a as (1))
+%%
+create table t(a as (1) stored)
+%%
+create table t(a as (1) virtual)
+%%
+create table t(a as (1) foo)
+%%
+create table t(a generated as (1))
+%%
+create table t(a generated always (1))
+%%
+create table t(a int generated always as (1) not null)
+%%
+create table t(a int generated)
+%%
+create table t(a unique primary key)
+%%
+create table t(a, primary key(a))
+%%
+create table t(a, primary key(a autoincrement))
+%%
+create table t(a, primary key(a desc, b collate nocase) on conflict fail)
+%%
+create table t(a, unique(a,b))
+%%
+create table t(a, unique(a) on conflict replace)
+%%
+create table t(a, check(a>1))
+%%
+create table t(a, check(a>1) on conflict abort)
+%%
+create table t(a, constraint c check(a>1), constraint d unique(a))
+%%
+create table t(a, unique(a) check(a>1))
+%%
+create table t(a, unique(a), check(a>1))
+%%
+create table t(a, foreign key(a) references u(b))
+%%
+create table t(a, foreign key(a) references u(b) on delete cascade deferrable)
+%%
+create table t(a, foreign key references u)
+%%
+create table t(a, foreign key(a))
+%%
+create table t(a, b), c)
+%%
+create table t(a int(10), b varchar(10), c decimal(10,2), d unsigned big int, e 'x y', f "x y", g [x y])
+%%
+create table t(a int(10,20,30))
+%%
+create table t(a int())
+%%
+create table t(a int(-))
+%%
+create table t(a, b, a)
+%%
+create table t(primary)
+%%
+create table t(key)
+%%
+create table t(a key)
+%%
+create table t(a text key)
+%%
+create table t(a, key)
+%%
+create table t(a, b, constraint)
+%%
+create table t(a, constraint c)

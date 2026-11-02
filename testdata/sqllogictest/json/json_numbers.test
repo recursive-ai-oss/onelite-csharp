@@ -1,0 +1,388 @@
+# JSON functions, group 'numbers'. Expected results are the output of sqlite 3.53.4 (the pinned shell).
+
+query T nosort
+select replace(json('[9223372036854775807]'), char(10), '~')
+----
+[9223372036854775807]
+
+query I nosort
+select json_extract('[9223372036854775807]', '$[0]')
+----
+9223372036854775807
+
+query T nosort
+select replace(json_type('[9223372036854775807]', '$[0]'), char(10), '~')
+----
+integer
+
+query IT nosort
+select '[9223372036854775807]' ->> 0, '[9223372036854775807]' -> 0
+----
+9223372036854775807
+9223372036854775807
+
+query T nosort
+select replace(json_array(9223372036854775807), char(10), '~')
+----
+[9223372036854775807]
+
+query T nosort
+select replace(hex(jsonb('[9223372036854775807]')), char(10), '~')
+----
+CB15C31339323233333732303336383534373735383037
+
+query T nosort
+select replace(json('[9223372036854775808]'), char(10), '~')
+----
+[9223372036854775808]
+
+query T nosort
+select cast(json_extract('[9223372036854775808]', '$[0]') as text)
+----
+9.2233720368547758e+18
+
+query T nosort
+select replace(json_type('[9223372036854775808]', '$[0]'), char(10), '~')
+----
+integer
+
+query T nosort
+select replace(json_array(9223372036854775808), char(10), '~')
+----
+[9.2233720368547758e+18]
+
+query T nosort
+select replace(hex(jsonb('[9223372036854775808]')), char(10), '~')
+----
+CB15C31339323233333732303336383534373735383038
+
+query T nosort
+select replace(json('[-9223372036854775808]'), char(10), '~')
+----
+[-9223372036854775808]
+
+query I nosort
+select json_extract('[-9223372036854775808]', '$[0]')
+----
+-9223372036854775808
+
+query T nosort
+select replace(json_type('[-9223372036854775808]', '$[0]'), char(10), '~')
+----
+integer
+
+query IT nosort
+select '[-9223372036854775808]' ->> 0, '[-9223372036854775808]' -> 0
+----
+-9223372036854775808
+-9223372036854775808
+
+query T nosort
+select replace(json_array(-9223372036854775808), char(10), '~')
+----
+[-9223372036854775808]
+
+query T nosort
+select replace(hex(jsonb('[-9223372036854775808]')), char(10), '~')
+----
+CB16C3142D39323233333732303336383534373735383038
+
+query T nosort
+select replace(json('[-9223372036854775809]'), char(10), '~')
+----
+[-9223372036854775809]
+
+query T nosort
+select cast(json_extract('[-9223372036854775809]', '$[0]') as text)
+----
+-9.2233720368547758e+18
+
+query T nosort
+select replace(json_type('[-9223372036854775809]', '$[0]'), char(10), '~')
+----
+integer
+
+query T nosort
+select replace(json_array(-9223372036854775809), char(10), '~')
+----
+[-9.2233720368547758e+18]
+
+query T nosort
+select replace(hex(jsonb('[-9223372036854775809]')), char(10), '~')
+----
+CB16C3142D39323233333732303336383534373735383039
+
+query T nosort
+select replace(json('[1e308]'), char(10), '~')
+----
+[1e308]
+
+query T nosort
+select cast(json_extract('[1e308]', '$[0]') as text)
+----
+1.0e+308
+
+query T nosort
+select replace(json_type('[1e308]', '$[0]'), char(10), '~')
+----
+real
+
+query T nosort
+select replace(json_array(1e308), char(10), '~')
+----
+[1.0e+308]
+
+query T nosort
+select replace(hex(jsonb('[1e308]')), char(10), '~')
+----
+6B553165333038
+
+query T nosort
+select replace(json('[1e309]'), char(10), '~')
+----
+[1e309]
+
+query T nosort
+select cast(json_extract('[1e309]', '$[0]') as text)
+----
+Inf
+
+query T nosort
+select replace(json_type('[1e309]', '$[0]'), char(10), '~')
+----
+real
+
+query T nosort
+select replace(json_array(1e309), char(10), '~')
+----
+[9.0e+999]
+
+query T nosort
+select replace(hex(jsonb('[1e309]')), char(10), '~')
+----
+6B553165333039
+
+query T nosort
+select replace(json('[-1e309]'), char(10), '~')
+----
+[-1e309]
+
+query T nosort
+select cast(json_extract('[-1e309]', '$[0]') as text)
+----
+-Inf
+
+query T nosort
+select replace(json_type('[-1e309]', '$[0]'), char(10), '~')
+----
+real
+
+query T nosort
+select replace(json_array(-1e309), char(10), '~')
+----
+[-9.0e+999]
+
+query T nosort
+select replace(hex(jsonb('[-1e309]')), char(10), '~')
+----
+7B652D3165333039
+
+query T nosort
+select replace(json('[5e-324]'), char(10), '~')
+----
+[5e-324]
+
+query T nosort
+select cast(json_extract('[5e-324]', '$[0]') as text)
+----
+4.9406564584124654e-324
+
+query T nosort
+select replace(json_type('[5e-324]', '$[0]'), char(10), '~')
+----
+real
+
+query T nosort
+select replace(json_array(5e-324), char(10), '~')
+----
+[4.9406564584124654e-324]
+
+query T nosort
+select replace(hex(jsonb('[5e-324]')), char(10), '~')
+----
+7B6535652D333234
+
+query T nosort
+select replace(json('[1.0]'), char(10), '~')
+----
+[1.0]
+
+query T nosort
+select cast(json_extract('[1.0]', '$[0]') as text)
+----
+1.0
+
+query T nosort
+select replace(json_type('[1.0]', '$[0]'), char(10), '~')
+----
+real
+
+query T nosort
+select replace(json_array(1.0), char(10), '~')
+----
+[1.0]
+
+query T nosort
+select replace(hex(jsonb('[1.0]')), char(10), '~')
+----
+4B35312E30
+
+query T nosort
+select replace(json('[100.0]'), char(10), '~')
+----
+[100.0]
+
+query T nosort
+select cast(json_extract('[100.0]', '$[0]') as text)
+----
+100.0
+
+query T nosort
+select replace(json_type('[100.0]', '$[0]'), char(10), '~')
+----
+real
+
+query T nosort
+select replace(json_array(100.0), char(10), '~')
+----
+[100.0]
+
+query T nosort
+select replace(hex(jsonb('[100.0]')), char(10), '~')
+----
+6B553130302E30
+
+query T nosort
+select replace(json('[0.30000000000000004]'), char(10), '~')
+----
+[0.30000000000000004]
+
+query T nosort
+select cast(json_extract('[0.30000000000000004]', '$[0]') as text)
+----
+0.30000000000000004
+
+query T nosort
+select replace(json_type('[0.30000000000000004]', '$[0]'), char(10), '~')
+----
+real
+
+query T nosort
+select replace(json_array(0.30000000000000004), char(10), '~')
+----
+[0.30000000000000004]
+
+query T nosort
+select replace(hex(jsonb('[0.30000000000000004]')), char(10), '~')
+----
+CB15C513302E3330303030303030303030303030303034
+
+query T nosort
+select replace(json('[1E5]'), char(10), '~')
+----
+[1E5]
+
+query T nosort
+select cast(json_extract('[1E5]', '$[0]') as text)
+----
+100000.0
+
+query T nosort
+select replace(json_type('[1E5]', '$[0]'), char(10), '~')
+----
+real
+
+query T nosort
+select replace(json_array(1E5), char(10), '~')
+----
+[100000.0]
+
+query T nosort
+select replace(hex(jsonb('[1E5]')), char(10), '~')
+----
+4B35314535
+
+query T nosort
+select replace(json('[1.5e+2]'), char(10), '~')
+----
+[1.5e+2]
+
+query T nosort
+select cast(json_extract('[1.5e+2]', '$[0]') as text)
+----
+150.0
+
+query T nosort
+select replace(json_type('[1.5e+2]', '$[0]'), char(10), '~')
+----
+real
+
+query T nosort
+select replace(json_array(1.5e+2), char(10), '~')
+----
+[150.0]
+
+query T nosort
+select replace(hex(jsonb('[1.5e+2]')), char(10), '~')
+----
+7B65312E35652B32
+
+query T nosort
+select replace(json('[0.1e1]'), char(10), '~')
+----
+[0.1e1]
+
+query T nosort
+select cast(json_extract('[0.1e1]', '$[0]') as text)
+----
+1.0
+
+query T nosort
+select replace(json_type('[0.1e1]', '$[0]'), char(10), '~')
+----
+real
+
+query T nosort
+select replace(json_array(0.1e1), char(10), '~')
+----
+[1.0]
+
+query T nosort
+select replace(hex(jsonb('[0.1e1]')), char(10), '~')
+----
+6B55302E316531
+
+query T nosort
+select replace(json('[123456789012345678901234567890]'), char(10), '~')
+----
+[123456789012345678901234567890]
+
+query T nosort
+select cast(json_extract('[123456789012345678901234567890]', '$[0]') as text)
+----
+1.2345678901234568e+29
+
+query T nosort
+select replace(json_type('[123456789012345678901234567890]', '$[0]'), char(10), '~')
+----
+integer
+
+query T nosort
+select replace(json_array(123456789012345678901234567890), char(10), '~')
+----
+[1.2345678901234568e+29]
+
+query T nosort
+select replace(hex(jsonb('[123456789012345678901234567890]')), char(10), '~')
+----
+CB20C31E313233343536373839303132333435363738393031323334353637383930

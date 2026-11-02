@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>RecursiveAI.OneLite.SqlLogicTest</RootNamespace>
+    <!-- The sqlite engine plugs in through the oracle wrapper's P/Invoke; one call (sqlite3_db_config) is declared here as well. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The OneLite engine (a stub until the SQL engine exists) and the pinned native SQLite through the oracle wrapper. -->
+    <ProjectReference Include="../../src/OneLite/OneLite.csproj" />
+    <ProjectReference Include="../OneLite.Oracle/OneLite.Oracle.csproj" />
+  </ItemGroup>
+
+</Project>

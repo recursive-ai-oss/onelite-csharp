@@ -1,0 +1,13 @@
+-- OneLite differential repro
+-- status: pass
+-- class: bug:error-position-number-where-colon-belongs
+-- engine: ours
+-- families: json
+-- utf16: false
+-- oracle: diff
+-- ordered: false
+-- query: /*json*/ SELECT json_error_position('{"a b"01:1}')
+-- detail: a damaged number after a key is the reported position
+-- setup
+-- run
+/*json*/ SELECT json_error_position('{"a b"01:1}');

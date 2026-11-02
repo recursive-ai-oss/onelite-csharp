@@ -1,0 +1,12 @@
+-- OneLite differential repro
+-- status: pass
+-- class: none
+-- engine: ours
+-- families: expr
+-- utf16: false
+-- oracle: diff
+-- ordered: false
+-- query: SELECT '' IS (abs(1) IN ()), '' IS (1 IN ()), '' IS (1 NOT IN ()), '' IS ((NULL NOT LIKE '') IN ())
+-- detail: 
+-- run
+SELECT '' IS (abs(1) IN ()), '' IS (1 IN ()), '' IS (1 NOT IN ()), '' IS ((NULL NOT LIKE '') IN ());

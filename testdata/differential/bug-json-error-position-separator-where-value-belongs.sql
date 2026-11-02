@@ -1,0 +1,13 @@
+-- OneLite differential repro
+-- status: pass
+-- class: bug:error-position-separator-where-value-belongs
+-- engine: ours
+-- families: json
+-- utf16: false
+-- oracle: diff
+-- ordered: false
+-- query: /*json*/ SELECT json_error_position('{"a": :}'), json_error_position('[1, :]'), json_error_position(char(13)||char(10)||']'), json_error_position(char(10)||'{ ')
+-- detail: a separator in a value position is reported at the start of the white space before it, except at the start of the document
+-- setup
+-- run
+/*json*/ SELECT json_error_position('{"a": :}'), json_error_position('[1, :]'), json_error_position(char(13)||char(10)||']'), json_error_position(char(10)||'{ ');

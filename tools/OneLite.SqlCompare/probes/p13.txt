@@ -1,0 +1,15 @@
+CREATE TABLE a_n443546( name4 a b c ( 37 , 7) NOT NULL, id datetime UNIQUE, x1 float(67 ) PRIMARY KEY AUTOINCREMENT, b int GENERATED ALWAYS AS (TRUE OR 701 BETWEEN t9 + CURRENT_DATE AND 'drop' IN (SELECT Tbl, right.v .last AS col2 WHERE 727 ) IS a COLLATE Tbl = EXISTS (SELECT * FROM Tbl4 `b` LEFT OUTER JOIN (name(E'x', c4)) AS col2 ON a.u)) STORED REFERENCES c NOT NULL, CONSTRAINT "c""q" UNIQUE (x1.full), FOREIGN KEY (after , u6) REFERENCES _z1(id) ON UPDATE SET NULL )
+%%
+CREATE TABLE a( x1 float(67 ) PRIMARY KEY AUTOINCREMENT, b int GENERATED ALWAYS AS (1) STORED)
+%%
+CREATE TABLE a( x1 float PRIMARY KEY AUTOINCREMENT, b int as (1))
+%%
+CREATE TABLE a( x1 float PRIMARY KEY AUTOINCREMENT, b int)
+%%
+CREATE TABLE a( x1 PRIMARY KEY AUTOINCREMENT, b int, c)
+%%
+CREATE TABLE a( name4 a b c ( 37 , 7) NOT NULL, id datetime UNIQUE, b int as (1))
+%%
+CREATE TABLE a( name4 a b c ( 37 , 7) NOT NULL, b int as (1))
+%%
+CREATE TABLE a( n a b, b int as (1))

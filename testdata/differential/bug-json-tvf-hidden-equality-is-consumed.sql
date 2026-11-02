@@ -1,0 +1,13 @@
+-- OneLite differential repro
+-- status: pass
+-- class: bug:tvf-hidden-equality-is-consumed
+-- engine: ours
+-- families: json
+-- utf16: false
+-- oracle: diff
+-- ordered: false
+-- query: /*json*/ SELECT id FROM json_tree WHERE json = 1.5
+-- detail: a term on a hidden column is an argument and is not tested again
+-- setup
+-- run
+/*json*/ SELECT id FROM json_tree WHERE json = 1.5;

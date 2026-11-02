@@ -1,0 +1,13 @@
+-- OneLite differential repro
+-- status: pass
+-- class: bug:json-each-hidden-json-column-text
+-- engine: ours
+-- families: json
+-- utf16: false
+-- oracle: diff
+-- ordered: false
+-- query: /*json*/ SELECT typeof(json), json FROM jsonb_each(1.5)
+-- detail: the hidden json column reads as text for a number argument
+-- setup
+-- run
+/*json*/ SELECT typeof(json), json FROM jsonb_each(1.5);

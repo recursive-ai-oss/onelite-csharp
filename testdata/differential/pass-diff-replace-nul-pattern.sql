@@ -1,0 +1,12 @@
+-- OneLite differential repro
+-- status: pass
+-- class: none
+-- engine: ours
+-- families: expr
+-- utf16: false
+-- oracle: diff
+-- ordered: false
+-- query: SELECT replace(0, x'00', NULL), replace('abc', '', NULL), replace('abc', 'b', NULL)
+-- detail: 
+-- run
+SELECT replace(0, x'00', NULL), replace('abc', '', NULL), replace('abc', 'b', NULL);

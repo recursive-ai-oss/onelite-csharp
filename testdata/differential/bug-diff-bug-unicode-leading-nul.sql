@@ -1,0 +1,13 @@
+-- OneLite differential repro
+-- status: pass
+-- class: bug:unicode-leading-nul
+-- engine: ours
+-- families: expr,string
+-- utf16: false
+-- oracle: diff
+-- ordered: false
+-- query: SELECT unicode(x'0041')
+-- detail: row 0: ours (0); sqlite3 (NULL)
+-- setup
+-- run
+SELECT unicode(x'0041');

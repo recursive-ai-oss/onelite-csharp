@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk.WebAssembly">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>RecursiveAI.OneLite.BrowserTests</RootNamespace>
+    <RuntimeIdentifier>browser-wasm</RuntimeIdentifier>
+    <!-- The JSExport stubs the runtime's source generator writes use pointers; none of the hand-written code does. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <WasmDebugLevel>0</WasmDebugLevel>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/OneLite/OneLite.csproj" />
+  </ItemGroup>
+
+</Project>

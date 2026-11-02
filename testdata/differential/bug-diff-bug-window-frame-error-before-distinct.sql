@@ -1,0 +1,13 @@
+-- OneLite differential repro
+-- status: pass
+-- class: bug:window-frame-error-before-distinct
+-- engine: ours
+-- families: expr,window
+-- utf16: false
+-- oracle: diff
+-- ordered: true
+-- query: SELECT id, count(DISTINCT c2) OVER (PARTITION BY c1, c0  ROWS 0.5 FOLLOWING), count(DISTINCT c2) OVER w1 FROM t0 WINDOW w1 AS (PARTITION BY id ) ORDER BY id
+-- detail: error differs: ours parse error (1): DISTINCT is not supported for window functions; sqlite3 parse error (1): unsupported frame specification
+-- setup
+-- run
+SELECT id, count(DISTINCT c2) OVER (PARTITION BY c1, c0  ROWS 0.5 FOLLOWING), count(DISTINCT c2) OVER w1 FROM t0 WINDOW w1 AS (PARTITION BY id ) ORDER BY id;

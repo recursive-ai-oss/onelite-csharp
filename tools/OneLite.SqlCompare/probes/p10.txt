@@ -1,0 +1,31 @@
+select if
+%%
+select 1 as if
+%%
+select a if
+%%
+create table if(a)
+%%
+create table x(if)
+%%
+create table x(a if)
+%%
+select if from if
+%%
+select * from t if
+%%
+select if(1)
+%%
+drop table if
+%%
+drop table if.x
+%%
+select t.if
+%%
+select a from t where if=1
+%%
+create index if on t(a)
+%%
+create index x on t(if)
+%%
+create table x(a, primary key(if))

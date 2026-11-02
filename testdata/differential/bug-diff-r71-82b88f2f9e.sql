@@ -1,0 +1,13 @@
+-- OneLite differential repro
+-- status: pass
+-- class: bug:r71-82b88f2f9e
+-- engine: ours
+-- families: cast,collation,expr,function,math,string,window
+-- utf16: false
+-- oracle: diff
+-- ordered: false
+-- query: SELECT atan2(-0.0, -23)
+-- detail: row 0: ours (3.141592653589793r); sqlite3 (-3.141592653589793r)
+-- setup
+-- run
+SELECT atan2(-0.0, -23);

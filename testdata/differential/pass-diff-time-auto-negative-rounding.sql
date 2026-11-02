@@ -1,0 +1,13 @@
+-- OneLite differential repro
+-- status: pass
+-- class: bug:time-auto-negative-rounding
+-- engine: ours
+-- families: datetime,expr
+-- utf16: false
+-- oracle: diff
+-- ordered: false
+-- query: SELECT time(0 - 1, 'auto')
+-- detail: ours and sqlite3 disagreed on the second before 1970 (rounded away from the reference)
+-- setup
+-- run
+SELECT time(0 - 1, 'auto');

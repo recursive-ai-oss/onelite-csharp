@@ -1,0 +1,13 @@
+-- OneLite differential repro
+-- status: pass
+-- class: bug:error-position-second-exponent
+-- engine: ours
+-- families: json
+-- utf16: false
+-- oracle: diff
+-- ordered: false
+-- query: /*json*/ SELECT json_error_position('1e1E-3'), json_error_position('1e1e1')
+-- detail: a second exponent letter is the error position
+-- setup
+-- run
+/*json*/ SELECT json_error_position('1e1E-3'), json_error_position('1e1e1');

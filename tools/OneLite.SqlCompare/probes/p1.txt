@@ -1,0 +1,241 @@
+select 1 from
+%%
+select 1 from;
+%%
+select 1 from -- c
+%%
+select 1 from /* c
+%%
+select 'abc
+%%
+select "abc
+%%
+select [abc
+%%
+select `abc
+%%
+select x'1
+%%
+select x'12'
+%%
+select x'1g'
+%%
+select 1e
+%%
+select 1e+
+%%
+select 12abc
+%%
+select 0x
+%%
+select 0xg
+%%
+select 0x1F
+%%
+select 1_000
+%%
+select 1__0
+%%
+select 1_
+%%
+select 0x1_f
+%%
+select 1.5_0
+%%
+select !
+%%
+select 1 ! 2
+%%
+select #
+%%
+select 1 ~ 2
+%%
+select ?
+%%
+select ?0
+%%
+select ?32766
+%%
+select ?32767
+%%
+select ?99999999999
+%%
+select :
+%%
+select @
+%%
+select $
+%%
+select $a::b
+%%
+select $a(1)
+%%
+select $a::
+%%
+select $a(
+%%
+select :a$b
+%%
+select $a:b
+%%
+select .5
+%%
+select 5.
+%%
+select 1..2
+%%
+select a.b.c.d
+%%
+select a.*
+%%
+select *.a
+%%
+select a.b.*
+%%
+select é from é
+%%
+select 1  
+%%
+select 1
+%%
+select 1 \
+%%
+select ^
+%%
+select 1 -> 2
+%%
+select 1 ->> 2
+%%
+select 1 --> 2
+%%
+select 1 ||| 2
+%%
+select 1 <> 2 != 3 == 4 = 5
+%%
+select 1 <=> 2
+%%
+select 1 => 2
+%%
+select 1;;
+%%
+;
+%%
+
+%%
+  
+%%
+-- c
+%%
+select 1; select
+%%
+select 1 select 2
+%%
+select 1 2
+%%
+select 1 from t t2 t3
+%%
+select
+%%
+select ,
+%%
+select 1,
+%%
+select 1 from t where
+%%
+select (
+%%
+select ()
+%%
+select (1
+%%
+select (1,2)
+%%
+select 1)
+%%
+foo
+%%
+foo bar
+%%
+create
+%%
+create table
+%%
+create table t
+%%
+create table t(
+%%
+create table t()
+%%
+create table t(a
+%%
+create table t(a,
+%%
+create table t(a,)
+%%
+insert
+%%
+insert into
+%%
+insert into t
+%%
+insert into t values
+%%
+insert into t values(
+%%
+insert into t values()
+%%
+insert into t default values
+%%
+update
+%%
+delete
+%%
+delete from
+%%
+drop
+%%
+drop table
+%%
+alter
+%%
+alter table t
+%%
+explain
+%%
+explain query
+%%
+explain query plan
+%%
+begin
+%%
+begin transaction
+%%
+begin concurrent
+%%
+commit
+%%
+end
+%%
+rollback to
+%%
+savepoint
+%%
+release
+%%
+release savepoint
+%%
+pragma
+%%
+vacuum
+%%
+vacuum into
+%%
+reindex
+%%
+analyze
+%%
+attach
+%%
+detach
+%%
+attach 'x' as

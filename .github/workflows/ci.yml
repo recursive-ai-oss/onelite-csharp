@@ -1,0 +1,72 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+  DOTNET_NOLOGO: '1'
+
+jobs:
+  linux-x64:
+    # The same script runs on a developer machine: build, test (Release and Checked), NativeAOT smoke, browser-wasm smoke build, pack.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Build output goes outside the checkout, as it does locally; the runner context is only available inside steps.
+      - name: Artifacts directory
+        run: echo "ONELITE_ARTIFACTS=$RUNNER_TEMP/artifacts" >> "$GITHUB_ENV"
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+      - name: Native AOT toolchain and browser-wasm workload
+        run: |
+          sudo apt-get update && sudo apt-get install -y --no-install-recommends clang zlib1g-dev
+          dotnet workload install wasm-tools
+      - name: Build, test, smoke, pack
+        run: build/ci.sh
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: packages
+          path: ${{ runner.temp }}/artifacts/packages/*
+          if-no-files-found: error
+
+  other-platforms:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-24.04-arm, rid: linux-arm64 }
+          - { os: macos-latest, rid: osx-arm64 }
+          - { os: windows-latest, rid: win-x64 }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Artifacts directory
+        shell: bash
+        run: echo "ONELITE_ARTIFACTS=$RUNNER_TEMP/artifacts" >> "$GITHUB_ENV"
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+      - name: Native AOT toolchain (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends clang zlib1g-dev
+      - name: Browser-wasm workload
+        run: dotnet workload install wasm-tools
+      - name: Build
+        run: dotnet build OneLite.slnx -c Release
+      - name: Test
+        run: dotnet test --solution OneLite.slnx -c Release --no-build
+      - name: Publish AOT smoke app (warnings are errors)
+        run: dotnet publish tests/OneLite.AotSmoke -c Release -r ${{ matrix.rid }} -o ${{ runner.temp }}/smoke -warnaserror
+      - name: Run AOT smoke app
+        shell: bash
+        run: '"$RUNNER_TEMP/smoke/OneLite.AotSmoke"'

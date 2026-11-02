@@ -1,0 +1,51 @@
+<Project>
+
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+  <PropertyGroup Label="Identity">
+    <AssemblyName>$(PackagePrefix)$(MSBuildProjectName)</AssemblyName>
+    <RootNamespace>$(PackagePrefix)$(MSBuildProjectName)</RootNamespace>
+    <PackageId>$(PackagePrefix)$(MSBuildProjectName)</PackageId>
+  </PropertyGroup>
+
+  <PropertyGroup Label="Shipped code">
+    <IsPackable>true</IsPackable>
+    <IsAotCompatible>true</IsAotCompatible>
+    <IsTrimmable>true</IsTrimmable>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <PropertyGroup Label="Reproducible packages">
+    <!-- Path mapping is for the packages only (projects under src/). Test projects keep real paths: some tests locate test data from
+         [CallerFilePath], which a mapped path would break on CI. -->
+    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+
+  <PropertyGroup Label="Package metadata">
+    <Authors>Recursive AI, LLC</Authors>
+    <Company>Recursive AI, LLC</Company>
+    <Copyright>Copyright (c) Recursive AI, LLC</Copyright>
+    <PackageLicenseExpression>MIT OR Apache-2.0</PackageLicenseExpression>
+    <!-- The one place the package version lives. All packages share it. -->
+    <Version>0.2.0-preview.1</Version>
+    <PackageTags>sqlite;sqlite-compatible;database;sql;embedded;wal;fts5;rtree;sqlcipher;encryption;vector-search;nativeaot;wasm</PackageTags>
+    <RepositoryType>git</RepositoryType>
+    <RepositoryUrl>https://github.com/recursive-ai-oss/onelite-csharp</RepositoryUrl>
+    <PackageProjectUrl>https://recursiveai.org/onelite/</PackageProjectUrl>
+    <PackageReadmeFile>PACKAGE.md</PackageReadmeFile>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <!-- No baseline until the first release is published; then set PackageValidationBaselineVersion to it. -->
+    <EnablePackageValidation>true</EnablePackageValidation>
+    <PackageDescriptionNotice>OneLite is an independent project and is not affiliated with, endorsed by, or sponsored by the SQLite developers or Hipp, Wyrick &amp; Company. SQLite is a registered trademark of Hipp, Wyrick &amp; Company.</PackageDescriptionNotice>
+  </PropertyGroup>
+
+  <ItemGroup Label="Packed files">
+    <None Include="$(MSBuildThisFileDirectory)../PACKAGE.md" Pack="true" PackagePath="/" Visible="false" />
+    <None Include="$(MSBuildThisFileDirectory)../LICENSE-MIT" Pack="true" PackagePath="/" Visible="false" />
+    <None Include="$(MSBuildThisFileDirectory)../LICENSE-APACHE" Pack="true" PackagePath="/" Visible="false" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,81 @@
+select 1 window filter as ()
+%%
+select 1 window over as ()
+%%
+select 1 window window as ()
+%%
+select 1 window w as ()
+%%
+select 1 window abort as ()
+%%
+select sum(1) over filter from t window filter as ()
+%%
+select sum(1) over over from t window over as()
+%%
+select sum(1) over window from t window window as()
+%%
+select filter from t
+%%
+select 1 as filter
+%%
+select 1 filter
+%%
+select count(*) filter (where 1) filter (where 2)
+%%
+select count(*) filter filter
+%%
+select count(*) over (partition by filter)
+%%
+select count(*) over (filter)
+%%
+select count(*) over (order by filter)
+%%
+select 1 window w as (filter)
+%%
+select * from t window filter as ()
+%%
+select * from t window filter
+%%
+select * from t as window
+%%
+select * from t window
+%%
+select * from t window as ()
+%%
+select * from t window w as (), filter as ()
+%%
+select * from t window w as (), window as ()
+%%
+select * from t window w as (), over as ()
+%%
+select * from t window w as (), abort as ()
+%%
+select * from t window w as (filter as ())
+%%
+select * from t window w as (over)
+%%
+select * from t window w as (window)
+%%
+select * from t window w as (partition by 1 order by 2 range filter preceding)
+%%
+select count(*) over filter
+%%
+select count(*) over over
+%%
+select count(*) over window
+%%
+select count(*) over abort
+%%
+select count(*) over indexed
+%%
+select count(*) over cross
+%%
+select * from t window w as (cross)
+%%
+select count(*) over (w) from t window w as ()
+%%
+select 1 from t window filter as () window x as ()
+%%
+select 1 from t window x as () window filter as ()
+%%
+select * from t group by filter window filter as ()

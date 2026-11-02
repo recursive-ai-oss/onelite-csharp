@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>RecursiveAI.OneLite.SqlCompare</RootNamespace>
+    <!-- The pinned native library is called through [LibraryImport]; allowed in tool projects only. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/OneLite/OneLite.csproj" />
+    <ProjectReference Include="../OneLite.Oracle/OneLite.Oracle.csproj" />
+    <ProjectReference Include="../OneLite.SqlLogicTest/OneLite.SqlLogicTest.csproj" />
+  </ItemGroup>
+
+</Project>

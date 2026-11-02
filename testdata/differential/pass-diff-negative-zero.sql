@@ -1,0 +1,12 @@
+-- OneLite differential repro
+-- status: pass
+-- class: none
+-- engine: ours
+-- families: expr
+-- utf16: false
+-- oracle: diff
+-- ordered: false
+-- query: SELECT atan2(0, -0.0), atan2(0, -(0.0)), atan2(0, abs(-0.0)), atan2(0, abs('-0.0')), atan2(0, round(-0.4)), atan2(0, round(-0.04, 1)), atan2(0, -'0.0'), atan2(-0.0, -1), atan2(0, -0.0 - 0.0)
+-- detail: 
+-- run
+SELECT atan2(0, -0.0), atan2(0, -(0.0)), atan2(0, abs(-0.0)), atan2(0, abs('-0.0')), atan2(0, round(-0.4)), atan2(0, round(-0.04, 1)), atan2(0, -'0.0'), atan2(-0.0, -1), atan2(0, -0.0 - 0.0);

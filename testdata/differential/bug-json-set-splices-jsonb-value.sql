@@ -1,0 +1,13 @@
+-- OneLite differential repro
+-- status: pass
+-- class: bug:set-splices-jsonb-value
+-- engine: ours
+-- families: json
+-- utf16: false
+-- oracle: diff
+-- ordered: false
+-- query: /*json*/ SELECT hex(jsonb_set('{}', '$.k', jsonb('0xff'))), hex(jsonb_array(jsonb('0xff')))
+-- detail: a JSONB value given to json_set keeps its JSON5 element; json_array reads it as plain JSON
+-- setup
+-- run
+/*json*/ SELECT hex(jsonb_set('{}', '$.k', jsonb('0xff'))), hex(jsonb_array(jsonb('0xff')));

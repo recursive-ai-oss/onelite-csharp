@@ -1,0 +1,13 @@
+-- OneLite differential repro
+-- status: pass
+-- class: none
+-- engine: ours
+-- families: expr,string
+-- utf16: false
+-- oracle: diff
+-- ordered: false
+-- query: SELECT printf('%!.2f', 1), printf('%!.2f', 1.005), printf('%!.3e', 1), printf('%!.0f', 2.5), printf('%!.20f', 0.5), printf('%!g', 100000)
+-- detail: 
+-- setup
+-- run
+SELECT printf('%!.2f', 1), printf('%!.2f', 1.005), printf('%!.3e', 1), printf('%!.0f', 2.5), printf('%!.20f', 0.5), printf('%!g', 100000);

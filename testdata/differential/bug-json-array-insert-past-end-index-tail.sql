@@ -1,0 +1,13 @@
+-- OneLite differential repro
+-- status: pass
+-- class: bug:array-insert-past-end-index-tail
+-- engine: ours
+-- families: json
+-- utf16: false
+-- oracle: diff
+-- ordered: false
+-- query: /*json*/ SELECT json_array(), json_array_insert('[1E-3,{"":"tab\there"}]', '$[2][#-1]."k1"', 'x/y')
+-- detail: ours: run error (1): not an array element: '$[2][#-1]."k1"'; sqlite3: 1 rows
+-- setup
+-- run
+/*json*/ SELECT json_array(), json_array_insert('[1E-3,{"":"tab\there"}]', '$[2][#-1]."k1"', 'x/y');

@@ -1,0 +1,13 @@
+-- OneLite differential repro
+-- status: pass
+-- class: bug:generate-series-rowid-is-value
+-- engine: ours
+-- families: json
+-- utf16: false
+-- oracle: diff
+-- ordered: false
+-- query: /*json*/ SELECT value, rowid FROM generate_series(-5, 7, 2)
+-- detail: rowid of generate_series is the value
+-- setup
+-- run
+/*json*/ SELECT value, rowid FROM generate_series(-5, 7, 2);

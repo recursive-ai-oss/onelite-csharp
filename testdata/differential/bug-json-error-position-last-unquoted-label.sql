@@ -1,0 +1,13 @@
+-- OneLite differential repro
+-- status: pass
+-- class: bug:error-position-last-unquoted-label
+-- engine: ours
+-- families: json
+-- utf16: false
+-- oracle: diff
+-- ordered: false
+-- query: /*json*/ SELECT json_error_position('{a:1}]'), json_error_position('{"a":1,bb:2,"c":3}]'), json_error_position('{"y":{b:2}}]'), json_error_position('{ : 1}'), json_error_position('{"a":1, , }')
+-- detail: text after a document is reported at its last unquoted label; a separator where a label belongs at its own position
+-- setup
+-- run
+/*json*/ SELECT json_error_position('{a:1}]'), json_error_position('{"a":1,bb:2,"c":3}]'), json_error_position('{"y":{b:2}}]'), json_error_position('{ : 1}'), json_error_position('{"a":1, , }');

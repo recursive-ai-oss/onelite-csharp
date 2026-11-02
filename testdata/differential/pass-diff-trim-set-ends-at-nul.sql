@@ -1,0 +1,12 @@
+-- OneLite differential repro
+-- status: pass
+-- class: none
+-- engine: ours
+-- families: expr
+-- utf16: false
+-- oracle: diff
+-- ordered: false
+-- query: SELECT rtrim('hello world', 'ab' || char(0) || 'cd'), ltrim('abhello', 'ab' || char(0) || 'h')
+-- detail: 
+-- run
+SELECT rtrim('hello world', 'ab' || char(0) || 'cd'), ltrim('abhello', 'ab' || char(0) || 'h');

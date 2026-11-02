@@ -1,0 +1,13 @@
+-- OneLite differential repro
+-- status: pass
+-- class: bug:math-function-text-prefix
+-- engine: ours
+-- families: expr,math
+-- utf16: false
+-- oracle: diff
+-- ordered: false
+-- query: SELECT log(9223372036854775808, '2024-02-29')
+-- detail: row 0: ours (NULL); sqlite3 (0.17433323134435416r)
+-- setup
+-- run
+SELECT log(9223372036854775808, '2024-02-29');

@@ -1,0 +1,13 @@
+-- OneLite differential repro
+-- status: pass
+-- class: real-to-text-digits
+-- engine: ours
+-- families: cast,expr,math
+-- utf16: false
+-- oracle: diff
+-- ordered: false
+-- query: SELECT CAST(sqrt(134.0)*1000003 AS TEXT) || ' '
+-- detail: row 0: ours ('11575871.630300933 '); sqlite3 ('11575871.630300934 ')
+-- setup
+-- run
+SELECT CAST(sqrt(134.0)*1000003 AS TEXT) || ' ';

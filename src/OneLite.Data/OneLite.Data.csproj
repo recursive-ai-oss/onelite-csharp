@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>ADO.NET provider for OneLite, a pure-managed SQLite-compatible database, with real async. $(PackageDescriptionNotice)</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../OneLite/OneLite.csproj" />
+  </ItemGroup>
+
+</Project>

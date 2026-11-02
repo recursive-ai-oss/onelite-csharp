@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../OneLite.Oracle/OneLite.Oracle.csproj" />
+    <ProjectReference Include="../../src/OneLite/OneLite.csproj" />
+  </ItemGroup>
+
+</Project>

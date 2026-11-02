@@ -1,0 +1,12 @@
+-- OneLite differential repro
+-- status: pass
+-- class: none
+-- engine: ours
+-- families: expr
+-- utf16: false
+-- oracle: diff
+-- ordered: false
+-- query: select nosuch from (select 1) order by 0
+-- detail: 
+-- run
+select nosuch from (select 1) order by 0;

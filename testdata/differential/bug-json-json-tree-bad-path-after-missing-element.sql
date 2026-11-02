@@ -1,0 +1,13 @@
+-- OneLite differential repro
+-- status: pass
+-- class: bug:json-tree-bad-path-after-missing-element
+-- engine: ours
+-- families: json
+-- utf16: false
+-- oracle: diff
+-- ordered: false
+-- query: /*json*/ SELECT count(*) FROM json_tree('[{}]', '$."a"x')
+-- detail: a path is read only as far as the document goes
+-- setup
+-- run
+/*json*/ SELECT count(*) FROM json_tree('[{}]', '$."a"x');

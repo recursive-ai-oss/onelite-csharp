@@ -1,0 +1,4439 @@
+create table SQL(x)
+%%
+select 1 as SQL
+%%
+select 1 SQL
+%%
+select SQL
+%%
+select 1 from t SQL
+%%
+create table t(SQL)
+%%
+select SQL(1)
+%%
+create table t(x SQL)
+%%
+select * from SQL
+%%
+select t.SQL from t
+%%
+select 1 from t where SQL.x=1
+%%
+select 1 from t join u SQL on 1
+%%
+select 1 from t SQL join u
+%%
+create index i on t(SQL)
+%%
+select 1 from t where x=1 SQL 2
+%%
+create table ABORT(x)
+%%
+select 1 as ABORT
+%%
+select 1 ABORT
+%%
+select ABORT
+%%
+select 1 from t ABORT
+%%
+create table t(ABORT)
+%%
+select ABORT(1)
+%%
+create table t(x ABORT)
+%%
+select * from ABORT
+%%
+select t.ABORT from t
+%%
+select 1 from t where ABORT.x=1
+%%
+select 1 from t join u ABORT on 1
+%%
+select 1 from t ABORT join u
+%%
+create index i on t(ABORT)
+%%
+select 1 from t where x=1 ABORT 2
+%%
+create table ACTION(x)
+%%
+select 1 as ACTION
+%%
+select 1 ACTION
+%%
+select ACTION
+%%
+select 1 from t ACTION
+%%
+create table t(ACTION)
+%%
+select ACTION(1)
+%%
+create table t(x ACTION)
+%%
+select * from ACTION
+%%
+select t.ACTION from t
+%%
+select 1 from t where ACTION.x=1
+%%
+select 1 from t join u ACTION on 1
+%%
+select 1 from t ACTION join u
+%%
+create index i on t(ACTION)
+%%
+select 1 from t where x=1 ACTION 2
+%%
+create table ADD(x)
+%%
+select 1 as ADD
+%%
+select 1 ADD
+%%
+select ADD
+%%
+select 1 from t ADD
+%%
+create table t(ADD)
+%%
+select ADD(1)
+%%
+create table t(x ADD)
+%%
+select * from ADD
+%%
+select t.ADD from t
+%%
+select 1 from t where ADD.x=1
+%%
+select 1 from t join u ADD on 1
+%%
+select 1 from t ADD join u
+%%
+create index i on t(ADD)
+%%
+select 1 from t where x=1 ADD 2
+%%
+create table AFTER(x)
+%%
+select 1 as AFTER
+%%
+select 1 AFTER
+%%
+select AFTER
+%%
+select 1 from t AFTER
+%%
+create table t(AFTER)
+%%
+select AFTER(1)
+%%
+create table t(x AFTER)
+%%
+select * from AFTER
+%%
+select t.AFTER from t
+%%
+select 1 from t where AFTER.x=1
+%%
+select 1 from t join u AFTER on 1
+%%
+select 1 from t AFTER join u
+%%
+create index i on t(AFTER)
+%%
+select 1 from t where x=1 AFTER 2
+%%
+create table ALL(x)
+%%
+select 1 as ALL
+%%
+select 1 ALL
+%%
+select ALL
+%%
+select 1 from t ALL
+%%
+create table t(ALL)
+%%
+select ALL(1)
+%%
+create table t(x ALL)
+%%
+select * from ALL
+%%
+select t.ALL from t
+%%
+select 1 from t where ALL.x=1
+%%
+select 1 from t join u ALL on 1
+%%
+select 1 from t ALL join u
+%%
+create index i on t(ALL)
+%%
+select 1 from t where x=1 ALL 2
+%%
+create table ALTER(x)
+%%
+select 1 as ALTER
+%%
+select 1 ALTER
+%%
+select ALTER
+%%
+select 1 from t ALTER
+%%
+create table t(ALTER)
+%%
+select ALTER(1)
+%%
+create table t(x ALTER)
+%%
+select * from ALTER
+%%
+select t.ALTER from t
+%%
+select 1 from t where ALTER.x=1
+%%
+select 1 from t join u ALTER on 1
+%%
+select 1 from t ALTER join u
+%%
+create index i on t(ALTER)
+%%
+select 1 from t where x=1 ALTER 2
+%%
+create table ALWAYS(x)
+%%
+select 1 as ALWAYS
+%%
+select 1 ALWAYS
+%%
+select ALWAYS
+%%
+select 1 from t ALWAYS
+%%
+create table t(ALWAYS)
+%%
+select ALWAYS(1)
+%%
+create table t(x ALWAYS)
+%%
+select * from ALWAYS
+%%
+select t.ALWAYS from t
+%%
+select 1 from t where ALWAYS.x=1
+%%
+select 1 from t join u ALWAYS on 1
+%%
+select 1 from t ALWAYS join u
+%%
+create index i on t(ALWAYS)
+%%
+select 1 from t where x=1 ALWAYS 2
+%%
+create table ANALYZE(x)
+%%
+select 1 as ANALYZE
+%%
+select 1 ANALYZE
+%%
+select ANALYZE
+%%
+select 1 from t ANALYZE
+%%
+create table t(ANALYZE)
+%%
+select ANALYZE(1)
+%%
+create table t(x ANALYZE)
+%%
+select * from ANALYZE
+%%
+select t.ANALYZE from t
+%%
+select 1 from t where ANALYZE.x=1
+%%
+select 1 from t join u ANALYZE on 1
+%%
+select 1 from t ANALYZE join u
+%%
+create index i on t(ANALYZE)
+%%
+select 1 from t where x=1 ANALYZE 2
+%%
+create table AND(x)
+%%
+select 1 as AND
+%%
+select 1 AND
+%%
+select AND
+%%
+select 1 from t AND
+%%
+create table t(AND)
+%%
+select AND(1)
+%%
+create table t(x AND)
+%%
+select * from AND
+%%
+select t.AND from t
+%%
+select 1 from t where AND.x=1
+%%
+select 1 from t join u AND on 1
+%%
+select 1 from t AND join u
+%%
+create index i on t(AND)
+%%
+select 1 from t where x=1 AND 2
+%%
+create table AS(x)
+%%
+select 1 as AS
+%%
+select 1 AS
+%%
+select AS
+%%
+select 1 from t AS
+%%
+create table t(AS)
+%%
+select AS(1)
+%%
+create table t(x AS)
+%%
+select * from AS
+%%
+select t.AS from t
+%%
+select 1 from t where AS.x=1
+%%
+select 1 from t join u AS on 1
+%%
+select 1 from t AS join u
+%%
+create index i on t(AS)
+%%
+select 1 from t where x=1 AS 2
+%%
+create table ASC(x)
+%%
+select 1 as ASC
+%%
+select 1 ASC
+%%
+select ASC
+%%
+select 1 from t ASC
+%%
+create table t(ASC)
+%%
+select ASC(1)
+%%
+create table t(x ASC)
+%%
+select * from ASC
+%%
+select t.ASC from t
+%%
+select 1 from t where ASC.x=1
+%%
+select 1 from t join u ASC on 1
+%%
+select 1 from t ASC join u
+%%
+create index i on t(ASC)
+%%
+select 1 from t where x=1 ASC 2
+%%
+create table ATTACH(x)
+%%
+select 1 as ATTACH
+%%
+select 1 ATTACH
+%%
+select ATTACH
+%%
+select 1 from t ATTACH
+%%
+create table t(ATTACH)
+%%
+select ATTACH(1)
+%%
+create table t(x ATTACH)
+%%
+select * from ATTACH
+%%
+select t.ATTACH from t
+%%
+select 1 from t where ATTACH.x=1
+%%
+select 1 from t join u ATTACH on 1
+%%
+select 1 from t ATTACH join u
+%%
+create index i on t(ATTACH)
+%%
+select 1 from t where x=1 ATTACH 2
+%%
+create table AUTOINCREMENT(x)
+%%
+select 1 as AUTOINCREMENT
+%%
+select 1 AUTOINCREMENT
+%%
+select AUTOINCREMENT
+%%
+select 1 from t AUTOINCREMENT
+%%
+create table t(AUTOINCREMENT)
+%%
+select AUTOINCREMENT(1)
+%%
+create table t(x AUTOINCREMENT)
+%%
+select * from AUTOINCREMENT
+%%
+select t.AUTOINCREMENT from t
+%%
+select 1 from t where AUTOINCREMENT.x=1
+%%
+select 1 from t join u AUTOINCREMENT on 1
+%%
+select 1 from t AUTOINCREMENT join u
+%%
+create index i on t(AUTOINCREMENT)
+%%
+select 1 from t where x=1 AUTOINCREMENT 2
+%%
+create table BEFORE(x)
+%%
+select 1 as BEFORE
+%%
+select 1 BEFORE
+%%
+select BEFORE
+%%
+select 1 from t BEFORE
+%%
+create table t(BEFORE)
+%%
+select BEFORE(1)
+%%
+create table t(x BEFORE)
+%%
+select * from BEFORE
+%%
+select t.BEFORE from t
+%%
+select 1 from t where BEFORE.x=1
+%%
+select 1 from t join u BEFORE on 1
+%%
+select 1 from t BEFORE join u
+%%
+create index i on t(BEFORE)
+%%
+select 1 from t where x=1 BEFORE 2
+%%
+create table BEGIN(x)
+%%
+select 1 as BEGIN
+%%
+select 1 BEGIN
+%%
+select BEGIN
+%%
+select 1 from t BEGIN
+%%
+create table t(BEGIN)
+%%
+select BEGIN(1)
+%%
+create table t(x BEGIN)
+%%
+select * from BEGIN
+%%
+select t.BEGIN from t
+%%
+select 1 from t where BEGIN.x=1
+%%
+select 1 from t join u BEGIN on 1
+%%
+select 1 from t BEGIN join u
+%%
+create index i on t(BEGIN)
+%%
+select 1 from t where x=1 BEGIN 2
+%%
+create table BETWEEN(x)
+%%
+select 1 as BETWEEN
+%%
+select 1 BETWEEN
+%%
+select BETWEEN
+%%
+select 1 from t BETWEEN
+%%
+create table t(BETWEEN)
+%%
+select BETWEEN(1)
+%%
+create table t(x BETWEEN)
+%%
+select * from BETWEEN
+%%
+select t.BETWEEN from t
+%%
+select 1 from t where BETWEEN.x=1
+%%
+select 1 from t join u BETWEEN on 1
+%%
+select 1 from t BETWEEN join u
+%%
+create index i on t(BETWEEN)
+%%
+select 1 from t where x=1 BETWEEN 2
+%%
+create table BY(x)
+%%
+select 1 as BY
+%%
+select 1 BY
+%%
+select BY
+%%
+select 1 from t BY
+%%
+create table t(BY)
+%%
+select BY(1)
+%%
+create table t(x BY)
+%%
+select * from BY
+%%
+select t.BY from t
+%%
+select 1 from t where BY.x=1
+%%
+select 1 from t join u BY on 1
+%%
+select 1 from t BY join u
+%%
+create index i on t(BY)
+%%
+select 1 from t where x=1 BY 2
+%%
+create table CASCADE(x)
+%%
+select 1 as CASCADE
+%%
+select 1 CASCADE
+%%
+select CASCADE
+%%
+select 1 from t CASCADE
+%%
+create table t(CASCADE)
+%%
+select CASCADE(1)
+%%
+create table t(x CASCADE)
+%%
+select * from CASCADE
+%%
+select t.CASCADE from t
+%%
+select 1 from t where CASCADE.x=1
+%%
+select 1 from t join u CASCADE on 1
+%%
+select 1 from t CASCADE join u
+%%
+create index i on t(CASCADE)
+%%
+select 1 from t where x=1 CASCADE 2
+%%
+create table CASE(x)
+%%
+select 1 as CASE
+%%
+select 1 CASE
+%%
+select CASE
+%%
+select 1 from t CASE
+%%
+create table t(CASE)
+%%
+select CASE(1)
+%%
+create table t(x CASE)
+%%
+select * from CASE
+%%
+select t.CASE from t
+%%
+select 1 from t where CASE.x=1
+%%
+select 1 from t join u CASE on 1
+%%
+select 1 from t CASE join u
+%%
+create index i on t(CASE)
+%%
+select 1 from t where x=1 CASE 2
+%%
+create table CAST(x)
+%%
+select 1 as CAST
+%%
+select 1 CAST
+%%
+select CAST
+%%
+select 1 from t CAST
+%%
+create table t(CAST)
+%%
+select CAST(1)
+%%
+create table t(x CAST)
+%%
+select * from CAST
+%%
+select t.CAST from t
+%%
+select 1 from t where CAST.x=1
+%%
+select 1 from t join u CAST on 1
+%%
+select 1 from t CAST join u
+%%
+create index i on t(CAST)
+%%
+select 1 from t where x=1 CAST 2
+%%
+create table CHECK(x)
+%%
+select 1 as CHECK
+%%
+select 1 CHECK
+%%
+select CHECK
+%%
+select 1 from t CHECK
+%%
+create table t(CHECK)
+%%
+select CHECK(1)
+%%
+create table t(x CHECK)
+%%
+select * from CHECK
+%%
+select t.CHECK from t
+%%
+select 1 from t where CHECK.x=1
+%%
+select 1 from t join u CHECK on 1
+%%
+select 1 from t CHECK join u
+%%
+create index i on t(CHECK)
+%%
+select 1 from t where x=1 CHECK 2
+%%
+create table COLLATE(x)
+%%
+select 1 as COLLATE
+%%
+select 1 COLLATE
+%%
+select COLLATE
+%%
+select 1 from t COLLATE
+%%
+create table t(COLLATE)
+%%
+select COLLATE(1)
+%%
+create table t(x COLLATE)
+%%
+select * from COLLATE
+%%
+select t.COLLATE from t
+%%
+select 1 from t where COLLATE.x=1
+%%
+select 1 from t join u COLLATE on 1
+%%
+select 1 from t COLLATE join u
+%%
+create index i on t(COLLATE)
+%%
+select 1 from t where x=1 COLLATE 2
+%%
+create table COLUMN(x)
+%%
+select 1 as COLUMN
+%%
+select 1 COLUMN
+%%
+select COLUMN
+%%
+select 1 from t COLUMN
+%%
+create table t(COLUMN)
+%%
+select COLUMN(1)
+%%
+create table t(x COLUMN)
+%%
+select * from COLUMN
+%%
+select t.COLUMN from t
+%%
+select 1 from t where COLUMN.x=1
+%%
+select 1 from t join u COLUMN on 1
+%%
+select 1 from t COLUMN join u
+%%
+create index i on t(COLUMN)
+%%
+select 1 from t where x=1 COLUMN 2
+%%
+create table COMMIT(x)
+%%
+select 1 as COMMIT
+%%
+select 1 COMMIT
+%%
+select COMMIT
+%%
+select 1 from t COMMIT
+%%
+create table t(COMMIT)
+%%
+select COMMIT(1)
+%%
+create table t(x COMMIT)
+%%
+select * from COMMIT
+%%
+select t.COMMIT from t
+%%
+select 1 from t where COMMIT.x=1
+%%
+select 1 from t join u COMMIT on 1
+%%
+select 1 from t COMMIT join u
+%%
+create index i on t(COMMIT)
+%%
+select 1 from t where x=1 COMMIT 2
+%%
+create table CONFLICT(x)
+%%
+select 1 as CONFLICT
+%%
+select 1 CONFLICT
+%%
+select CONFLICT
+%%
+select 1 from t CONFLICT
+%%
+create table t(CONFLICT)
+%%
+select CONFLICT(1)
+%%
+create table t(x CONFLICT)
+%%
+select * from CONFLICT
+%%
+select t.CONFLICT from t
+%%
+select 1 from t where CONFLICT.x=1
+%%
+select 1 from t join u CONFLICT on 1
+%%
+select 1 from t CONFLICT join u
+%%
+create index i on t(CONFLICT)
+%%
+select 1 from t where x=1 CONFLICT 2
+%%
+create table CONSTRAINT(x)
+%%
+select 1 as CONSTRAINT
+%%
+select 1 CONSTRAINT
+%%
+select CONSTRAINT
+%%
+select 1 from t CONSTRAINT
+%%
+create table t(CONSTRAINT)
+%%
+select CONSTRAINT(1)
+%%
+create table t(x CONSTRAINT)
+%%
+select * from CONSTRAINT
+%%
+select t.CONSTRAINT from t
+%%
+select 1 from t where CONSTRAINT.x=1
+%%
+select 1 from t join u CONSTRAINT on 1
+%%
+select 1 from t CONSTRAINT join u
+%%
+create index i on t(CONSTRAINT)
+%%
+select 1 from t where x=1 CONSTRAINT 2
+%%
+create table CREATE(x)
+%%
+select 1 as CREATE
+%%
+select 1 CREATE
+%%
+select CREATE
+%%
+select 1 from t CREATE
+%%
+create table t(CREATE)
+%%
+select CREATE(1)
+%%
+create table t(x CREATE)
+%%
+select * from CREATE
+%%
+select t.CREATE from t
+%%
+select 1 from t where CREATE.x=1
+%%
+select 1 from t join u CREATE on 1
+%%
+select 1 from t CREATE join u
+%%
+create index i on t(CREATE)
+%%
+select 1 from t where x=1 CREATE 2
+%%
+create table CROSS(x)
+%%
+select 1 as CROSS
+%%
+select 1 CROSS
+%%
+select CROSS
+%%
+select 1 from t CROSS
+%%
+create table t(CROSS)
+%%
+select CROSS(1)
+%%
+create table t(x CROSS)
+%%
+select * from CROSS
+%%
+select t.CROSS from t
+%%
+select 1 from t where CROSS.x=1
+%%
+select 1 from t join u CROSS on 1
+%%
+select 1 from t CROSS join u
+%%
+create index i on t(CROSS)
+%%
+select 1 from t where x=1 CROSS 2
+%%
+create table CURRENT(x)
+%%
+select 1 as CURRENT
+%%
+select 1 CURRENT
+%%
+select CURRENT
+%%
+select 1 from t CURRENT
+%%
+create table t(CURRENT)
+%%
+select CURRENT(1)
+%%
+create table t(x CURRENT)
+%%
+select * from CURRENT
+%%
+select t.CURRENT from t
+%%
+select 1 from t where CURRENT.x=1
+%%
+select 1 from t join u CURRENT on 1
+%%
+select 1 from t CURRENT join u
+%%
+create index i on t(CURRENT)
+%%
+select 1 from t where x=1 CURRENT 2
+%%
+create table CURRENT_DATE(x)
+%%
+select 1 as CURRENT_DATE
+%%
+select 1 CURRENT_DATE
+%%
+select CURRENT_DATE
+%%
+select 1 from t CURRENT_DATE
+%%
+create table t(CURRENT_DATE)
+%%
+select CURRENT_DATE(1)
+%%
+create table t(x CURRENT_DATE)
+%%
+select * from CURRENT_DATE
+%%
+select t.CURRENT_DATE from t
+%%
+select 1 from t where CURRENT_DATE.x=1
+%%
+select 1 from t join u CURRENT_DATE on 1
+%%
+select 1 from t CURRENT_DATE join u
+%%
+create index i on t(CURRENT_DATE)
+%%
+select 1 from t where x=1 CURRENT_DATE 2
+%%
+create table CURRENT_TIME(x)
+%%
+select 1 as CURRENT_TIME
+%%
+select 1 CURRENT_TIME
+%%
+select CURRENT_TIME
+%%
+select 1 from t CURRENT_TIME
+%%
+create table t(CURRENT_TIME)
+%%
+select CURRENT_TIME(1)
+%%
+create table t(x CURRENT_TIME)
+%%
+select * from CURRENT_TIME
+%%
+select t.CURRENT_TIME from t
+%%
+select 1 from t where CURRENT_TIME.x=1
+%%
+select 1 from t join u CURRENT_TIME on 1
+%%
+select 1 from t CURRENT_TIME join u
+%%
+create index i on t(CURRENT_TIME)
+%%
+select 1 from t where x=1 CURRENT_TIME 2
+%%
+create table CURRENT_TIMESTAMP(x)
+%%
+select 1 as CURRENT_TIMESTAMP
+%%
+select 1 CURRENT_TIMESTAMP
+%%
+select CURRENT_TIMESTAMP
+%%
+select 1 from t CURRENT_TIMESTAMP
+%%
+create table t(CURRENT_TIMESTAMP)
+%%
+select CURRENT_TIMESTAMP(1)
+%%
+create table t(x CURRENT_TIMESTAMP)
+%%
+select * from CURRENT_TIMESTAMP
+%%
+select t.CURRENT_TIMESTAMP from t
+%%
+select 1 from t where CURRENT_TIMESTAMP.x=1
+%%
+select 1 from t join u CURRENT_TIMESTAMP on 1
+%%
+select 1 from t CURRENT_TIMESTAMP join u
+%%
+create index i on t(CURRENT_TIMESTAMP)
+%%
+select 1 from t where x=1 CURRENT_TIMESTAMP 2
+%%
+create table DATABASE(x)
+%%
+select 1 as DATABASE
+%%
+select 1 DATABASE
+%%
+select DATABASE
+%%
+select 1 from t DATABASE
+%%
+create table t(DATABASE)
+%%
+select DATABASE(1)
+%%
+create table t(x DATABASE)
+%%
+select * from DATABASE
+%%
+select t.DATABASE from t
+%%
+select 1 from t where DATABASE.x=1
+%%
+select 1 from t join u DATABASE on 1
+%%
+select 1 from t DATABASE join u
+%%
+create index i on t(DATABASE)
+%%
+select 1 from t where x=1 DATABASE 2
+%%
+create table DEFAULT(x)
+%%
+select 1 as DEFAULT
+%%
+select 1 DEFAULT
+%%
+select DEFAULT
+%%
+select 1 from t DEFAULT
+%%
+create table t(DEFAULT)
+%%
+select DEFAULT(1)
+%%
+create table t(x DEFAULT)
+%%
+select * from DEFAULT
+%%
+select t.DEFAULT from t
+%%
+select 1 from t where DEFAULT.x=1
+%%
+select 1 from t join u DEFAULT on 1
+%%
+select 1 from t DEFAULT join u
+%%
+create index i on t(DEFAULT)
+%%
+select 1 from t where x=1 DEFAULT 2
+%%
+create table DEFERRABLE(x)
+%%
+select 1 as DEFERRABLE
+%%
+select 1 DEFERRABLE
+%%
+select DEFERRABLE
+%%
+select 1 from t DEFERRABLE
+%%
+create table t(DEFERRABLE)
+%%
+select DEFERRABLE(1)
+%%
+create table t(x DEFERRABLE)
+%%
+select * from DEFERRABLE
+%%
+select t.DEFERRABLE from t
+%%
+select 1 from t where DEFERRABLE.x=1
+%%
+select 1 from t join u DEFERRABLE on 1
+%%
+select 1 from t DEFERRABLE join u
+%%
+create index i on t(DEFERRABLE)
+%%
+select 1 from t where x=1 DEFERRABLE 2
+%%
+create table DEFERRED(x)
+%%
+select 1 as DEFERRED
+%%
+select 1 DEFERRED
+%%
+select DEFERRED
+%%
+select 1 from t DEFERRED
+%%
+create table t(DEFERRED)
+%%
+select DEFERRED(1)
+%%
+create table t(x DEFERRED)
+%%
+select * from DEFERRED
+%%
+select t.DEFERRED from t
+%%
+select 1 from t where DEFERRED.x=1
+%%
+select 1 from t join u DEFERRED on 1
+%%
+select 1 from t DEFERRED join u
+%%
+create index i on t(DEFERRED)
+%%
+select 1 from t where x=1 DEFERRED 2
+%%
+create table DELETE(x)
+%%
+select 1 as DELETE
+%%
+select 1 DELETE
+%%
+select DELETE
+%%
+select 1 from t DELETE
+%%
+create table t(DELETE)
+%%
+select DELETE(1)
+%%
+create table t(x DELETE)
+%%
+select * from DELETE
+%%
+select t.DELETE from t
+%%
+select 1 from t where DELETE.x=1
+%%
+select 1 from t join u DELETE on 1
+%%
+select 1 from t DELETE join u
+%%
+create index i on t(DELETE)
+%%
+select 1 from t where x=1 DELETE 2
+%%
+create table DESC(x)
+%%
+select 1 as DESC
+%%
+select 1 DESC
+%%
+select DESC
+%%
+select 1 from t DESC
+%%
+create table t(DESC)
+%%
+select DESC(1)
+%%
+create table t(x DESC)
+%%
+select * from DESC
+%%
+select t.DESC from t
+%%
+select 1 from t where DESC.x=1
+%%
+select 1 from t join u DESC on 1
+%%
+select 1 from t DESC join u
+%%
+create index i on t(DESC)
+%%
+select 1 from t where x=1 DESC 2
+%%
+create table DETACH(x)
+%%
+select 1 as DETACH
+%%
+select 1 DETACH
+%%
+select DETACH
+%%
+select 1 from t DETACH
+%%
+create table t(DETACH)
+%%
+select DETACH(1)
+%%
+create table t(x DETACH)
+%%
+select * from DETACH
+%%
+select t.DETACH from t
+%%
+select 1 from t where DETACH.x=1
+%%
+select 1 from t join u DETACH on 1
+%%
+select 1 from t DETACH join u
+%%
+create index i on t(DETACH)
+%%
+select 1 from t where x=1 DETACH 2
+%%
+create table DISTINCT(x)
+%%
+select 1 as DISTINCT
+%%
+select 1 DISTINCT
+%%
+select DISTINCT
+%%
+select 1 from t DISTINCT
+%%
+create table t(DISTINCT)
+%%
+select DISTINCT(1)
+%%
+create table t(x DISTINCT)
+%%
+select * from DISTINCT
+%%
+select t.DISTINCT from t
+%%
+select 1 from t where DISTINCT.x=1
+%%
+select 1 from t join u DISTINCT on 1
+%%
+select 1 from t DISTINCT join u
+%%
+create index i on t(DISTINCT)
+%%
+select 1 from t where x=1 DISTINCT 2
+%%
+create table DO(x)
+%%
+select 1 as DO
+%%
+select 1 DO
+%%
+select DO
+%%
+select 1 from t DO
+%%
+create table t(DO)
+%%
+select DO(1)
+%%
+create table t(x DO)
+%%
+select * from DO
+%%
+select t.DO from t
+%%
+select 1 from t where DO.x=1
+%%
+select 1 from t join u DO on 1
+%%
+select 1 from t DO join u
+%%
+create index i on t(DO)
+%%
+select 1 from t where x=1 DO 2
+%%
+create table DROP(x)
+%%
+select 1 as DROP
+%%
+select 1 DROP
+%%
+select DROP
+%%
+select 1 from t DROP
+%%
+create table t(DROP)
+%%
+select DROP(1)
+%%
+create table t(x DROP)
+%%
+select * from DROP
+%%
+select t.DROP from t
+%%
+select 1 from t where DROP.x=1
+%%
+select 1 from t join u DROP on 1
+%%
+select 1 from t DROP join u
+%%
+create index i on t(DROP)
+%%
+select 1 from t where x=1 DROP 2
+%%
+create table EACH(x)
+%%
+select 1 as EACH
+%%
+select 1 EACH
+%%
+select EACH
+%%
+select 1 from t EACH
+%%
+create table t(EACH)
+%%
+select EACH(1)
+%%
+create table t(x EACH)
+%%
+select * from EACH
+%%
+select t.EACH from t
+%%
+select 1 from t where EACH.x=1
+%%
+select 1 from t join u EACH on 1
+%%
+select 1 from t EACH join u
+%%
+create index i on t(EACH)
+%%
+select 1 from t where x=1 EACH 2
+%%
+create table ELSE(x)
+%%
+select 1 as ELSE
+%%
+select 1 ELSE
+%%
+select ELSE
+%%
+select 1 from t ELSE
+%%
+create table t(ELSE)
+%%
+select ELSE(1)
+%%
+create table t(x ELSE)
+%%
+select * from ELSE
+%%
+select t.ELSE from t
+%%
+select 1 from t where ELSE.x=1
+%%
+select 1 from t join u ELSE on 1
+%%
+select 1 from t ELSE join u
+%%
+create index i on t(ELSE)
+%%
+select 1 from t where x=1 ELSE 2
+%%
+create table END(x)
+%%
+select 1 as END
+%%
+select 1 END
+%%
+select END
+%%
+select 1 from t END
+%%
+create table t(END)
+%%
+select END(1)
+%%
+create table t(x END)
+%%
+select * from END
+%%
+select t.END from t
+%%
+select 1 from t where END.x=1
+%%
+select 1 from t join u END on 1
+%%
+select 1 from t END join u
+%%
+create index i on t(END)
+%%
+select 1 from t where x=1 END 2
+%%
+create table ESCAPE(x)
+%%
+select 1 as ESCAPE
+%%
+select 1 ESCAPE
+%%
+select ESCAPE
+%%
+select 1 from t ESCAPE
+%%
+create table t(ESCAPE)
+%%
+select ESCAPE(1)
+%%
+create table t(x ESCAPE)
+%%
+select * from ESCAPE
+%%
+select t.ESCAPE from t
+%%
+select 1 from t where ESCAPE.x=1
+%%
+select 1 from t join u ESCAPE on 1
+%%
+select 1 from t ESCAPE join u
+%%
+create index i on t(ESCAPE)
+%%
+select 1 from t where x=1 ESCAPE 2
+%%
+create table EXCEPT(x)
+%%
+select 1 as EXCEPT
+%%
+select 1 EXCEPT
+%%
+select EXCEPT
+%%
+select 1 from t EXCEPT
+%%
+create table t(EXCEPT)
+%%
+select EXCEPT(1)
+%%
+create table t(x EXCEPT)
+%%
+select * from EXCEPT
+%%
+select t.EXCEPT from t
+%%
+select 1 from t where EXCEPT.x=1
+%%
+select 1 from t join u EXCEPT on 1
+%%
+select 1 from t EXCEPT join u
+%%
+create index i on t(EXCEPT)
+%%
+select 1 from t where x=1 EXCEPT 2
+%%
+create table EXCLUDE(x)
+%%
+select 1 as EXCLUDE
+%%
+select 1 EXCLUDE
+%%
+select EXCLUDE
+%%
+select 1 from t EXCLUDE
+%%
+create table t(EXCLUDE)
+%%
+select EXCLUDE(1)
+%%
+create table t(x EXCLUDE)
+%%
+select * from EXCLUDE
+%%
+select t.EXCLUDE from t
+%%
+select 1 from t where EXCLUDE.x=1
+%%
+select 1 from t join u EXCLUDE on 1
+%%
+select 1 from t EXCLUDE join u
+%%
+create index i on t(EXCLUDE)
+%%
+select 1 from t where x=1 EXCLUDE 2
+%%
+create table EXCLUSIVE(x)
+%%
+select 1 as EXCLUSIVE
+%%
+select 1 EXCLUSIVE
+%%
+select EXCLUSIVE
+%%
+select 1 from t EXCLUSIVE
+%%
+create table t(EXCLUSIVE)
+%%
+select EXCLUSIVE(1)
+%%
+create table t(x EXCLUSIVE)
+%%
+select * from EXCLUSIVE
+%%
+select t.EXCLUSIVE from t
+%%
+select 1 from t where EXCLUSIVE.x=1
+%%
+select 1 from t join u EXCLUSIVE on 1
+%%
+select 1 from t EXCLUSIVE join u
+%%
+create index i on t(EXCLUSIVE)
+%%
+select 1 from t where x=1 EXCLUSIVE 2
+%%
+create table EXISTS(x)
+%%
+select 1 as EXISTS
+%%
+select 1 EXISTS
+%%
+select EXISTS
+%%
+select 1 from t EXISTS
+%%
+create table t(EXISTS)
+%%
+select EXISTS(1)
+%%
+create table t(x EXISTS)
+%%
+select * from EXISTS
+%%
+select t.EXISTS from t
+%%
+select 1 from t where EXISTS.x=1
+%%
+select 1 from t join u EXISTS on 1
+%%
+select 1 from t EXISTS join u
+%%
+create index i on t(EXISTS)
+%%
+select 1 from t where x=1 EXISTS 2
+%%
+create table EXPLAIN(x)
+%%
+select 1 as EXPLAIN
+%%
+select 1 EXPLAIN
+%%
+select EXPLAIN
+%%
+select 1 from t EXPLAIN
+%%
+create table t(EXPLAIN)
+%%
+select EXPLAIN(1)
+%%
+create table t(x EXPLAIN)
+%%
+select * from EXPLAIN
+%%
+select t.EXPLAIN from t
+%%
+select 1 from t where EXPLAIN.x=1
+%%
+select 1 from t join u EXPLAIN on 1
+%%
+select 1 from t EXPLAIN join u
+%%
+create index i on t(EXPLAIN)
+%%
+select 1 from t where x=1 EXPLAIN 2
+%%
+create table FAIL(x)
+%%
+select 1 as FAIL
+%%
+select 1 FAIL
+%%
+select FAIL
+%%
+select 1 from t FAIL
+%%
+create table t(FAIL)
+%%
+select FAIL(1)
+%%
+create table t(x FAIL)
+%%
+select * from FAIL
+%%
+select t.FAIL from t
+%%
+select 1 from t where FAIL.x=1
+%%
+select 1 from t join u FAIL on 1
+%%
+select 1 from t FAIL join u
+%%
+create index i on t(FAIL)
+%%
+select 1 from t where x=1 FAIL 2
+%%
+create table FILTER(x)
+%%
+select 1 as FILTER
+%%
+select 1 FILTER
+%%
+select FILTER
+%%
+select 1 from t FILTER
+%%
+create table t(FILTER)
+%%
+select FILTER(1)
+%%
+create table t(x FILTER)
+%%
+select * from FILTER
+%%
+select t.FILTER from t
+%%
+select 1 from t where FILTER.x=1
+%%
+select 1 from t join u FILTER on 1
+%%
+select 1 from t FILTER join u
+%%
+create index i on t(FILTER)
+%%
+select 1 from t where x=1 FILTER 2
+%%
+create table FIRST(x)
+%%
+select 1 as FIRST
+%%
+select 1 FIRST
+%%
+select FIRST
+%%
+select 1 from t FIRST
+%%
+create table t(FIRST)
+%%
+select FIRST(1)
+%%
+create table t(x FIRST)
+%%
+select * from FIRST
+%%
+select t.FIRST from t
+%%
+select 1 from t where FIRST.x=1
+%%
+select 1 from t join u FIRST on 1
+%%
+select 1 from t FIRST join u
+%%
+create index i on t(FIRST)
+%%
+select 1 from t where x=1 FIRST 2
+%%
+create table FOLLOWING(x)
+%%
+select 1 as FOLLOWING
+%%
+select 1 FOLLOWING
+%%
+select FOLLOWING
+%%
+select 1 from t FOLLOWING
+%%
+create table t(FOLLOWING)
+%%
+select FOLLOWING(1)
+%%
+create table t(x FOLLOWING)
+%%
+select * from FOLLOWING
+%%
+select t.FOLLOWING from t
+%%
+select 1 from t where FOLLOWING.x=1
+%%
+select 1 from t join u FOLLOWING on 1
+%%
+select 1 from t FOLLOWING join u
+%%
+create index i on t(FOLLOWING)
+%%
+select 1 from t where x=1 FOLLOWING 2
+%%
+create table FOR(x)
+%%
+select 1 as FOR
+%%
+select 1 FOR
+%%
+select FOR
+%%
+select 1 from t FOR
+%%
+create table t(FOR)
+%%
+select FOR(1)
+%%
+create table t(x FOR)
+%%
+select * from FOR
+%%
+select t.FOR from t
+%%
+select 1 from t where FOR.x=1
+%%
+select 1 from t join u FOR on 1
+%%
+select 1 from t FOR join u
+%%
+create index i on t(FOR)
+%%
+select 1 from t where x=1 FOR 2
+%%
+create table FOREIGN(x)
+%%
+select 1 as FOREIGN
+%%
+select 1 FOREIGN
+%%
+select FOREIGN
+%%
+select 1 from t FOREIGN
+%%
+create table t(FOREIGN)
+%%
+select FOREIGN(1)
+%%
+create table t(x FOREIGN)
+%%
+select * from FOREIGN
+%%
+select t.FOREIGN from t
+%%
+select 1 from t where FOREIGN.x=1
+%%
+select 1 from t join u FOREIGN on 1
+%%
+select 1 from t FOREIGN join u
+%%
+create index i on t(FOREIGN)
+%%
+select 1 from t where x=1 FOREIGN 2
+%%
+create table FROM(x)
+%%
+select 1 as FROM
+%%
+select 1 FROM
+%%
+select FROM
+%%
+select 1 from t FROM
+%%
+create table t(FROM)
+%%
+select FROM(1)
+%%
+create table t(x FROM)
+%%
+select * from FROM
+%%
+select t.FROM from t
+%%
+select 1 from t where FROM.x=1
+%%
+select 1 from t join u FROM on 1
+%%
+select 1 from t FROM join u
+%%
+create index i on t(FROM)
+%%
+select 1 from t where x=1 FROM 2
+%%
+create table FULL(x)
+%%
+select 1 as FULL
+%%
+select 1 FULL
+%%
+select FULL
+%%
+select 1 from t FULL
+%%
+create table t(FULL)
+%%
+select FULL(1)
+%%
+create table t(x FULL)
+%%
+select * from FULL
+%%
+select t.FULL from t
+%%
+select 1 from t where FULL.x=1
+%%
+select 1 from t join u FULL on 1
+%%
+select 1 from t FULL join u
+%%
+create index i on t(FULL)
+%%
+select 1 from t where x=1 FULL 2
+%%
+create table GENERATED(x)
+%%
+select 1 as GENERATED
+%%
+select 1 GENERATED
+%%
+select GENERATED
+%%
+select 1 from t GENERATED
+%%
+create table t(GENERATED)
+%%
+select GENERATED(1)
+%%
+create table t(x GENERATED)
+%%
+select * from GENERATED
+%%
+select t.GENERATED from t
+%%
+select 1 from t where GENERATED.x=1
+%%
+select 1 from t join u GENERATED on 1
+%%
+select 1 from t GENERATED join u
+%%
+create index i on t(GENERATED)
+%%
+select 1 from t where x=1 GENERATED 2
+%%
+create table GLOB(x)
+%%
+select 1 as GLOB
+%%
+select 1 GLOB
+%%
+select GLOB
+%%
+select 1 from t GLOB
+%%
+create table t(GLOB)
+%%
+select GLOB(1)
+%%
+create table t(x GLOB)
+%%
+select * from GLOB
+%%
+select t.GLOB from t
+%%
+select 1 from t where GLOB.x=1
+%%
+select 1 from t join u GLOB on 1
+%%
+select 1 from t GLOB join u
+%%
+create index i on t(GLOB)
+%%
+select 1 from t where x=1 GLOB 2
+%%
+create table GROUP(x)
+%%
+select 1 as GROUP
+%%
+select 1 GROUP
+%%
+select GROUP
+%%
+select 1 from t GROUP
+%%
+create table t(GROUP)
+%%
+select GROUP(1)
+%%
+create table t(x GROUP)
+%%
+select * from GROUP
+%%
+select t.GROUP from t
+%%
+select 1 from t where GROUP.x=1
+%%
+select 1 from t join u GROUP on 1
+%%
+select 1 from t GROUP join u
+%%
+create index i on t(GROUP)
+%%
+select 1 from t where x=1 GROUP 2
+%%
+create table GROUPS(x)
+%%
+select 1 as GROUPS
+%%
+select 1 GROUPS
+%%
+select GROUPS
+%%
+select 1 from t GROUPS
+%%
+create table t(GROUPS)
+%%
+select GROUPS(1)
+%%
+create table t(x GROUPS)
+%%
+select * from GROUPS
+%%
+select t.GROUPS from t
+%%
+select 1 from t where GROUPS.x=1
+%%
+select 1 from t join u GROUPS on 1
+%%
+select 1 from t GROUPS join u
+%%
+create index i on t(GROUPS)
+%%
+select 1 from t where x=1 GROUPS 2
+%%
+create table HAVING(x)
+%%
+select 1 as HAVING
+%%
+select 1 HAVING
+%%
+select HAVING
+%%
+select 1 from t HAVING
+%%
+create table t(HAVING)
+%%
+select HAVING(1)
+%%
+create table t(x HAVING)
+%%
+select * from HAVING
+%%
+select t.HAVING from t
+%%
+select 1 from t where HAVING.x=1
+%%
+select 1 from t join u HAVING on 1
+%%
+select 1 from t HAVING join u
+%%
+create index i on t(HAVING)
+%%
+select 1 from t where x=1 HAVING 2
+%%
+create table IF(x)
+%%
+select 1 as IF
+%%
+select 1 IF
+%%
+select IF
+%%
+select 1 from t IF
+%%
+create table t(IF)
+%%
+select IF(1)
+%%
+create table t(x IF)
+%%
+select * from IF
+%%
+select t.IF from t
+%%
+select 1 from t where IF.x=1
+%%
+select 1 from t join u IF on 1
+%%
+select 1 from t IF join u
+%%
+create index i on t(IF)
+%%
+select 1 from t where x=1 IF 2
+%%
+create table IGNORE(x)
+%%
+select 1 as IGNORE
+%%
+select 1 IGNORE
+%%
+select IGNORE
+%%
+select 1 from t IGNORE
+%%
+create table t(IGNORE)
+%%
+select IGNORE(1)
+%%
+create table t(x IGNORE)
+%%
+select * from IGNORE
+%%
+select t.IGNORE from t
+%%
+select 1 from t where IGNORE.x=1
+%%
+select 1 from t join u IGNORE on 1
+%%
+select 1 from t IGNORE join u
+%%
+create index i on t(IGNORE)
+%%
+select 1 from t where x=1 IGNORE 2
+%%
+create table IMMEDIATE(x)
+%%
+select 1 as IMMEDIATE
+%%
+select 1 IMMEDIATE
+%%
+select IMMEDIATE
+%%
+select 1 from t IMMEDIATE
+%%
+create table t(IMMEDIATE)
+%%
+select IMMEDIATE(1)
+%%
+create table t(x IMMEDIATE)
+%%
+select * from IMMEDIATE
+%%
+select t.IMMEDIATE from t
+%%
+select 1 from t where IMMEDIATE.x=1
+%%
+select 1 from t join u IMMEDIATE on 1
+%%
+select 1 from t IMMEDIATE join u
+%%
+create index i on t(IMMEDIATE)
+%%
+select 1 from t where x=1 IMMEDIATE 2
+%%
+create table IN(x)
+%%
+select 1 as IN
+%%
+select 1 IN
+%%
+select IN
+%%
+select 1 from t IN
+%%
+create table t(IN)
+%%
+select IN(1)
+%%
+create table t(x IN)
+%%
+select * from IN
+%%
+select t.IN from t
+%%
+select 1 from t where IN.x=1
+%%
+select 1 from t join u IN on 1
+%%
+select 1 from t IN join u
+%%
+create index i on t(IN)
+%%
+select 1 from t where x=1 IN 2
+%%
+create table INDEX(x)
+%%
+select 1 as INDEX
+%%
+select 1 INDEX
+%%
+select INDEX
+%%
+select 1 from t INDEX
+%%
+create table t(INDEX)
+%%
+select INDEX(1)
+%%
+create table t(x INDEX)
+%%
+select * from INDEX
+%%
+select t.INDEX from t
+%%
+select 1 from t where INDEX.x=1
+%%
+select 1 from t join u INDEX on 1
+%%
+select 1 from t INDEX join u
+%%
+create index i on t(INDEX)
+%%
+select 1 from t where x=1 INDEX 2
+%%
+create table INDEXED(x)
+%%
+select 1 as INDEXED
+%%
+select 1 INDEXED
+%%
+select INDEXED
+%%
+select 1 from t INDEXED
+%%
+create table t(INDEXED)
+%%
+select INDEXED(1)
+%%
+create table t(x INDEXED)
+%%
+select * from INDEXED
+%%
+select t.INDEXED from t
+%%
+select 1 from t where INDEXED.x=1
+%%
+select 1 from t join u INDEXED on 1
+%%
+select 1 from t INDEXED join u
+%%
+create index i on t(INDEXED)
+%%
+select 1 from t where x=1 INDEXED 2
+%%
+create table INITIALLY(x)
+%%
+select 1 as INITIALLY
+%%
+select 1 INITIALLY
+%%
+select INITIALLY
+%%
+select 1 from t INITIALLY
+%%
+create table t(INITIALLY)
+%%
+select INITIALLY(1)
+%%
+create table t(x INITIALLY)
+%%
+select * from INITIALLY
+%%
+select t.INITIALLY from t
+%%
+select 1 from t where INITIALLY.x=1
+%%
+select 1 from t join u INITIALLY on 1
+%%
+select 1 from t INITIALLY join u
+%%
+create index i on t(INITIALLY)
+%%
+select 1 from t where x=1 INITIALLY 2
+%%
+create table INNER(x)
+%%
+select 1 as INNER
+%%
+select 1 INNER
+%%
+select INNER
+%%
+select 1 from t INNER
+%%
+create table t(INNER)
+%%
+select INNER(1)
+%%
+create table t(x INNER)
+%%
+select * from INNER
+%%
+select t.INNER from t
+%%
+select 1 from t where INNER.x=1
+%%
+select 1 from t join u INNER on 1
+%%
+select 1 from t INNER join u
+%%
+create index i on t(INNER)
+%%
+select 1 from t where x=1 INNER 2
+%%
+create table INSERT(x)
+%%
+select 1 as INSERT
+%%
+select 1 INSERT
+%%
+select INSERT
+%%
+select 1 from t INSERT
+%%
+create table t(INSERT)
+%%
+select INSERT(1)
+%%
+create table t(x INSERT)
+%%
+select * from INSERT
+%%
+select t.INSERT from t
+%%
+select 1 from t where INSERT.x=1
+%%
+select 1 from t join u INSERT on 1
+%%
+select 1 from t INSERT join u
+%%
+create index i on t(INSERT)
+%%
+select 1 from t where x=1 INSERT 2
+%%
+create table INSTEAD(x)
+%%
+select 1 as INSTEAD
+%%
+select 1 INSTEAD
+%%
+select INSTEAD
+%%
+select 1 from t INSTEAD
+%%
+create table t(INSTEAD)
+%%
+select INSTEAD(1)
+%%
+create table t(x INSTEAD)
+%%
+select * from INSTEAD
+%%
+select t.INSTEAD from t
+%%
+select 1 from t where INSTEAD.x=1
+%%
+select 1 from t join u INSTEAD on 1
+%%
+select 1 from t INSTEAD join u
+%%
+create index i on t(INSTEAD)
+%%
+select 1 from t where x=1 INSTEAD 2
+%%
+create table INTERSECT(x)
+%%
+select 1 as INTERSECT
+%%
+select 1 INTERSECT
+%%
+select INTERSECT
+%%
+select 1 from t INTERSECT
+%%
+create table t(INTERSECT)
+%%
+select INTERSECT(1)
+%%
+create table t(x INTERSECT)
+%%
+select * from INTERSECT
+%%
+select t.INTERSECT from t
+%%
+select 1 from t where INTERSECT.x=1
+%%
+select 1 from t join u INTERSECT on 1
+%%
+select 1 from t INTERSECT join u
+%%
+create index i on t(INTERSECT)
+%%
+select 1 from t where x=1 INTERSECT 2
+%%
+create table INTO(x)
+%%
+select 1 as INTO
+%%
+select 1 INTO
+%%
+select INTO
+%%
+select 1 from t INTO
+%%
+create table t(INTO)
+%%
+select INTO(1)
+%%
+create table t(x INTO)
+%%
+select * from INTO
+%%
+select t.INTO from t
+%%
+select 1 from t where INTO.x=1
+%%
+select 1 from t join u INTO on 1
+%%
+select 1 from t INTO join u
+%%
+create index i on t(INTO)
+%%
+select 1 from t where x=1 INTO 2
+%%
+create table IS(x)
+%%
+select 1 as IS
+%%
+select 1 IS
+%%
+select IS
+%%
+select 1 from t IS
+%%
+create table t(IS)
+%%
+select IS(1)
+%%
+create table t(x IS)
+%%
+select * from IS
+%%
+select t.IS from t
+%%
+select 1 from t where IS.x=1
+%%
+select 1 from t join u IS on 1
+%%
+select 1 from t IS join u
+%%
+create index i on t(IS)
+%%
+select 1 from t where x=1 IS 2
+%%
+create table ISNULL(x)
+%%
+select 1 as ISNULL
+%%
+select 1 ISNULL
+%%
+select ISNULL
+%%
+select 1 from t ISNULL
+%%
+create table t(ISNULL)
+%%
+select ISNULL(1)
+%%
+create table t(x ISNULL)
+%%
+select * from ISNULL
+%%
+select t.ISNULL from t
+%%
+select 1 from t where ISNULL.x=1
+%%
+select 1 from t join u ISNULL on 1
+%%
+select 1 from t ISNULL join u
+%%
+create index i on t(ISNULL)
+%%
+select 1 from t where x=1 ISNULL 2
+%%
+create table JOIN(x)
+%%
+select 1 as JOIN
+%%
+select 1 JOIN
+%%
+select JOIN
+%%
+select 1 from t JOIN
+%%
+create table t(JOIN)
+%%
+select JOIN(1)
+%%
+create table t(x JOIN)
+%%
+select * from JOIN
+%%
+select t.JOIN from t
+%%
+select 1 from t where JOIN.x=1
+%%
+select 1 from t join u JOIN on 1
+%%
+select 1 from t JOIN join u
+%%
+create index i on t(JOIN)
+%%
+select 1 from t where x=1 JOIN 2
+%%
+create table KEY(x)
+%%
+select 1 as KEY
+%%
+select 1 KEY
+%%
+select KEY
+%%
+select 1 from t KEY
+%%
+create table t(KEY)
+%%
+select KEY(1)
+%%
+create table t(x KEY)
+%%
+select * from KEY
+%%
+select t.KEY from t
+%%
+select 1 from t where KEY.x=1
+%%
+select 1 from t join u KEY on 1
+%%
+select 1 from t KEY join u
+%%
+create index i on t(KEY)
+%%
+select 1 from t where x=1 KEY 2
+%%
+create table LAST(x)
+%%
+select 1 as LAST
+%%
+select 1 LAST
+%%
+select LAST
+%%
+select 1 from t LAST
+%%
+create table t(LAST)
+%%
+select LAST(1)
+%%
+create table t(x LAST)
+%%
+select * from LAST
+%%
+select t.LAST from t
+%%
+select 1 from t where LAST.x=1
+%%
+select 1 from t join u LAST on 1
+%%
+select 1 from t LAST join u
+%%
+create index i on t(LAST)
+%%
+select 1 from t where x=1 LAST 2
+%%
+create table LEFT(x)
+%%
+select 1 as LEFT
+%%
+select 1 LEFT
+%%
+select LEFT
+%%
+select 1 from t LEFT
+%%
+create table t(LEFT)
+%%
+select LEFT(1)
+%%
+create table t(x LEFT)
+%%
+select * from LEFT
+%%
+select t.LEFT from t
+%%
+select 1 from t where LEFT.x=1
+%%
+select 1 from t join u LEFT on 1
+%%
+select 1 from t LEFT join u
+%%
+create index i on t(LEFT)
+%%
+select 1 from t where x=1 LEFT 2
+%%
+create table LIKE(x)
+%%
+select 1 as LIKE
+%%
+select 1 LIKE
+%%
+select LIKE
+%%
+select 1 from t LIKE
+%%
+create table t(LIKE)
+%%
+select LIKE(1)
+%%
+create table t(x LIKE)
+%%
+select * from LIKE
+%%
+select t.LIKE from t
+%%
+select 1 from t where LIKE.x=1
+%%
+select 1 from t join u LIKE on 1
+%%
+select 1 from t LIKE join u
+%%
+create index i on t(LIKE)
+%%
+select 1 from t where x=1 LIKE 2
+%%
+create table LIMIT(x)
+%%
+select 1 as LIMIT
+%%
+select 1 LIMIT
+%%
+select LIMIT
+%%
+select 1 from t LIMIT
+%%
+create table t(LIMIT)
+%%
+select LIMIT(1)
+%%
+create table t(x LIMIT)
+%%
+select * from LIMIT
+%%
+select t.LIMIT from t
+%%
+select 1 from t where LIMIT.x=1
+%%
+select 1 from t join u LIMIT on 1
+%%
+select 1 from t LIMIT join u
+%%
+create index i on t(LIMIT)
+%%
+select 1 from t where x=1 LIMIT 2
+%%
+create table MATCH(x)
+%%
+select 1 as MATCH
+%%
+select 1 MATCH
+%%
+select MATCH
+%%
+select 1 from t MATCH
+%%
+create table t(MATCH)
+%%
+select MATCH(1)
+%%
+create table t(x MATCH)
+%%
+select * from MATCH
+%%
+select t.MATCH from t
+%%
+select 1 from t where MATCH.x=1
+%%
+select 1 from t join u MATCH on 1
+%%
+select 1 from t MATCH join u
+%%
+create index i on t(MATCH)
+%%
+select 1 from t where x=1 MATCH 2
+%%
+create table MATERIALIZED(x)
+%%
+select 1 as MATERIALIZED
+%%
+select 1 MATERIALIZED
+%%
+select MATERIALIZED
+%%
+select 1 from t MATERIALIZED
+%%
+create table t(MATERIALIZED)
+%%
+select MATERIALIZED(1)
+%%
+create table t(x MATERIALIZED)
+%%
+select * from MATERIALIZED
+%%
+select t.MATERIALIZED from t
+%%
+select 1 from t where MATERIALIZED.x=1
+%%
+select 1 from t join u MATERIALIZED on 1
+%%
+select 1 from t MATERIALIZED join u
+%%
+create index i on t(MATERIALIZED)
+%%
+select 1 from t where x=1 MATERIALIZED 2
+%%
+create table NATURAL(x)
+%%
+select 1 as NATURAL
+%%
+select 1 NATURAL
+%%
+select NATURAL
+%%
+select 1 from t NATURAL
+%%
+create table t(NATURAL)
+%%
+select NATURAL(1)
+%%
+create table t(x NATURAL)
+%%
+select * from NATURAL
+%%
+select t.NATURAL from t
+%%
+select 1 from t where NATURAL.x=1
+%%
+select 1 from t join u NATURAL on 1
+%%
+select 1 from t NATURAL join u
+%%
+create index i on t(NATURAL)
+%%
+select 1 from t where x=1 NATURAL 2
+%%
+create table NO(x)
+%%
+select 1 as NO
+%%
+select 1 NO
+%%
+select NO
+%%
+select 1 from t NO
+%%
+create table t(NO)
+%%
+select NO(1)
+%%
+create table t(x NO)
+%%
+select * from NO
+%%
+select t.NO from t
+%%
+select 1 from t where NO.x=1
+%%
+select 1 from t join u NO on 1
+%%
+select 1 from t NO join u
+%%
+create index i on t(NO)
+%%
+select 1 from t where x=1 NO 2
+%%
+create table NOT(x)
+%%
+select 1 as NOT
+%%
+select 1 NOT
+%%
+select NOT
+%%
+select 1 from t NOT
+%%
+create table t(NOT)
+%%
+select NOT(1)
+%%
+create table t(x NOT)
+%%
+select * from NOT
+%%
+select t.NOT from t
+%%
+select 1 from t where NOT.x=1
+%%
+select 1 from t join u NOT on 1
+%%
+select 1 from t NOT join u
+%%
+create index i on t(NOT)
+%%
+select 1 from t where x=1 NOT 2
+%%
+create table NOTHING(x)
+%%
+select 1 as NOTHING
+%%
+select 1 NOTHING
+%%
+select NOTHING
+%%
+select 1 from t NOTHING
+%%
+create table t(NOTHING)
+%%
+select NOTHING(1)
+%%
+create table t(x NOTHING)
+%%
+select * from NOTHING
+%%
+select t.NOTHING from t
+%%
+select 1 from t where NOTHING.x=1
+%%
+select 1 from t join u NOTHING on 1
+%%
+select 1 from t NOTHING join u
+%%
+create index i on t(NOTHING)
+%%
+select 1 from t where x=1 NOTHING 2
+%%
+create table NOTNULL(x)
+%%
+select 1 as NOTNULL
+%%
+select 1 NOTNULL
+%%
+select NOTNULL
+%%
+select 1 from t NOTNULL
+%%
+create table t(NOTNULL)
+%%
+select NOTNULL(1)
+%%
+create table t(x NOTNULL)
+%%
+select * from NOTNULL
+%%
+select t.NOTNULL from t
+%%
+select 1 from t where NOTNULL.x=1
+%%
+select 1 from t join u NOTNULL on 1
+%%
+select 1 from t NOTNULL join u
+%%
+create index i on t(NOTNULL)
+%%
+select 1 from t where x=1 NOTNULL 2
+%%
+create table NULL(x)
+%%
+select 1 as NULL
+%%
+select 1 NULL
+%%
+select NULL
+%%
+select 1 from t NULL
+%%
+create table t(NULL)
+%%
+select NULL(1)
+%%
+create table t(x NULL)
+%%
+select * from NULL
+%%
+select t.NULL from t
+%%
+select 1 from t where NULL.x=1
+%%
+select 1 from t join u NULL on 1
+%%
+select 1 from t NULL join u
+%%
+create index i on t(NULL)
+%%
+select 1 from t where x=1 NULL 2
+%%
+create table NULLS(x)
+%%
+select 1 as NULLS
+%%
+select 1 NULLS
+%%
+select NULLS
+%%
+select 1 from t NULLS
+%%
+create table t(NULLS)
+%%
+select NULLS(1)
+%%
+create table t(x NULLS)
+%%
+select * from NULLS
+%%
+select t.NULLS from t
+%%
+select 1 from t where NULLS.x=1
+%%
+select 1 from t join u NULLS on 1
+%%
+select 1 from t NULLS join u
+%%
+create index i on t(NULLS)
+%%
+select 1 from t where x=1 NULLS 2
+%%
+create table OF(x)
+%%
+select 1 as OF
+%%
+select 1 OF
+%%
+select OF
+%%
+select 1 from t OF
+%%
+create table t(OF)
+%%
+select OF(1)
+%%
+create table t(x OF)
+%%
+select * from OF
+%%
+select t.OF from t
+%%
+select 1 from t where OF.x=1
+%%
+select 1 from t join u OF on 1
+%%
+select 1 from t OF join u
+%%
+create index i on t(OF)
+%%
+select 1 from t where x=1 OF 2
+%%
+create table OFFSET(x)
+%%
+select 1 as OFFSET
+%%
+select 1 OFFSET
+%%
+select OFFSET
+%%
+select 1 from t OFFSET
+%%
+create table t(OFFSET)
+%%
+select OFFSET(1)
+%%
+create table t(x OFFSET)
+%%
+select * from OFFSET
+%%
+select t.OFFSET from t
+%%
+select 1 from t where OFFSET.x=1
+%%
+select 1 from t join u OFFSET on 1
+%%
+select 1 from t OFFSET join u
+%%
+create index i on t(OFFSET)
+%%
+select 1 from t where x=1 OFFSET 2
+%%
+create table ON(x)
+%%
+select 1 as ON
+%%
+select 1 ON
+%%
+select ON
+%%
+select 1 from t ON
+%%
+create table t(ON)
+%%
+select ON(1)
+%%
+create table t(x ON)
+%%
+select * from ON
+%%
+select t.ON from t
+%%
+select 1 from t where ON.x=1
+%%
+select 1 from t join u ON on 1
+%%
+select 1 from t ON join u
+%%
+create index i on t(ON)
+%%
+select 1 from t where x=1 ON 2
+%%
+create table OR(x)
+%%
+select 1 as OR
+%%
+select 1 OR
+%%
+select OR
+%%
+select 1 from t OR
+%%
+create table t(OR)
+%%
+select OR(1)
+%%
+create table t(x OR)
+%%
+select * from OR
+%%
+select t.OR from t
+%%
+select 1 from t where OR.x=1
+%%
+select 1 from t join u OR on 1
+%%
+select 1 from t OR join u
+%%
+create index i on t(OR)
+%%
+select 1 from t where x=1 OR 2
+%%
+create table ORDER(x)
+%%
+select 1 as ORDER
+%%
+select 1 ORDER
+%%
+select ORDER
+%%
+select 1 from t ORDER
+%%
+create table t(ORDER)
+%%
+select ORDER(1)
+%%
+create table t(x ORDER)
+%%
+select * from ORDER
+%%
+select t.ORDER from t
+%%
+select 1 from t where ORDER.x=1
+%%
+select 1 from t join u ORDER on 1
+%%
+select 1 from t ORDER join u
+%%
+create index i on t(ORDER)
+%%
+select 1 from t where x=1 ORDER 2
+%%
+create table OTHERS(x)
+%%
+select 1 as OTHERS
+%%
+select 1 OTHERS
+%%
+select OTHERS
+%%
+select 1 from t OTHERS
+%%
+create table t(OTHERS)
+%%
+select OTHERS(1)
+%%
+create table t(x OTHERS)
+%%
+select * from OTHERS
+%%
+select t.OTHERS from t
+%%
+select 1 from t where OTHERS.x=1
+%%
+select 1 from t join u OTHERS on 1
+%%
+select 1 from t OTHERS join u
+%%
+create index i on t(OTHERS)
+%%
+select 1 from t where x=1 OTHERS 2
+%%
+create table OUTER(x)
+%%
+select 1 as OUTER
+%%
+select 1 OUTER
+%%
+select OUTER
+%%
+select 1 from t OUTER
+%%
+create table t(OUTER)
+%%
+select OUTER(1)
+%%
+create table t(x OUTER)
+%%
+select * from OUTER
+%%
+select t.OUTER from t
+%%
+select 1 from t where OUTER.x=1
+%%
+select 1 from t join u OUTER on 1
+%%
+select 1 from t OUTER join u
+%%
+create index i on t(OUTER)
+%%
+select 1 from t where x=1 OUTER 2
+%%
+create table OVER(x)
+%%
+select 1 as OVER
+%%
+select 1 OVER
+%%
+select OVER
+%%
+select 1 from t OVER
+%%
+create table t(OVER)
+%%
+select OVER(1)
+%%
+create table t(x OVER)
+%%
+select * from OVER
+%%
+select t.OVER from t
+%%
+select 1 from t where OVER.x=1
+%%
+select 1 from t join u OVER on 1
+%%
+select 1 from t OVER join u
+%%
+create index i on t(OVER)
+%%
+select 1 from t where x=1 OVER 2
+%%
+create table PARTITION(x)
+%%
+select 1 as PARTITION
+%%
+select 1 PARTITION
+%%
+select PARTITION
+%%
+select 1 from t PARTITION
+%%
+create table t(PARTITION)
+%%
+select PARTITION(1)
+%%
+create table t(x PARTITION)
+%%
+select * from PARTITION
+%%
+select t.PARTITION from t
+%%
+select 1 from t where PARTITION.x=1
+%%
+select 1 from t join u PARTITION on 1
+%%
+select 1 from t PARTITION join u
+%%
+create index i on t(PARTITION)
+%%
+select 1 from t where x=1 PARTITION 2
+%%
+create table PLAN(x)
+%%
+select 1 as PLAN
+%%
+select 1 PLAN
+%%
+select PLAN
+%%
+select 1 from t PLAN
+%%
+create table t(PLAN)
+%%
+select PLAN(1)
+%%
+create table t(x PLAN)
+%%
+select * from PLAN
+%%
+select t.PLAN from t
+%%
+select 1 from t where PLAN.x=1
+%%
+select 1 from t join u PLAN on 1
+%%
+select 1 from t PLAN join u
+%%
+create index i on t(PLAN)
+%%
+select 1 from t where x=1 PLAN 2
+%%
+create table PRAGMA(x)
+%%
+select 1 as PRAGMA
+%%
+select 1 PRAGMA
+%%
+select PRAGMA
+%%
+select 1 from t PRAGMA
+%%
+create table t(PRAGMA)
+%%
+select PRAGMA(1)
+%%
+create table t(x PRAGMA)
+%%
+select * from PRAGMA
+%%
+select t.PRAGMA from t
+%%
+select 1 from t where PRAGMA.x=1
+%%
+select 1 from t join u PRAGMA on 1
+%%
+select 1 from t PRAGMA join u
+%%
+create index i on t(PRAGMA)
+%%
+select 1 from t where x=1 PRAGMA 2
+%%
+create table PRECEDING(x)
+%%
+select 1 as PRECEDING
+%%
+select 1 PRECEDING
+%%
+select PRECEDING
+%%
+select 1 from t PRECEDING
+%%
+create table t(PRECEDING)
+%%
+select PRECEDING(1)
+%%
+create table t(x PRECEDING)
+%%
+select * from PRECEDING
+%%
+select t.PRECEDING from t
+%%
+select 1 from t where PRECEDING.x=1
+%%
+select 1 from t join u PRECEDING on 1
+%%
+select 1 from t PRECEDING join u
+%%
+create index i on t(PRECEDING)
+%%
+select 1 from t where x=1 PRECEDING 2
+%%
+create table PRIMARY(x)
+%%
+select 1 as PRIMARY
+%%
+select 1 PRIMARY
+%%
+select PRIMARY
+%%
+select 1 from t PRIMARY
+%%
+create table t(PRIMARY)
+%%
+select PRIMARY(1)
+%%
+create table t(x PRIMARY)
+%%
+select * from PRIMARY
+%%
+select t.PRIMARY from t
+%%
+select 1 from t where PRIMARY.x=1
+%%
+select 1 from t join u PRIMARY on 1
+%%
+select 1 from t PRIMARY join u
+%%
+create index i on t(PRIMARY)
+%%
+select 1 from t where x=1 PRIMARY 2
+%%
+create table QUERY(x)
+%%
+select 1 as QUERY
+%%
+select 1 QUERY
+%%
+select QUERY
+%%
+select 1 from t QUERY
+%%
+create table t(QUERY)
+%%
+select QUERY(1)
+%%
+create table t(x QUERY)
+%%
+select * from QUERY
+%%
+select t.QUERY from t
+%%
+select 1 from t where QUERY.x=1
+%%
+select 1 from t join u QUERY on 1
+%%
+select 1 from t QUERY join u
+%%
+create index i on t(QUERY)
+%%
+select 1 from t where x=1 QUERY 2
+%%
+create table RAISE(x)
+%%
+select 1 as RAISE
+%%
+select 1 RAISE
+%%
+select RAISE
+%%
+select 1 from t RAISE
+%%
+create table t(RAISE)
+%%
+select RAISE(1)
+%%
+create table t(x RAISE)
+%%
+select * from RAISE
+%%
+select t.RAISE from t
+%%
+select 1 from t where RAISE.x=1
+%%
+select 1 from t join u RAISE on 1
+%%
+select 1 from t RAISE join u
+%%
+create index i on t(RAISE)
+%%
+select 1 from t where x=1 RAISE 2
+%%
+create table RANGE(x)
+%%
+select 1 as RANGE
+%%
+select 1 RANGE
+%%
+select RANGE
+%%
+select 1 from t RANGE
+%%
+create table t(RANGE)
+%%
+select RANGE(1)
+%%
+create table t(x RANGE)
+%%
+select * from RANGE
+%%
+select t.RANGE from t
+%%
+select 1 from t where RANGE.x=1
+%%
+select 1 from t join u RANGE on 1
+%%
+select 1 from t RANGE join u
+%%
+create index i on t(RANGE)
+%%
+select 1 from t where x=1 RANGE 2
+%%
+create table RECURSIVE(x)
+%%
+select 1 as RECURSIVE
+%%
+select 1 RECURSIVE
+%%
+select RECURSIVE
+%%
+select 1 from t RECURSIVE
+%%
+create table t(RECURSIVE)
+%%
+select RECURSIVE(1)
+%%
+create table t(x RECURSIVE)
+%%
+select * from RECURSIVE
+%%
+select t.RECURSIVE from t
+%%
+select 1 from t where RECURSIVE.x=1
+%%
+select 1 from t join u RECURSIVE on 1
+%%
+select 1 from t RECURSIVE join u
+%%
+create index i on t(RECURSIVE)
+%%
+select 1 from t where x=1 RECURSIVE 2
+%%
+create table REFERENCES(x)
+%%
+select 1 as REFERENCES
+%%
+select 1 REFERENCES
+%%
+select REFERENCES
+%%
+select 1 from t REFERENCES
+%%
+create table t(REFERENCES)
+%%
+select REFERENCES(1)
+%%
+create table t(x REFERENCES)
+%%
+select * from REFERENCES
+%%
+select t.REFERENCES from t
+%%
+select 1 from t where REFERENCES.x=1
+%%
+select 1 from t join u REFERENCES on 1
+%%
+select 1 from t REFERENCES join u
+%%
+create index i on t(REFERENCES)
+%%
+select 1 from t where x=1 REFERENCES 2
+%%
+create table REGEXP(x)
+%%
+select 1 as REGEXP
+%%
+select 1 REGEXP
+%%
+select REGEXP
+%%
+select 1 from t REGEXP
+%%
+create table t(REGEXP)
+%%
+select REGEXP(1)
+%%
+create table t(x REGEXP)
+%%
+select * from REGEXP
+%%
+select t.REGEXP from t
+%%
+select 1 from t where REGEXP.x=1
+%%
+select 1 from t join u REGEXP on 1
+%%
+select 1 from t REGEXP join u
+%%
+create index i on t(REGEXP)
+%%
+select 1 from t where x=1 REGEXP 2
+%%
+create table REINDEX(x)
+%%
+select 1 as REINDEX
+%%
+select 1 REINDEX
+%%
+select REINDEX
+%%
+select 1 from t REINDEX
+%%
+create table t(REINDEX)
+%%
+select REINDEX(1)
+%%
+create table t(x REINDEX)
+%%
+select * from REINDEX
+%%
+select t.REINDEX from t
+%%
+select 1 from t where REINDEX.x=1
+%%
+select 1 from t join u REINDEX on 1
+%%
+select 1 from t REINDEX join u
+%%
+create index i on t(REINDEX)
+%%
+select 1 from t where x=1 REINDEX 2
+%%
+create table RELEASE(x)
+%%
+select 1 as RELEASE
+%%
+select 1 RELEASE
+%%
+select RELEASE
+%%
+select 1 from t RELEASE
+%%
+create table t(RELEASE)
+%%
+select RELEASE(1)
+%%
+create table t(x RELEASE)
+%%
+select * from RELEASE
+%%
+select t.RELEASE from t
+%%
+select 1 from t where RELEASE.x=1
+%%
+select 1 from t join u RELEASE on 1
+%%
+select 1 from t RELEASE join u
+%%
+create index i on t(RELEASE)
+%%
+select 1 from t where x=1 RELEASE 2
+%%
+create table RENAME(x)
+%%
+select 1 as RENAME
+%%
+select 1 RENAME
+%%
+select RENAME
+%%
+select 1 from t RENAME
+%%
+create table t(RENAME)
+%%
+select RENAME(1)
+%%
+create table t(x RENAME)
+%%
+select * from RENAME
+%%
+select t.RENAME from t
+%%
+select 1 from t where RENAME.x=1
+%%
+select 1 from t join u RENAME on 1
+%%
+select 1 from t RENAME join u
+%%
+create index i on t(RENAME)
+%%
+select 1 from t where x=1 RENAME 2
+%%
+create table REPLACE(x)
+%%
+select 1 as REPLACE
+%%
+select 1 REPLACE
+%%
+select REPLACE
+%%
+select 1 from t REPLACE
+%%
+create table t(REPLACE)
+%%
+select REPLACE(1)
+%%
+create table t(x REPLACE)
+%%
+select * from REPLACE
+%%
+select t.REPLACE from t
+%%
+select 1 from t where REPLACE.x=1
+%%
+select 1 from t join u REPLACE on 1
+%%
+select 1 from t REPLACE join u
+%%
+create index i on t(REPLACE)
+%%
+select 1 from t where x=1 REPLACE 2
+%%
+create table RESTRICT(x)
+%%
+select 1 as RESTRICT
+%%
+select 1 RESTRICT
+%%
+select RESTRICT
+%%
+select 1 from t RESTRICT
+%%
+create table t(RESTRICT)
+%%
+select RESTRICT(1)
+%%
+create table t(x RESTRICT)
+%%
+select * from RESTRICT
+%%
+select t.RESTRICT from t
+%%
+select 1 from t where RESTRICT.x=1
+%%
+select 1 from t join u RESTRICT on 1
+%%
+select 1 from t RESTRICT join u
+%%
+create index i on t(RESTRICT)
+%%
+select 1 from t where x=1 RESTRICT 2
+%%
+create table RETURNING(x)
+%%
+select 1 as RETURNING
+%%
+select 1 RETURNING
+%%
+select RETURNING
+%%
+select 1 from t RETURNING
+%%
+create table t(RETURNING)
+%%
+select RETURNING(1)
+%%
+create table t(x RETURNING)
+%%
+select * from RETURNING
+%%
+select t.RETURNING from t
+%%
+select 1 from t where RETURNING.x=1
+%%
+select 1 from t join u RETURNING on 1
+%%
+select 1 from t RETURNING join u
+%%
+create index i on t(RETURNING)
+%%
+select 1 from t where x=1 RETURNING 2
+%%
+create table RIGHT(x)
+%%
+select 1 as RIGHT
+%%
+select 1 RIGHT
+%%
+select RIGHT
+%%
+select 1 from t RIGHT
+%%
+create table t(RIGHT)
+%%
+select RIGHT(1)
+%%
+create table t(x RIGHT)
+%%
+select * from RIGHT
+%%
+select t.RIGHT from t
+%%
+select 1 from t where RIGHT.x=1
+%%
+select 1 from t join u RIGHT on 1
+%%
+select 1 from t RIGHT join u
+%%
+create index i on t(RIGHT)
+%%
+select 1 from t where x=1 RIGHT 2
+%%
+create table ROLLBACK(x)
+%%
+select 1 as ROLLBACK
+%%
+select 1 ROLLBACK
+%%
+select ROLLBACK
+%%
+select 1 from t ROLLBACK
+%%
+create table t(ROLLBACK)
+%%
+select ROLLBACK(1)
+%%
+create table t(x ROLLBACK)
+%%
+select * from ROLLBACK
+%%
+select t.ROLLBACK from t
+%%
+select 1 from t where ROLLBACK.x=1
+%%
+select 1 from t join u ROLLBACK on 1
+%%
+select 1 from t ROLLBACK join u
+%%
+create index i on t(ROLLBACK)
+%%
+select 1 from t where x=1 ROLLBACK 2
+%%
+create table ROW(x)
+%%
+select 1 as ROW
+%%
+select 1 ROW
+%%
+select ROW
+%%
+select 1 from t ROW
+%%
+create table t(ROW)
+%%
+select ROW(1)
+%%
+create table t(x ROW)
+%%
+select * from ROW
+%%
+select t.ROW from t
+%%
+select 1 from t where ROW.x=1
+%%
+select 1 from t join u ROW on 1
+%%
+select 1 from t ROW join u
+%%
+create index i on t(ROW)
+%%
+select 1 from t where x=1 ROW 2
+%%
+create table ROWS(x)
+%%
+select 1 as ROWS
+%%
+select 1 ROWS
+%%
+select ROWS
+%%
+select 1 from t ROWS
+%%
+create table t(ROWS)
+%%
+select ROWS(1)
+%%
+create table t(x ROWS)
+%%
+select * from ROWS
+%%
+select t.ROWS from t
+%%
+select 1 from t where ROWS.x=1
+%%
+select 1 from t join u ROWS on 1
+%%
+select 1 from t ROWS join u
+%%
+create index i on t(ROWS)
+%%
+select 1 from t where x=1 ROWS 2
+%%
+create table SAVEPOINT(x)
+%%
+select 1 as SAVEPOINT
+%%
+select 1 SAVEPOINT
+%%
+select SAVEPOINT
+%%
+select 1 from t SAVEPOINT
+%%
+create table t(SAVEPOINT)
+%%
+select SAVEPOINT(1)
+%%
+create table t(x SAVEPOINT)
+%%
+select * from SAVEPOINT
+%%
+select t.SAVEPOINT from t
+%%
+select 1 from t where SAVEPOINT.x=1
+%%
+select 1 from t join u SAVEPOINT on 1
+%%
+select 1 from t SAVEPOINT join u
+%%
+create index i on t(SAVEPOINT)
+%%
+select 1 from t where x=1 SAVEPOINT 2
+%%
+create table SELECT(x)
+%%
+select 1 as SELECT
+%%
+select 1 SELECT
+%%
+select SELECT
+%%
+select 1 from t SELECT
+%%
+create table t(SELECT)
+%%
+select SELECT(1)
+%%
+create table t(x SELECT)
+%%
+select * from SELECT
+%%
+select t.SELECT from t
+%%
+select 1 from t where SELECT.x=1
+%%
+select 1 from t join u SELECT on 1
+%%
+select 1 from t SELECT join u
+%%
+create index i on t(SELECT)
+%%
+select 1 from t where x=1 SELECT 2
+%%
+create table SET(x)
+%%
+select 1 as SET
+%%
+select 1 SET
+%%
+select SET
+%%
+select 1 from t SET
+%%
+create table t(SET)
+%%
+select SET(1)
+%%
+create table t(x SET)
+%%
+select * from SET
+%%
+select t.SET from t
+%%
+select 1 from t where SET.x=1
+%%
+select 1 from t join u SET on 1
+%%
+select 1 from t SET join u
+%%
+create index i on t(SET)
+%%
+select 1 from t where x=1 SET 2
+%%
+create table TABLE(x)
+%%
+select 1 as TABLE
+%%
+select 1 TABLE
+%%
+select TABLE
+%%
+select 1 from t TABLE
+%%
+create table t(TABLE)
+%%
+select TABLE(1)
+%%
+create table t(x TABLE)
+%%
+select * from TABLE
+%%
+select t.TABLE from t
+%%
+select 1 from t where TABLE.x=1
+%%
+select 1 from t join u TABLE on 1
+%%
+select 1 from t TABLE join u
+%%
+create index i on t(TABLE)
+%%
+select 1 from t where x=1 TABLE 2
+%%
+create table TEMP(x)
+%%
+select 1 as TEMP
+%%
+select 1 TEMP
+%%
+select TEMP
+%%
+select 1 from t TEMP
+%%
+create table t(TEMP)
+%%
+select TEMP(1)
+%%
+create table t(x TEMP)
+%%
+select * from TEMP
+%%
+select t.TEMP from t
+%%
+select 1 from t where TEMP.x=1
+%%
+select 1 from t join u TEMP on 1
+%%
+select 1 from t TEMP join u
+%%
+create index i on t(TEMP)
+%%
+select 1 from t where x=1 TEMP 2
+%%
+create table TEMPORARY(x)
+%%
+select 1 as TEMPORARY
+%%
+select 1 TEMPORARY
+%%
+select TEMPORARY
+%%
+select 1 from t TEMPORARY
+%%
+create table t(TEMPORARY)
+%%
+select TEMPORARY(1)
+%%
+create table t(x TEMPORARY)
+%%
+select * from TEMPORARY
+%%
+select t.TEMPORARY from t
+%%
+select 1 from t where TEMPORARY.x=1
+%%
+select 1 from t join u TEMPORARY on 1
+%%
+select 1 from t TEMPORARY join u
+%%
+create index i on t(TEMPORARY)
+%%
+select 1 from t where x=1 TEMPORARY 2
+%%
+create table THEN(x)
+%%
+select 1 as THEN
+%%
+select 1 THEN
+%%
+select THEN
+%%
+select 1 from t THEN
+%%
+create table t(THEN)
+%%
+select THEN(1)
+%%
+create table t(x THEN)
+%%
+select * from THEN
+%%
+select t.THEN from t
+%%
+select 1 from t where THEN.x=1
+%%
+select 1 from t join u THEN on 1
+%%
+select 1 from t THEN join u
+%%
+create index i on t(THEN)
+%%
+select 1 from t where x=1 THEN 2
+%%
+create table TIES(x)
+%%
+select 1 as TIES
+%%
+select 1 TIES
+%%
+select TIES
+%%
+select 1 from t TIES
+%%
+create table t(TIES)
+%%
+select TIES(1)
+%%
+create table t(x TIES)
+%%
+select * from TIES
+%%
+select t.TIES from t
+%%
+select 1 from t where TIES.x=1
+%%
+select 1 from t join u TIES on 1
+%%
+select 1 from t TIES join u
+%%
+create index i on t(TIES)
+%%
+select 1 from t where x=1 TIES 2
+%%
+create table TO(x)
+%%
+select 1 as TO
+%%
+select 1 TO
+%%
+select TO
+%%
+select 1 from t TO
+%%
+create table t(TO)
+%%
+select TO(1)
+%%
+create table t(x TO)
+%%
+select * from TO
+%%
+select t.TO from t
+%%
+select 1 from t where TO.x=1
+%%
+select 1 from t join u TO on 1
+%%
+select 1 from t TO join u
+%%
+create index i on t(TO)
+%%
+select 1 from t where x=1 TO 2
+%%
+create table TRANSACTION(x)
+%%
+select 1 as TRANSACTION
+%%
+select 1 TRANSACTION
+%%
+select TRANSACTION
+%%
+select 1 from t TRANSACTION
+%%
+create table t(TRANSACTION)
+%%
+select TRANSACTION(1)
+%%
+create table t(x TRANSACTION)
+%%
+select * from TRANSACTION
+%%
+select t.TRANSACTION from t
+%%
+select 1 from t where TRANSACTION.x=1
+%%
+select 1 from t join u TRANSACTION on 1
+%%
+select 1 from t TRANSACTION join u
+%%
+create index i on t(TRANSACTION)
+%%
+select 1 from t where x=1 TRANSACTION 2
+%%
+create table TRIGGER(x)
+%%
+select 1 as TRIGGER
+%%
+select 1 TRIGGER
+%%
+select TRIGGER
+%%
+select 1 from t TRIGGER
+%%
+create table t(TRIGGER)
+%%
+select TRIGGER(1)
+%%
+create table t(x TRIGGER)
+%%
+select * from TRIGGER
+%%
+select t.TRIGGER from t
+%%
+select 1 from t where TRIGGER.x=1
+%%
+select 1 from t join u TRIGGER on 1
+%%
+select 1 from t TRIGGER join u
+%%
+create index i on t(TRIGGER)
+%%
+select 1 from t where x=1 TRIGGER 2
+%%
+create table UNBOUNDED(x)
+%%
+select 1 as UNBOUNDED
+%%
+select 1 UNBOUNDED
+%%
+select UNBOUNDED
+%%
+select 1 from t UNBOUNDED
+%%
+create table t(UNBOUNDED)
+%%
+select UNBOUNDED(1)
+%%
+create table t(x UNBOUNDED)
+%%
+select * from UNBOUNDED
+%%
+select t.UNBOUNDED from t
+%%
+select 1 from t where UNBOUNDED.x=1
+%%
+select 1 from t join u UNBOUNDED on 1
+%%
+select 1 from t UNBOUNDED join u
+%%
+create index i on t(UNBOUNDED)
+%%
+select 1 from t where x=1 UNBOUNDED 2
+%%
+create table UNION(x)
+%%
+select 1 as UNION
+%%
+select 1 UNION
+%%
+select UNION
+%%
+select 1 from t UNION
+%%
+create table t(UNION)
+%%
+select UNION(1)
+%%
+create table t(x UNION)
+%%
+select * from UNION
+%%
+select t.UNION from t
+%%
+select 1 from t where UNION.x=1
+%%
+select 1 from t join u UNION on 1
+%%
+select 1 from t UNION join u
+%%
+create index i on t(UNION)
+%%
+select 1 from t where x=1 UNION 2
+%%
+create table UNIQUE(x)
+%%
+select 1 as UNIQUE
+%%
+select 1 UNIQUE
+%%
+select UNIQUE
+%%
+select 1 from t UNIQUE
+%%
+create table t(UNIQUE)
+%%
+select UNIQUE(1)
+%%
+create table t(x UNIQUE)
+%%
+select * from UNIQUE
+%%
+select t.UNIQUE from t
+%%
+select 1 from t where UNIQUE.x=1
+%%
+select 1 from t join u UNIQUE on 1
+%%
+select 1 from t UNIQUE join u
+%%
+create index i on t(UNIQUE)
+%%
+select 1 from t where x=1 UNIQUE 2
+%%
+create table UPDATE(x)
+%%
+select 1 as UPDATE
+%%
+select 1 UPDATE
+%%
+select UPDATE
+%%
+select 1 from t UPDATE
+%%
+create table t(UPDATE)
+%%
+select UPDATE(1)
+%%
+create table t(x UPDATE)
+%%
+select * from UPDATE
+%%
+select t.UPDATE from t
+%%
+select 1 from t where UPDATE.x=1
+%%
+select 1 from t join u UPDATE on 1
+%%
+select 1 from t UPDATE join u
+%%
+create index i on t(UPDATE)
+%%
+select 1 from t where x=1 UPDATE 2
+%%
+create table USING(x)
+%%
+select 1 as USING
+%%
+select 1 USING
+%%
+select USING
+%%
+select 1 from t USING
+%%
+create table t(USING)
+%%
+select USING(1)
+%%
+create table t(x USING)
+%%
+select * from USING
+%%
+select t.USING from t
+%%
+select 1 from t where USING.x=1
+%%
+select 1 from t join u USING on 1
+%%
+select 1 from t USING join u
+%%
+create index i on t(USING)
+%%
+select 1 from t where x=1 USING 2
+%%
+create table VACUUM(x)
+%%
+select 1 as VACUUM
+%%
+select 1 VACUUM
+%%
+select VACUUM
+%%
+select 1 from t VACUUM
+%%
+create table t(VACUUM)
+%%
+select VACUUM(1)
+%%
+create table t(x VACUUM)
+%%
+select * from VACUUM
+%%
+select t.VACUUM from t
+%%
+select 1 from t where VACUUM.x=1
+%%
+select 1 from t join u VACUUM on 1
+%%
+select 1 from t VACUUM join u
+%%
+create index i on t(VACUUM)
+%%
+select 1 from t where x=1 VACUUM 2
+%%
+create table VALUES(x)
+%%
+select 1 as VALUES
+%%
+select 1 VALUES
+%%
+select VALUES
+%%
+select 1 from t VALUES
+%%
+create table t(VALUES)
+%%
+select VALUES(1)
+%%
+create table t(x VALUES)
+%%
+select * from VALUES
+%%
+select t.VALUES from t
+%%
+select 1 from t where VALUES.x=1
+%%
+select 1 from t join u VALUES on 1
+%%
+select 1 from t VALUES join u
+%%
+create index i on t(VALUES)
+%%
+select 1 from t where x=1 VALUES 2
+%%
+create table VIEW(x)
+%%
+select 1 as VIEW
+%%
+select 1 VIEW
+%%
+select VIEW
+%%
+select 1 from t VIEW
+%%
+create table t(VIEW)
+%%
+select VIEW(1)
+%%
+create table t(x VIEW)
+%%
+select * from VIEW
+%%
+select t.VIEW from t
+%%
+select 1 from t where VIEW.x=1
+%%
+select 1 from t join u VIEW on 1
+%%
+select 1 from t VIEW join u
+%%
+create index i on t(VIEW)
+%%
+select 1 from t where x=1 VIEW 2
+%%
+create table VIRTUAL(x)
+%%
+select 1 as VIRTUAL
+%%
+select 1 VIRTUAL
+%%
+select VIRTUAL
+%%
+select 1 from t VIRTUAL
+%%
+create table t(VIRTUAL)
+%%
+select VIRTUAL(1)
+%%
+create table t(x VIRTUAL)
+%%
+select * from VIRTUAL
+%%
+select t.VIRTUAL from t
+%%
+select 1 from t where VIRTUAL.x=1
+%%
+select 1 from t join u VIRTUAL on 1
+%%
+select 1 from t VIRTUAL join u
+%%
+create index i on t(VIRTUAL)
+%%
+select 1 from t where x=1 VIRTUAL 2
+%%
+create table WHEN(x)
+%%
+select 1 as WHEN
+%%
+select 1 WHEN
+%%
+select WHEN
+%%
+select 1 from t WHEN
+%%
+create table t(WHEN)
+%%
+select WHEN(1)
+%%
+create table t(x WHEN)
+%%
+select * from WHEN
+%%
+select t.WHEN from t
+%%
+select 1 from t where WHEN.x=1
+%%
+select 1 from t join u WHEN on 1
+%%
+select 1 from t WHEN join u
+%%
+create index i on t(WHEN)
+%%
+select 1 from t where x=1 WHEN 2
+%%
+create table WHERE(x)
+%%
+select 1 as WHERE
+%%
+select 1 WHERE
+%%
+select WHERE
+%%
+select 1 from t WHERE
+%%
+create table t(WHERE)
+%%
+select WHERE(1)
+%%
+create table t(x WHERE)
+%%
+select * from WHERE
+%%
+select t.WHERE from t
+%%
+select 1 from t where WHERE.x=1
+%%
+select 1 from t join u WHERE on 1
+%%
+select 1 from t WHERE join u
+%%
+create index i on t(WHERE)
+%%
+select 1 from t where x=1 WHERE 2
+%%
+create table WINDOW(x)
+%%
+select 1 as WINDOW
+%%
+select 1 WINDOW
+%%
+select WINDOW
+%%
+select 1 from t WINDOW
+%%
+create table t(WINDOW)
+%%
+select WINDOW(1)
+%%
+create table t(x WINDOW)
+%%
+select * from WINDOW
+%%
+select t.WINDOW from t
+%%
+select 1 from t where WINDOW.x=1
+%%
+select 1 from t join u WINDOW on 1
+%%
+select 1 from t WINDOW join u
+%%
+create index i on t(WINDOW)
+%%
+select 1 from t where x=1 WINDOW 2
+%%
+create table WITH(x)
+%%
+select 1 as WITH
+%%
+select 1 WITH
+%%
+select WITH
+%%
+select 1 from t WITH
+%%
+create table t(WITH)
+%%
+select WITH(1)
+%%
+create table t(x WITH)
+%%
+select * from WITH
+%%
+select t.WITH from t
+%%
+select 1 from t where WITH.x=1
+%%
+select 1 from t join u WITH on 1
+%%
+select 1 from t WITH join u
+%%
+create index i on t(WITH)
+%%
+select 1 from t where x=1 WITH 2
+%%
+create table WITHOUT(x)
+%%
+select 1 as WITHOUT
+%%
+select 1 WITHOUT
+%%
+select WITHOUT
+%%
+select 1 from t WITHOUT
+%%
+create table t(WITHOUT)
+%%
+select WITHOUT(1)
+%%
+create table t(x WITHOUT)
+%%
+select * from WITHOUT
+%%
+select t.WITHOUT from t
+%%
+select 1 from t where WITHOUT.x=1
+%%
+select 1 from t join u WITHOUT on 1
+%%
+select 1 from t WITHOUT join u
+%%
+create index i on t(WITHOUT)
+%%
+select 1 from t where x=1 WITHOUT 2

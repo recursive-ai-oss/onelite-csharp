@@ -1,0 +1,13 @@
+-- OneLite differential repro
+-- status: pass
+-- class: bug:tvf-container-value-is-json-in-aggregate
+-- engine: ours
+-- families: json
+-- utf16: false
+-- oracle: diff
+-- ordered: false
+-- query: /*json*/ SELECT json_group_array(value) FROM json_tree('[[1]]')
+-- detail: a container read from json_each keeps its JSON subtype through a register copy
+-- setup
+-- run
+/*json*/ SELECT json_group_array(value) FROM json_tree('[[1]]');

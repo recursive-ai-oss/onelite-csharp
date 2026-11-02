@@ -1,0 +1,3933 @@
+# JSON functions, group 'remove'. Expected results are the output of sqlite 3.53.4 (the pinned shell).
+
+query T nosort
+select json_remove('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}', '$')
+----
+NULL
+
+query T nosort
+select replace(hex(jsonb_remove('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}', '$')), char(10), '~')
+----
+(empty)
+
+query T nosort
+select replace(json_remove('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}', '$.a'), char(10), '~')
+----
+{"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}
+
+query T nosort
+select replace(hex(jsonb_remove('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}', '$.a')), char(10), '~')
+----
+CC1817629B133113324C17631778176400176501176635312E35
+
+query T nosort
+select replace(json_remove('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}', '$.b'), char(10), '~')
+----
+{"a":1,"d":null,"e":true,"f":1.5}
+
+query T nosort
+select replace(hex(jsonb_remove('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}', '$.b')), char(10), '~')
+----
+CC1017611331176400176501176635312E35
+
+query T nosort
+select replace(json_remove('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}', '$.b[1]'), char(10), '~')
+----
+{"a":1,"b":[1,{"c":"x"}],"d":null,"e":true,"f":1.5}
+
+query T nosort
+select replace(hex(jsonb_remove('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}', '$.b[1]')), char(10), '~')
+----
+CC1A1761133117627B13314C17631778176400176501176635312E35
+
+query T nosort
+select replace(json_remove('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}', '$.b[#-1]'), char(10), '~')
+----
+{"a":1,"b":[1,2],"d":null,"e":true,"f":1.5}
+
+query T nosort
+select replace(hex(jsonb_remove('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}', '$.b[#-1]')), char(10), '~')
+----
+CC171761133117624B13311332176400176501176635312E35
+
+query T nosort
+select replace(json_remove('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}', '$.b[#-1].c'), char(10), '~')
+----
+{"a":1,"b":[1,2,{}],"d":null,"e":true,"f":1.5}
+
+query T nosort
+select replace(hex(jsonb_remove('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}', '$.b[#-1].c')), char(10), '~')
+----
+CC181761133117625B133113320C176400176501176635312E35
+
+query T nosort
+select replace(json_remove('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}', '$[0]'), char(10), '~')
+----
+{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}
+
+query T nosort
+select replace(hex(jsonb_remove('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}', '$[0]')), char(10), '~')
+----
+CC1C1761133117629B133113324C17631778176400176501176635312E35
+
+query T nosort
+select replace(json_remove('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}', '$[#-1]'), char(10), '~')
+----
+{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}
+
+query T nosort
+select replace(hex(jsonb_remove('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}', '$[#-1]')), char(10), '~')
+----
+CC1C1761133117629B133113324C17631778176400176501176635312E35
+
+query T nosort
+select replace(json_remove('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}', '$[3][0]'), char(10), '~')
+----
+{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}
+
+query T nosort
+select replace(hex(jsonb_remove('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}', '$[3][0]')), char(10), '~')
+----
+CC1C1761133117629B133113324C17631778176400176501176635312E35
+
+query T nosort
+select replace(json_remove('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}', '$[4].k'), char(10), '~')
+----
+{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}
+
+query T nosort
+select replace(hex(jsonb_remove('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}', '$[4].k')), char(10), '~')
+----
+CC1C1761133117629B133113324C17631778176400176501176635312E35
+
+query T nosort
+select replace(json_remove('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}', '$.a.b.c.d'), char(10), '~')
+----
+{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}
+
+query T nosort
+select replace(hex(jsonb_remove('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}', '$.a.b.c.d')), char(10), '~')
+----
+CC1C1761133117629B133113324C17631778176400176501176635312E35
+
+query T nosort
+select replace(json_remove('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}', '$."a"'), char(10), '~')
+----
+{"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}
+
+query T nosort
+select replace(hex(jsonb_remove('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}', '$."a"')), char(10), '~')
+----
+CC1817629B133113324C17631778176400176501176635312E35
+
+query T nosort
+select replace(json_remove('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}', '$.nope'), char(10), '~')
+----
+{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}
+
+query T nosort
+select replace(hex(jsonb_remove('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}', '$.nope')), char(10), '~')
+----
+CC1C1761133117629B133113324C17631778176400176501176635312E35
+
+query T nosort
+select replace(json_remove('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}', '$[99]'), char(10), '~')
+----
+{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}
+
+query T nosort
+select replace(hex(jsonb_remove('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}', '$[99]')), char(10), '~')
+----
+CC1C1761133117629B133113324C17631778176400176501176635312E35
+
+statement error
+select json_remove('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}', 'a')
+
+statement error
+select hex(jsonb_remove('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}', 'a'))
+
+statement error
+select json_remove('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}', '$.')
+
+statement error
+select hex(jsonb_remove('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}', '$.'))
+
+query T nosort
+select replace(json_remove('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}', '$['), char(10), '~')
+----
+{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}
+
+query T nosort
+select replace(hex(jsonb_remove('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}', '$[')), char(10), '~')
+----
+CC1C1761133117629B133113324C17631778176400176501176635312E35
+
+query T nosort
+select replace(json_remove('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}', '$[x]'), char(10), '~')
+----
+{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}
+
+query T nosort
+select replace(hex(jsonb_remove('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}', '$[x]')), char(10), '~')
+----
+CC1C1761133117629B133113324C17631778176400176501176635312E35
+
+query T nosort
+select replace(json_remove('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}', '$.a[0]'), char(10), '~')
+----
+{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}
+
+query T nosort
+select replace(hex(jsonb_remove('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}', '$.a[0]')), char(10), '~')
+----
+CC1C1761133117629B133113324C17631778176400176501176635312E35
+
+query T nosort
+select replace(json_remove('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}', '$.x'), char(10), '~')
+----
+{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}
+
+query T nosort
+select replace(hex(jsonb_remove('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}', '$.x')), char(10), '~')
+----
+CC1C1761133117629B133113324C17631778176400176501176635312E35
+
+query T nosort
+select replace(json_remove('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}', '$.e'), char(10), '~')
+----
+{"a":1,"b":[1,2,{"c":"x"}],"d":null,"f":1.5}
+
+query T nosort
+select replace(hex(jsonb_remove('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}', '$.e')), char(10), '~')
+----
+CC191761133117629B133113324C17631778176400176635312E35
+
+query T nosort
+select replace(json_remove('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}', '$.f'), char(10), '~')
+----
+{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true}
+
+query T nosort
+select replace(hex(jsonb_remove('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}', '$.f')), char(10), '~')
+----
+CC161761133117629B133113324C17631778176400176501
+
+query T nosort
+select json_remove('[1,2,3,[4,5],{"k":"v"}]', '$')
+----
+NULL
+
+query T nosort
+select replace(hex(jsonb_remove('[1,2,3,[4,5],{"k":"v"}]', '$')), char(10), '~')
+----
+(empty)
+
+query T nosort
+select replace(json_remove('[1,2,3,[4,5],{"k":"v"}]', '$.a'), char(10), '~')
+----
+[1,2,3,[4,5],{"k":"v"}]
+
+query T nosort
+select replace(hex(jsonb_remove('[1,2,3,[4,5],{"k":"v"}]', '$.a')), char(10), '~')
+----
+CB101331133213334B133413354C176B1776
+
+query T nosort
+select replace(json_remove('[1,2,3,[4,5],{"k":"v"}]', '$.b'), char(10), '~')
+----
+[1,2,3,[4,5],{"k":"v"}]
+
+query T nosort
+select replace(hex(jsonb_remove('[1,2,3,[4,5],{"k":"v"}]', '$.b')), char(10), '~')
+----
+CB101331133213334B133413354C176B1776
+
+query T nosort
+select replace(json_remove('[1,2,3,[4,5],{"k":"v"}]', '$.b[1]'), char(10), '~')
+----
+[1,2,3,[4,5],{"k":"v"}]
+
+query T nosort
+select replace(hex(jsonb_remove('[1,2,3,[4,5],{"k":"v"}]', '$.b[1]')), char(10), '~')
+----
+CB101331133213334B133413354C176B1776
+
+query T nosort
+select replace(json_remove('[1,2,3,[4,5],{"k":"v"}]', '$.b[#-1]'), char(10), '~')
+----
+[1,2,3,[4,5],{"k":"v"}]
+
+query T nosort
+select replace(hex(jsonb_remove('[1,2,3,[4,5],{"k":"v"}]', '$.b[#-1]')), char(10), '~')
+----
+CB101331133213334B133413354C176B1776
+
+query T nosort
+select replace(json_remove('[1,2,3,[4,5],{"k":"v"}]', '$.b[#-1].c'), char(10), '~')
+----
+[1,2,3,[4,5],{"k":"v"}]
+
+query T nosort
+select replace(hex(jsonb_remove('[1,2,3,[4,5],{"k":"v"}]', '$.b[#-1].c')), char(10), '~')
+----
+CB101331133213334B133413354C176B1776
+
+query T nosort
+select replace(json_remove('[1,2,3,[4,5],{"k":"v"}]', '$[0]'), char(10), '~')
+----
+[2,3,[4,5],{"k":"v"}]
+
+query T nosort
+select replace(hex(jsonb_remove('[1,2,3,[4,5],{"k":"v"}]', '$[0]')), char(10), '~')
+----
+CB0E133213334B133413354C176B1776
+
+query T nosort
+select replace(json_remove('[1,2,3,[4,5],{"k":"v"}]', '$[#-1]'), char(10), '~')
+----
+[1,2,3,[4,5]]
+
+query T nosort
+select replace(hex(jsonb_remove('[1,2,3,[4,5],{"k":"v"}]', '$[#-1]')), char(10), '~')
+----
+BB1331133213334B13341335
+
+query T nosort
+select replace(json_remove('[1,2,3,[4,5],{"k":"v"}]', '$[3][0]'), char(10), '~')
+----
+[1,2,3,[5],{"k":"v"}]
+
+query T nosort
+select replace(hex(jsonb_remove('[1,2,3,[4,5],{"k":"v"}]', '$[3][0]')), char(10), '~')
+----
+CB0E1331133213332B13354C176B1776
+
+query T nosort
+select replace(json_remove('[1,2,3,[4,5],{"k":"v"}]', '$[4].k'), char(10), '~')
+----
+[1,2,3,[4,5],{}]
+
+query T nosort
+select replace(hex(jsonb_remove('[1,2,3,[4,5],{"k":"v"}]', '$[4].k')), char(10), '~')
+----
+CB0C1331133213334B133413350C
+
+query T nosort
+select replace(json_remove('[1,2,3,[4,5],{"k":"v"}]', '$.a.b.c.d'), char(10), '~')
+----
+[1,2,3,[4,5],{"k":"v"}]
+
+query T nosort
+select replace(hex(jsonb_remove('[1,2,3,[4,5],{"k":"v"}]', '$.a.b.c.d')), char(10), '~')
+----
+CB101331133213334B133413354C176B1776
+
+query T nosort
+select replace(json_remove('[1,2,3,[4,5],{"k":"v"}]', '$."a"'), char(10), '~')
+----
+[1,2,3,[4,5],{"k":"v"}]
+
+query T nosort
+select replace(hex(jsonb_remove('[1,2,3,[4,5],{"k":"v"}]', '$."a"')), char(10), '~')
+----
+CB101331133213334B133413354C176B1776
+
+query T nosort
+select replace(json_remove('[1,2,3,[4,5],{"k":"v"}]', '$.nope'), char(10), '~')
+----
+[1,2,3,[4,5],{"k":"v"}]
+
+query T nosort
+select replace(hex(jsonb_remove('[1,2,3,[4,5],{"k":"v"}]', '$.nope')), char(10), '~')
+----
+CB101331133213334B133413354C176B1776
+
+query T nosort
+select replace(json_remove('[1,2,3,[4,5],{"k":"v"}]', '$[99]'), char(10), '~')
+----
+[1,2,3,[4,5],{"k":"v"}]
+
+query T nosort
+select replace(hex(jsonb_remove('[1,2,3,[4,5],{"k":"v"}]', '$[99]')), char(10), '~')
+----
+CB101331133213334B133413354C176B1776
+
+statement error
+select json_remove('[1,2,3,[4,5],{"k":"v"}]', 'a')
+
+statement error
+select hex(jsonb_remove('[1,2,3,[4,5],{"k":"v"}]', 'a'))
+
+statement error
+select json_remove('[1,2,3,[4,5],{"k":"v"}]', '$.')
+
+statement error
+select hex(jsonb_remove('[1,2,3,[4,5],{"k":"v"}]', '$.'))
+
+statement error
+select json_remove('[1,2,3,[4,5],{"k":"v"}]', '$[')
+
+statement error
+select hex(jsonb_remove('[1,2,3,[4,5],{"k":"v"}]', '$['))
+
+statement error
+select json_remove('[1,2,3,[4,5],{"k":"v"}]', '$[x]')
+
+statement error
+select hex(jsonb_remove('[1,2,3,[4,5],{"k":"v"}]', '$[x]'))
+
+query T nosort
+select replace(json_remove('[1,2,3,[4,5],{"k":"v"}]', '$.a[0]'), char(10), '~')
+----
+[1,2,3,[4,5],{"k":"v"}]
+
+query T nosort
+select replace(hex(jsonb_remove('[1,2,3,[4,5],{"k":"v"}]', '$.a[0]')), char(10), '~')
+----
+CB101331133213334B133413354C176B1776
+
+query T nosort
+select replace(json_remove('[1,2,3,[4,5],{"k":"v"}]', '$.x'), char(10), '~')
+----
+[1,2,3,[4,5],{"k":"v"}]
+
+query T nosort
+select replace(hex(jsonb_remove('[1,2,3,[4,5],{"k":"v"}]', '$.x')), char(10), '~')
+----
+CB101331133213334B133413354C176B1776
+
+query T nosort
+select replace(json_remove('[1,2,3,[4,5],{"k":"v"}]', '$.e'), char(10), '~')
+----
+[1,2,3,[4,5],{"k":"v"}]
+
+query T nosort
+select replace(hex(jsonb_remove('[1,2,3,[4,5],{"k":"v"}]', '$.e')), char(10), '~')
+----
+CB101331133213334B133413354C176B1776
+
+query T nosort
+select replace(json_remove('[1,2,3,[4,5],{"k":"v"}]', '$.f'), char(10), '~')
+----
+[1,2,3,[4,5],{"k":"v"}]
+
+query T nosort
+select replace(hex(jsonb_remove('[1,2,3,[4,5],{"k":"v"}]', '$.f')), char(10), '~')
+----
+CB101331133213334B133413354C176B1776
+
+query T nosort
+select json_remove('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ', '$')
+----
+NULL
+
+query T nosort
+select replace(hex(jsonb_remove('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ', '$')), char(10), '~')
+----
+(empty)
+
+query T nosort
+select replace(json_remove('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ', '$.a'), char(10), '~')
+----
+{"b":"s\u00e9\n"}
+
+query T nosort
+select replace(hex(jsonb_remove('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ', '$.a')), char(10), '~')
+----
+CC0C176298735C75303065395C6E
+
+query T nosort
+select replace(json_remove('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ', '$.b'), char(10), '~')
+----
+{"a":[1,2]}
+
+query T nosort
+select replace(hex(jsonb_remove('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ', '$.b')), char(10), '~')
+----
+7C17614B13311332
+
+query T nosort
+select replace(json_remove('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ', '$.b[1]'), char(10), '~')
+----
+{"a":[1,2],"b":"s\u00e9\n"}
+
+query T nosort
+select replace(hex(jsonb_remove('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ', '$.b[1]')), char(10), '~')
+----
+CC1317614B13311332176298735C75303065395C6E
+
+query T nosort
+select replace(json_remove('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ', '$.b[#-1]'), char(10), '~')
+----
+{"a":[1,2],"b":"s\u00e9\n"}
+
+query T nosort
+select replace(hex(jsonb_remove('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ', '$.b[#-1]')), char(10), '~')
+----
+CC1317614B13311332176298735C75303065395C6E
+
+query T nosort
+select replace(json_remove('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ', '$.b[#-1].c'), char(10), '~')
+----
+{"a":[1,2],"b":"s\u00e9\n"}
+
+query T nosort
+select replace(hex(jsonb_remove('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ', '$.b[#-1].c')), char(10), '~')
+----
+CC1317614B13311332176298735C75303065395C6E
+
+query T nosort
+select replace(json_remove('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ', '$[0]'), char(10), '~')
+----
+{"a":[1,2],"b":"s\u00e9\n"}
+
+query T nosort
+select replace(hex(jsonb_remove('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ', '$[0]')), char(10), '~')
+----
+CC1317614B13311332176298735C75303065395C6E
+
+query T nosort
+select replace(json_remove('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ', '$[#-1]'), char(10), '~')
+----
+{"a":[1,2],"b":"s\u00e9\n"}
+
+query T nosort
+select replace(hex(jsonb_remove('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ', '$[#-1]')), char(10), '~')
+----
+CC1317614B13311332176298735C75303065395C6E
+
+query T nosort
+select replace(json_remove('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ', '$[3][0]'), char(10), '~')
+----
+{"a":[1,2],"b":"s\u00e9\n"}
+
+query T nosort
+select replace(hex(jsonb_remove('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ', '$[3][0]')), char(10), '~')
+----
+CC1317614B13311332176298735C75303065395C6E
+
+query T nosort
+select replace(json_remove('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ', '$[4].k'), char(10), '~')
+----
+{"a":[1,2],"b":"s\u00e9\n"}
+
+query T nosort
+select replace(hex(jsonb_remove('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ', '$[4].k')), char(10), '~')
+----
+CC1317614B13311332176298735C75303065395C6E
+
+query T nosort
+select replace(json_remove('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ', '$.a.b.c.d'), char(10), '~')
+----
+{"a":[1,2],"b":"s\u00e9\n"}
+
+query T nosort
+select replace(hex(jsonb_remove('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ', '$.a.b.c.d')), char(10), '~')
+----
+CC1317614B13311332176298735C75303065395C6E
+
+query T nosort
+select replace(json_remove('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ', '$."a"'), char(10), '~')
+----
+{"b":"s\u00e9\n"}
+
+query T nosort
+select replace(hex(jsonb_remove('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ', '$."a"')), char(10), '~')
+----
+CC0C176298735C75303065395C6E
+
+query T nosort
+select replace(json_remove('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ', '$.nope'), char(10), '~')
+----
+{"a":[1,2],"b":"s\u00e9\n"}
+
+query T nosort
+select replace(hex(jsonb_remove('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ', '$.nope')), char(10), '~')
+----
+CC1317614B13311332176298735C75303065395C6E
+
+query T nosort
+select replace(json_remove('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ', '$[99]'), char(10), '~')
+----
+{"a":[1,2],"b":"s\u00e9\n"}
+
+query T nosort
+select replace(hex(jsonb_remove('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ', '$[99]')), char(10), '~')
+----
+CC1317614B13311332176298735C75303065395C6E
+
+statement error
+select json_remove('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ', 'a')
+
+statement error
+select hex(jsonb_remove('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ', 'a'))
+
+statement error
+select json_remove('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ', '$.')
+
+statement error
+select hex(jsonb_remove('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ', '$.'))
+
+query T nosort
+select replace(json_remove('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ', '$['), char(10), '~')
+----
+{"a":[1,2],"b":"s\u00e9\n"}
+
+query T nosort
+select replace(hex(jsonb_remove('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ', '$[')), char(10), '~')
+----
+CC1317614B13311332176298735C75303065395C6E
+
+query T nosort
+select replace(json_remove('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ', '$[x]'), char(10), '~')
+----
+{"a":[1,2],"b":"s\u00e9\n"}
+
+query T nosort
+select replace(hex(jsonb_remove('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ', '$[x]')), char(10), '~')
+----
+CC1317614B13311332176298735C75303065395C6E
+
+query T nosort
+select replace(json_remove('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ', '$.a[0]'), char(10), '~')
+----
+{"a":[2],"b":"s\u00e9\n"}
+
+query T nosort
+select replace(hex(jsonb_remove('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ', '$.a[0]')), char(10), '~')
+----
+CC1117612B1332176298735C75303065395C6E
+
+query T nosort
+select replace(json_remove('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ', '$.x'), char(10), '~')
+----
+{"a":[1,2],"b":"s\u00e9\n"}
+
+query T nosort
+select replace(hex(jsonb_remove('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ', '$.x')), char(10), '~')
+----
+CC1317614B13311332176298735C75303065395C6E
+
+query T nosort
+select replace(json_remove('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ', '$.e'), char(10), '~')
+----
+{"a":[1,2],"b":"s\u00e9\n"}
+
+query T nosort
+select replace(hex(jsonb_remove('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ', '$.e')), char(10), '~')
+----
+CC1317614B13311332176298735C75303065395C6E
+
+query T nosort
+select replace(json_remove('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ', '$.f'), char(10), '~')
+----
+{"a":[1,2],"b":"s\u00e9\n"}
+
+query T nosort
+select replace(hex(jsonb_remove('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ', '$.f')), char(10), '~')
+----
+CC1317614B13311332176298735C75303065395C6E
+
+statement error
+select json_remove('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}', '$')
+
+statement error
+select hex(jsonb_remove('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}', '$'))
+
+statement error
+select json_remove('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}', '$.a')
+
+statement error
+select hex(jsonb_remove('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}', '$.a'))
+
+statement error
+select json_remove('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}', '$.b')
+
+statement error
+select hex(jsonb_remove('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}', '$.b'))
+
+statement error
+select json_remove('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}', '$.b[1]')
+
+statement error
+select hex(jsonb_remove('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}', '$.b[1]'))
+
+statement error
+select json_remove('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}', '$.b[#-1]')
+
+statement error
+select hex(jsonb_remove('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}', '$.b[#-1]'))
+
+statement error
+select json_remove('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}', '$.b[#-1].c')
+
+statement error
+select hex(jsonb_remove('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}', '$.b[#-1].c'))
+
+statement error
+select json_remove('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}', '$[0]')
+
+statement error
+select hex(jsonb_remove('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}', '$[0]'))
+
+statement error
+select json_remove('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}', '$[#-1]')
+
+statement error
+select hex(jsonb_remove('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}', '$[#-1]'))
+
+statement error
+select json_remove('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}', '$[3][0]')
+
+statement error
+select hex(jsonb_remove('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}', '$[3][0]'))
+
+statement error
+select json_remove('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}', '$[4].k')
+
+statement error
+select hex(jsonb_remove('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}', '$[4].k'))
+
+statement error
+select json_remove('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}', '$.a.b.c.d')
+
+statement error
+select hex(jsonb_remove('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}', '$.a.b.c.d'))
+
+statement error
+select json_remove('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}', '$."a"')
+
+statement error
+select hex(jsonb_remove('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}', '$."a"'))
+
+statement error
+select json_remove('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}', '$.nope')
+
+statement error
+select hex(jsonb_remove('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}', '$.nope'))
+
+statement error
+select json_remove('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}', '$[99]')
+
+statement error
+select hex(jsonb_remove('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}', '$[99]'))
+
+statement error
+select json_remove('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}', 'a')
+
+statement error
+select hex(jsonb_remove('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}', 'a'))
+
+statement error
+select json_remove('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}', '$.')
+
+statement error
+select hex(jsonb_remove('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}', '$.'))
+
+statement error
+select json_remove('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}', '$[')
+
+statement error
+select hex(jsonb_remove('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}', '$['))
+
+statement error
+select json_remove('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}', '$[x]')
+
+statement error
+select hex(jsonb_remove('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}', '$[x]'))
+
+statement error
+select json_remove('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}', '$.a[0]')
+
+statement error
+select hex(jsonb_remove('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}', '$.a[0]'))
+
+statement error
+select json_remove('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}', '$.x')
+
+statement error
+select hex(jsonb_remove('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}', '$.x'))
+
+statement error
+select json_remove('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}', '$.e')
+
+statement error
+select hex(jsonb_remove('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}', '$.e'))
+
+statement error
+select json_remove('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}', '$.f')
+
+statement error
+select hex(jsonb_remove('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}', '$.f'))
+
+query T nosort
+select json_remove('{"a":{"b":{"c":{"d":[[[]]]}}}}', '$')
+----
+NULL
+
+query T nosort
+select replace(hex(jsonb_remove('{"a":{"b":{"c":{"d":[[[]]]}}}}', '$')), char(10), '~')
+----
+(empty)
+
+query T nosort
+select replace(json_remove('{"a":{"b":{"c":{"d":[[[]]]}}}}', '$.a'), char(10), '~')
+----
+{}
+
+query T nosort
+select replace(hex(jsonb_remove('{"a":{"b":{"c":{"d":[[[]]]}}}}', '$.a')), char(10), '~')
+----
+0C
+
+query T nosort
+select replace(json_remove('{"a":{"b":{"c":{"d":[[[]]]}}}}', '$.b'), char(10), '~')
+----
+{"a":{"b":{"c":{"d":[[[]]]}}}}
+
+query T nosort
+select replace(hex(jsonb_remove('{"a":{"b":{"c":{"d":[[[]]]}}}}', '$.b')), char(10), '~')
+----
+CC0E1761BC17628C17635C17642B1B0B
+
+query T nosort
+select replace(json_remove('{"a":{"b":{"c":{"d":[[[]]]}}}}', '$.b[1]'), char(10), '~')
+----
+{"a":{"b":{"c":{"d":[[[]]]}}}}
+
+query T nosort
+select replace(hex(jsonb_remove('{"a":{"b":{"c":{"d":[[[]]]}}}}', '$.b[1]')), char(10), '~')
+----
+CC0E1761BC17628C17635C17642B1B0B
+
+query T nosort
+select replace(json_remove('{"a":{"b":{"c":{"d":[[[]]]}}}}', '$.b[#-1]'), char(10), '~')
+----
+{"a":{"b":{"c":{"d":[[[]]]}}}}
+
+query T nosort
+select replace(hex(jsonb_remove('{"a":{"b":{"c":{"d":[[[]]]}}}}', '$.b[#-1]')), char(10), '~')
+----
+CC0E1761BC17628C17635C17642B1B0B
+
+query T nosort
+select replace(json_remove('{"a":{"b":{"c":{"d":[[[]]]}}}}', '$.b[#-1].c'), char(10), '~')
+----
+{"a":{"b":{"c":{"d":[[[]]]}}}}
+
+query T nosort
+select replace(hex(jsonb_remove('{"a":{"b":{"c":{"d":[[[]]]}}}}', '$.b[#-1].c')), char(10), '~')
+----
+CC0E1761BC17628C17635C17642B1B0B
+
+query T nosort
+select replace(json_remove('{"a":{"b":{"c":{"d":[[[]]]}}}}', '$[0]'), char(10), '~')
+----
+{"a":{"b":{"c":{"d":[[[]]]}}}}
+
+query T nosort
+select replace(hex(jsonb_remove('{"a":{"b":{"c":{"d":[[[]]]}}}}', '$[0]')), char(10), '~')
+----
+CC0E1761BC17628C17635C17642B1B0B
+
+query T nosort
+select replace(json_remove('{"a":{"b":{"c":{"d":[[[]]]}}}}', '$[#-1]'), char(10), '~')
+----
+{"a":{"b":{"c":{"d":[[[]]]}}}}
+
+query T nosort
+select replace(hex(jsonb_remove('{"a":{"b":{"c":{"d":[[[]]]}}}}', '$[#-1]')), char(10), '~')
+----
+CC0E1761BC17628C17635C17642B1B0B
+
+query T nosort
+select replace(json_remove('{"a":{"b":{"c":{"d":[[[]]]}}}}', '$[3][0]'), char(10), '~')
+----
+{"a":{"b":{"c":{"d":[[[]]]}}}}
+
+query T nosort
+select replace(hex(jsonb_remove('{"a":{"b":{"c":{"d":[[[]]]}}}}', '$[3][0]')), char(10), '~')
+----
+CC0E1761BC17628C17635C17642B1B0B
+
+query T nosort
+select replace(json_remove('{"a":{"b":{"c":{"d":[[[]]]}}}}', '$[4].k'), char(10), '~')
+----
+{"a":{"b":{"c":{"d":[[[]]]}}}}
+
+query T nosort
+select replace(hex(jsonb_remove('{"a":{"b":{"c":{"d":[[[]]]}}}}', '$[4].k')), char(10), '~')
+----
+CC0E1761BC17628C17635C17642B1B0B
+
+query T nosort
+select replace(json_remove('{"a":{"b":{"c":{"d":[[[]]]}}}}', '$.a.b.c.d'), char(10), '~')
+----
+{"a":{"b":{"c":{}}}}
+
+query T nosort
+select replace(hex(jsonb_remove('{"a":{"b":{"c":{"d":[[[]]]}}}}', '$.a.b.c.d')), char(10), '~')
+----
+9C17616C17623C17630C
+
+query T nosort
+select replace(json_remove('{"a":{"b":{"c":{"d":[[[]]]}}}}', '$."a"'), char(10), '~')
+----
+{}
+
+query T nosort
+select replace(hex(jsonb_remove('{"a":{"b":{"c":{"d":[[[]]]}}}}', '$."a"')), char(10), '~')
+----
+0C
+
+query T nosort
+select replace(json_remove('{"a":{"b":{"c":{"d":[[[]]]}}}}', '$.nope'), char(10), '~')
+----
+{"a":{"b":{"c":{"d":[[[]]]}}}}
+
+query T nosort
+select replace(hex(jsonb_remove('{"a":{"b":{"c":{"d":[[[]]]}}}}', '$.nope')), char(10), '~')
+----
+CC0E1761BC17628C17635C17642B1B0B
+
+query T nosort
+select replace(json_remove('{"a":{"b":{"c":{"d":[[[]]]}}}}', '$[99]'), char(10), '~')
+----
+{"a":{"b":{"c":{"d":[[[]]]}}}}
+
+query T nosort
+select replace(hex(jsonb_remove('{"a":{"b":{"c":{"d":[[[]]]}}}}', '$[99]')), char(10), '~')
+----
+CC0E1761BC17628C17635C17642B1B0B
+
+statement error
+select json_remove('{"a":{"b":{"c":{"d":[[[]]]}}}}', 'a')
+
+statement error
+select hex(jsonb_remove('{"a":{"b":{"c":{"d":[[[]]]}}}}', 'a'))
+
+statement error
+select json_remove('{"a":{"b":{"c":{"d":[[[]]]}}}}', '$.')
+
+statement error
+select hex(jsonb_remove('{"a":{"b":{"c":{"d":[[[]]]}}}}', '$.'))
+
+query T nosort
+select replace(json_remove('{"a":{"b":{"c":{"d":[[[]]]}}}}', '$['), char(10), '~')
+----
+{"a":{"b":{"c":{"d":[[[]]]}}}}
+
+query T nosort
+select replace(hex(jsonb_remove('{"a":{"b":{"c":{"d":[[[]]]}}}}', '$[')), char(10), '~')
+----
+CC0E1761BC17628C17635C17642B1B0B
+
+query T nosort
+select replace(json_remove('{"a":{"b":{"c":{"d":[[[]]]}}}}', '$[x]'), char(10), '~')
+----
+{"a":{"b":{"c":{"d":[[[]]]}}}}
+
+query T nosort
+select replace(hex(jsonb_remove('{"a":{"b":{"c":{"d":[[[]]]}}}}', '$[x]')), char(10), '~')
+----
+CC0E1761BC17628C17635C17642B1B0B
+
+query T nosort
+select replace(json_remove('{"a":{"b":{"c":{"d":[[[]]]}}}}', '$.a[0]'), char(10), '~')
+----
+{"a":{"b":{"c":{"d":[[[]]]}}}}
+
+query T nosort
+select replace(hex(jsonb_remove('{"a":{"b":{"c":{"d":[[[]]]}}}}', '$.a[0]')), char(10), '~')
+----
+CC0E1761BC17628C17635C17642B1B0B
+
+query T nosort
+select replace(json_remove('{"a":{"b":{"c":{"d":[[[]]]}}}}', '$.x'), char(10), '~')
+----
+{"a":{"b":{"c":{"d":[[[]]]}}}}
+
+query T nosort
+select replace(hex(jsonb_remove('{"a":{"b":{"c":{"d":[[[]]]}}}}', '$.x')), char(10), '~')
+----
+CC0E1761BC17628C17635C17642B1B0B
+
+query T nosort
+select replace(json_remove('{"a":{"b":{"c":{"d":[[[]]]}}}}', '$.e'), char(10), '~')
+----
+{"a":{"b":{"c":{"d":[[[]]]}}}}
+
+query T nosort
+select replace(hex(jsonb_remove('{"a":{"b":{"c":{"d":[[[]]]}}}}', '$.e')), char(10), '~')
+----
+CC0E1761BC17628C17635C17642B1B0B
+
+query T nosort
+select replace(json_remove('{"a":{"b":{"c":{"d":[[[]]]}}}}', '$.f'), char(10), '~')
+----
+{"a":{"b":{"c":{"d":[[[]]]}}}}
+
+query T nosort
+select replace(hex(jsonb_remove('{"a":{"b":{"c":{"d":[[[]]]}}}}', '$.f')), char(10), '~')
+----
+CC0E1761BC17628C17635C17642B1B0B
+
+query T nosort
+select json_remove('"text"', '$')
+----
+NULL
+
+query T nosort
+select replace(hex(jsonb_remove('"text"', '$')), char(10), '~')
+----
+(empty)
+
+query T nosort
+select replace(json_remove('"text"', '$.a'), char(10), '~')
+----
+"text"
+
+query T nosort
+select replace(hex(jsonb_remove('"text"', '$.a')), char(10), '~')
+----
+4774657874
+
+query T nosort
+select replace(json_remove('"text"', '$.b'), char(10), '~')
+----
+"text"
+
+query T nosort
+select replace(hex(jsonb_remove('"text"', '$.b')), char(10), '~')
+----
+4774657874
+
+query T nosort
+select replace(json_remove('"text"', '$.b[1]'), char(10), '~')
+----
+"text"
+
+query T nosort
+select replace(hex(jsonb_remove('"text"', '$.b[1]')), char(10), '~')
+----
+4774657874
+
+query T nosort
+select replace(json_remove('"text"', '$.b[#-1]'), char(10), '~')
+----
+"text"
+
+query T nosort
+select replace(hex(jsonb_remove('"text"', '$.b[#-1]')), char(10), '~')
+----
+4774657874
+
+query T nosort
+select replace(json_remove('"text"', '$.b[#-1].c'), char(10), '~')
+----
+"text"
+
+query T nosort
+select replace(hex(jsonb_remove('"text"', '$.b[#-1].c')), char(10), '~')
+----
+4774657874
+
+query T nosort
+select replace(json_remove('"text"', '$[0]'), char(10), '~')
+----
+"text"
+
+query T nosort
+select replace(hex(jsonb_remove('"text"', '$[0]')), char(10), '~')
+----
+4774657874
+
+query T nosort
+select replace(json_remove('"text"', '$[#-1]'), char(10), '~')
+----
+"text"
+
+query T nosort
+select replace(hex(jsonb_remove('"text"', '$[#-1]')), char(10), '~')
+----
+4774657874
+
+query T nosort
+select replace(json_remove('"text"', '$[3][0]'), char(10), '~')
+----
+"text"
+
+query T nosort
+select replace(hex(jsonb_remove('"text"', '$[3][0]')), char(10), '~')
+----
+4774657874
+
+query T nosort
+select replace(json_remove('"text"', '$[4].k'), char(10), '~')
+----
+"text"
+
+query T nosort
+select replace(hex(jsonb_remove('"text"', '$[4].k')), char(10), '~')
+----
+4774657874
+
+query T nosort
+select replace(json_remove('"text"', '$.a.b.c.d'), char(10), '~')
+----
+"text"
+
+query T nosort
+select replace(hex(jsonb_remove('"text"', '$.a.b.c.d')), char(10), '~')
+----
+4774657874
+
+query T nosort
+select replace(json_remove('"text"', '$."a"'), char(10), '~')
+----
+"text"
+
+query T nosort
+select replace(hex(jsonb_remove('"text"', '$."a"')), char(10), '~')
+----
+4774657874
+
+query T nosort
+select replace(json_remove('"text"', '$.nope'), char(10), '~')
+----
+"text"
+
+query T nosort
+select replace(hex(jsonb_remove('"text"', '$.nope')), char(10), '~')
+----
+4774657874
+
+query T nosort
+select replace(json_remove('"text"', '$[99]'), char(10), '~')
+----
+"text"
+
+query T nosort
+select replace(hex(jsonb_remove('"text"', '$[99]')), char(10), '~')
+----
+4774657874
+
+statement error
+select json_remove('"text"', 'a')
+
+statement error
+select hex(jsonb_remove('"text"', 'a'))
+
+statement error
+select json_remove('"text"', '$.')
+
+statement error
+select hex(jsonb_remove('"text"', '$.'))
+
+query T nosort
+select replace(json_remove('"text"', '$['), char(10), '~')
+----
+"text"
+
+query T nosort
+select replace(hex(jsonb_remove('"text"', '$[')), char(10), '~')
+----
+4774657874
+
+query T nosort
+select replace(json_remove('"text"', '$[x]'), char(10), '~')
+----
+"text"
+
+query T nosort
+select replace(hex(jsonb_remove('"text"', '$[x]')), char(10), '~')
+----
+4774657874
+
+query T nosort
+select replace(json_remove('"text"', '$.a[0]'), char(10), '~')
+----
+"text"
+
+query T nosort
+select replace(hex(jsonb_remove('"text"', '$.a[0]')), char(10), '~')
+----
+4774657874
+
+query T nosort
+select replace(json_remove('"text"', '$.x'), char(10), '~')
+----
+"text"
+
+query T nosort
+select replace(hex(jsonb_remove('"text"', '$.x')), char(10), '~')
+----
+4774657874
+
+query T nosort
+select replace(json_remove('"text"', '$.e'), char(10), '~')
+----
+"text"
+
+query T nosort
+select replace(hex(jsonb_remove('"text"', '$.e')), char(10), '~')
+----
+4774657874
+
+query T nosort
+select replace(json_remove('"text"', '$.f'), char(10), '~')
+----
+"text"
+
+query T nosort
+select replace(hex(jsonb_remove('"text"', '$.f')), char(10), '~')
+----
+4774657874
+
+query T nosort
+select json_remove('12345678901234567890', '$')
+----
+NULL
+
+query T nosort
+select replace(hex(jsonb_remove('12345678901234567890', '$')), char(10), '~')
+----
+(empty)
+
+query T nosort
+select replace(json_remove('12345678901234567890', '$.a'), char(10), '~')
+----
+12345678901234567890
+
+query T nosort
+select replace(hex(jsonb_remove('12345678901234567890', '$.a')), char(10), '~')
+----
+C3143132333435363738393031323334353637383930
+
+query T nosort
+select replace(json_remove('12345678901234567890', '$.b'), char(10), '~')
+----
+12345678901234567890
+
+query T nosort
+select replace(hex(jsonb_remove('12345678901234567890', '$.b')), char(10), '~')
+----
+C3143132333435363738393031323334353637383930
+
+query T nosort
+select replace(json_remove('12345678901234567890', '$.b[1]'), char(10), '~')
+----
+12345678901234567890
+
+query T nosort
+select replace(hex(jsonb_remove('12345678901234567890', '$.b[1]')), char(10), '~')
+----
+C3143132333435363738393031323334353637383930
+
+query T nosort
+select replace(json_remove('12345678901234567890', '$.b[#-1]'), char(10), '~')
+----
+12345678901234567890
+
+query T nosort
+select replace(hex(jsonb_remove('12345678901234567890', '$.b[#-1]')), char(10), '~')
+----
+C3143132333435363738393031323334353637383930
+
+query T nosort
+select replace(json_remove('12345678901234567890', '$.b[#-1].c'), char(10), '~')
+----
+12345678901234567890
+
+query T nosort
+select replace(hex(jsonb_remove('12345678901234567890', '$.b[#-1].c')), char(10), '~')
+----
+C3143132333435363738393031323334353637383930
+
+query T nosort
+select replace(json_remove('12345678901234567890', '$[0]'), char(10), '~')
+----
+12345678901234567890
+
+query T nosort
+select replace(hex(jsonb_remove('12345678901234567890', '$[0]')), char(10), '~')
+----
+C3143132333435363738393031323334353637383930
+
+query T nosort
+select replace(json_remove('12345678901234567890', '$[#-1]'), char(10), '~')
+----
+12345678901234567890
+
+query T nosort
+select replace(hex(jsonb_remove('12345678901234567890', '$[#-1]')), char(10), '~')
+----
+C3143132333435363738393031323334353637383930
+
+query T nosort
+select replace(json_remove('12345678901234567890', '$[3][0]'), char(10), '~')
+----
+12345678901234567890
+
+query T nosort
+select replace(hex(jsonb_remove('12345678901234567890', '$[3][0]')), char(10), '~')
+----
+C3143132333435363738393031323334353637383930
+
+query T nosort
+select replace(json_remove('12345678901234567890', '$[4].k'), char(10), '~')
+----
+12345678901234567890
+
+query T nosort
+select replace(hex(jsonb_remove('12345678901234567890', '$[4].k')), char(10), '~')
+----
+C3143132333435363738393031323334353637383930
+
+query T nosort
+select replace(json_remove('12345678901234567890', '$.a.b.c.d'), char(10), '~')
+----
+12345678901234567890
+
+query T nosort
+select replace(hex(jsonb_remove('12345678901234567890', '$.a.b.c.d')), char(10), '~')
+----
+C3143132333435363738393031323334353637383930
+
+query T nosort
+select replace(json_remove('12345678901234567890', '$."a"'), char(10), '~')
+----
+12345678901234567890
+
+query T nosort
+select replace(hex(jsonb_remove('12345678901234567890', '$."a"')), char(10), '~')
+----
+C3143132333435363738393031323334353637383930
+
+query T nosort
+select replace(json_remove('12345678901234567890', '$.nope'), char(10), '~')
+----
+12345678901234567890
+
+query T nosort
+select replace(hex(jsonb_remove('12345678901234567890', '$.nope')), char(10), '~')
+----
+C3143132333435363738393031323334353637383930
+
+query T nosort
+select replace(json_remove('12345678901234567890', '$[99]'), char(10), '~')
+----
+12345678901234567890
+
+query T nosort
+select replace(hex(jsonb_remove('12345678901234567890', '$[99]')), char(10), '~')
+----
+C3143132333435363738393031323334353637383930
+
+statement error
+select json_remove('12345678901234567890', 'a')
+
+statement error
+select hex(jsonb_remove('12345678901234567890', 'a'))
+
+statement error
+select json_remove('12345678901234567890', '$.')
+
+statement error
+select hex(jsonb_remove('12345678901234567890', '$.'))
+
+query T nosort
+select replace(json_remove('12345678901234567890', '$['), char(10), '~')
+----
+12345678901234567890
+
+query T nosort
+select replace(hex(jsonb_remove('12345678901234567890', '$[')), char(10), '~')
+----
+C3143132333435363738393031323334353637383930
+
+query T nosort
+select replace(json_remove('12345678901234567890', '$[x]'), char(10), '~')
+----
+12345678901234567890
+
+query T nosort
+select replace(hex(jsonb_remove('12345678901234567890', '$[x]')), char(10), '~')
+----
+C3143132333435363738393031323334353637383930
+
+query T nosort
+select replace(json_remove('12345678901234567890', '$.a[0]'), char(10), '~')
+----
+12345678901234567890
+
+query T nosort
+select replace(hex(jsonb_remove('12345678901234567890', '$.a[0]')), char(10), '~')
+----
+C3143132333435363738393031323334353637383930
+
+query T nosort
+select replace(json_remove('12345678901234567890', '$.x'), char(10), '~')
+----
+12345678901234567890
+
+query T nosort
+select replace(hex(jsonb_remove('12345678901234567890', '$.x')), char(10), '~')
+----
+C3143132333435363738393031323334353637383930
+
+query T nosort
+select replace(json_remove('12345678901234567890', '$.e'), char(10), '~')
+----
+12345678901234567890
+
+query T nosort
+select replace(hex(jsonb_remove('12345678901234567890', '$.e')), char(10), '~')
+----
+C3143132333435363738393031323334353637383930
+
+query T nosort
+select replace(json_remove('12345678901234567890', '$.f'), char(10), '~')
+----
+12345678901234567890
+
+query T nosort
+select replace(hex(jsonb_remove('12345678901234567890', '$.f')), char(10), '~')
+----
+C3143132333435363738393031323334353637383930
+
+query T nosort
+select json_remove('-0', '$')
+----
+NULL
+
+query T nosort
+select replace(hex(jsonb_remove('-0', '$')), char(10), '~')
+----
+(empty)
+
+query T nosort
+select replace(json_remove('-0', '$.a'), char(10), '~')
+----
+-0
+
+query T nosort
+select replace(hex(jsonb_remove('-0', '$.a')), char(10), '~')
+----
+232D30
+
+query T nosort
+select replace(json_remove('-0', '$.b'), char(10), '~')
+----
+-0
+
+query T nosort
+select replace(hex(jsonb_remove('-0', '$.b')), char(10), '~')
+----
+232D30
+
+query T nosort
+select replace(json_remove('-0', '$.b[1]'), char(10), '~')
+----
+-0
+
+query T nosort
+select replace(hex(jsonb_remove('-0', '$.b[1]')), char(10), '~')
+----
+232D30
+
+query T nosort
+select replace(json_remove('-0', '$.b[#-1]'), char(10), '~')
+----
+-0
+
+query T nosort
+select replace(hex(jsonb_remove('-0', '$.b[#-1]')), char(10), '~')
+----
+232D30
+
+query T nosort
+select replace(json_remove('-0', '$.b[#-1].c'), char(10), '~')
+----
+-0
+
+query T nosort
+select replace(hex(jsonb_remove('-0', '$.b[#-1].c')), char(10), '~')
+----
+232D30
+
+query T nosort
+select replace(json_remove('-0', '$[0]'), char(10), '~')
+----
+-0
+
+query T nosort
+select replace(hex(jsonb_remove('-0', '$[0]')), char(10), '~')
+----
+232D30
+
+query T nosort
+select replace(json_remove('-0', '$[#-1]'), char(10), '~')
+----
+-0
+
+query T nosort
+select replace(hex(jsonb_remove('-0', '$[#-1]')), char(10), '~')
+----
+232D30
+
+query T nosort
+select replace(json_remove('-0', '$[3][0]'), char(10), '~')
+----
+-0
+
+query T nosort
+select replace(hex(jsonb_remove('-0', '$[3][0]')), char(10), '~')
+----
+232D30
+
+query T nosort
+select replace(json_remove('-0', '$[4].k'), char(10), '~')
+----
+-0
+
+query T nosort
+select replace(hex(jsonb_remove('-0', '$[4].k')), char(10), '~')
+----
+232D30
+
+query T nosort
+select replace(json_remove('-0', '$.a.b.c.d'), char(10), '~')
+----
+-0
+
+query T nosort
+select replace(hex(jsonb_remove('-0', '$.a.b.c.d')), char(10), '~')
+----
+232D30
+
+query T nosort
+select replace(json_remove('-0', '$."a"'), char(10), '~')
+----
+-0
+
+query T nosort
+select replace(hex(jsonb_remove('-0', '$."a"')), char(10), '~')
+----
+232D30
+
+query T nosort
+select replace(json_remove('-0', '$.nope'), char(10), '~')
+----
+-0
+
+query T nosort
+select replace(hex(jsonb_remove('-0', '$.nope')), char(10), '~')
+----
+232D30
+
+query T nosort
+select replace(json_remove('-0', '$[99]'), char(10), '~')
+----
+-0
+
+query T nosort
+select replace(hex(jsonb_remove('-0', '$[99]')), char(10), '~')
+----
+232D30
+
+statement error
+select json_remove('-0', 'a')
+
+statement error
+select hex(jsonb_remove('-0', 'a'))
+
+statement error
+select json_remove('-0', '$.')
+
+statement error
+select hex(jsonb_remove('-0', '$.'))
+
+query T nosort
+select replace(json_remove('-0', '$['), char(10), '~')
+----
+-0
+
+query T nosort
+select replace(hex(jsonb_remove('-0', '$[')), char(10), '~')
+----
+232D30
+
+query T nosort
+select replace(json_remove('-0', '$[x]'), char(10), '~')
+----
+-0
+
+query T nosort
+select replace(hex(jsonb_remove('-0', '$[x]')), char(10), '~')
+----
+232D30
+
+query T nosort
+select replace(json_remove('-0', '$.a[0]'), char(10), '~')
+----
+-0
+
+query T nosort
+select replace(hex(jsonb_remove('-0', '$.a[0]')), char(10), '~')
+----
+232D30
+
+query T nosort
+select replace(json_remove('-0', '$.x'), char(10), '~')
+----
+-0
+
+query T nosort
+select replace(hex(jsonb_remove('-0', '$.x')), char(10), '~')
+----
+232D30
+
+query T nosort
+select replace(json_remove('-0', '$.e'), char(10), '~')
+----
+-0
+
+query T nosort
+select replace(hex(jsonb_remove('-0', '$.e')), char(10), '~')
+----
+232D30
+
+query T nosort
+select replace(json_remove('-0', '$.f'), char(10), '~')
+----
+-0
+
+query T nosort
+select replace(hex(jsonb_remove('-0', '$.f')), char(10), '~')
+----
+232D30
+
+query T nosort
+select json_remove('1e400', '$')
+----
+NULL
+
+query T nosort
+select replace(hex(jsonb_remove('1e400', '$')), char(10), '~')
+----
+(empty)
+
+query T nosort
+select replace(json_remove('1e400', '$.a'), char(10), '~')
+----
+1e400
+
+query T nosort
+select replace(hex(jsonb_remove('1e400', '$.a')), char(10), '~')
+----
+553165343030
+
+query T nosort
+select replace(json_remove('1e400', '$.b'), char(10), '~')
+----
+1e400
+
+query T nosort
+select replace(hex(jsonb_remove('1e400', '$.b')), char(10), '~')
+----
+553165343030
+
+query T nosort
+select replace(json_remove('1e400', '$.b[1]'), char(10), '~')
+----
+1e400
+
+query T nosort
+select replace(hex(jsonb_remove('1e400', '$.b[1]')), char(10), '~')
+----
+553165343030
+
+query T nosort
+select replace(json_remove('1e400', '$.b[#-1]'), char(10), '~')
+----
+1e400
+
+query T nosort
+select replace(hex(jsonb_remove('1e400', '$.b[#-1]')), char(10), '~')
+----
+553165343030
+
+query T nosort
+select replace(json_remove('1e400', '$.b[#-1].c'), char(10), '~')
+----
+1e400
+
+query T nosort
+select replace(hex(jsonb_remove('1e400', '$.b[#-1].c')), char(10), '~')
+----
+553165343030
+
+query T nosort
+select replace(json_remove('1e400', '$[0]'), char(10), '~')
+----
+1e400
+
+query T nosort
+select replace(hex(jsonb_remove('1e400', '$[0]')), char(10), '~')
+----
+553165343030
+
+query T nosort
+select replace(json_remove('1e400', '$[#-1]'), char(10), '~')
+----
+1e400
+
+query T nosort
+select replace(hex(jsonb_remove('1e400', '$[#-1]')), char(10), '~')
+----
+553165343030
+
+query T nosort
+select replace(json_remove('1e400', '$[3][0]'), char(10), '~')
+----
+1e400
+
+query T nosort
+select replace(hex(jsonb_remove('1e400', '$[3][0]')), char(10), '~')
+----
+553165343030
+
+query T nosort
+select replace(json_remove('1e400', '$[4].k'), char(10), '~')
+----
+1e400
+
+query T nosort
+select replace(hex(jsonb_remove('1e400', '$[4].k')), char(10), '~')
+----
+553165343030
+
+query T nosort
+select replace(json_remove('1e400', '$.a.b.c.d'), char(10), '~')
+----
+1e400
+
+query T nosort
+select replace(hex(jsonb_remove('1e400', '$.a.b.c.d')), char(10), '~')
+----
+553165343030
+
+query T nosort
+select replace(json_remove('1e400', '$."a"'), char(10), '~')
+----
+1e400
+
+query T nosort
+select replace(hex(jsonb_remove('1e400', '$."a"')), char(10), '~')
+----
+553165343030
+
+query T nosort
+select replace(json_remove('1e400', '$.nope'), char(10), '~')
+----
+1e400
+
+query T nosort
+select replace(hex(jsonb_remove('1e400', '$.nope')), char(10), '~')
+----
+553165343030
+
+query T nosort
+select replace(json_remove('1e400', '$[99]'), char(10), '~')
+----
+1e400
+
+query T nosort
+select replace(hex(jsonb_remove('1e400', '$[99]')), char(10), '~')
+----
+553165343030
+
+statement error
+select json_remove('1e400', 'a')
+
+statement error
+select hex(jsonb_remove('1e400', 'a'))
+
+statement error
+select json_remove('1e400', '$.')
+
+statement error
+select hex(jsonb_remove('1e400', '$.'))
+
+query T nosort
+select replace(json_remove('1e400', '$['), char(10), '~')
+----
+1e400
+
+query T nosort
+select replace(hex(jsonb_remove('1e400', '$[')), char(10), '~')
+----
+553165343030
+
+query T nosort
+select replace(json_remove('1e400', '$[x]'), char(10), '~')
+----
+1e400
+
+query T nosort
+select replace(hex(jsonb_remove('1e400', '$[x]')), char(10), '~')
+----
+553165343030
+
+query T nosort
+select replace(json_remove('1e400', '$.a[0]'), char(10), '~')
+----
+1e400
+
+query T nosort
+select replace(hex(jsonb_remove('1e400', '$.a[0]')), char(10), '~')
+----
+553165343030
+
+query T nosort
+select replace(json_remove('1e400', '$.x'), char(10), '~')
+----
+1e400
+
+query T nosort
+select replace(hex(jsonb_remove('1e400', '$.x')), char(10), '~')
+----
+553165343030
+
+query T nosort
+select replace(json_remove('1e400', '$.e'), char(10), '~')
+----
+1e400
+
+query T nosort
+select replace(hex(jsonb_remove('1e400', '$.e')), char(10), '~')
+----
+553165343030
+
+query T nosort
+select replace(json_remove('1e400', '$.f'), char(10), '~')
+----
+1e400
+
+query T nosort
+select replace(hex(jsonb_remove('1e400', '$.f')), char(10), '~')
+----
+553165343030
+
+query T nosort
+select json_remove('0.1', '$')
+----
+NULL
+
+query T nosort
+select replace(hex(jsonb_remove('0.1', '$')), char(10), '~')
+----
+(empty)
+
+query T nosort
+select replace(json_remove('0.1', '$.a'), char(10), '~')
+----
+0.1
+
+query T nosort
+select replace(hex(jsonb_remove('0.1', '$.a')), char(10), '~')
+----
+35302E31
+
+query T nosort
+select replace(json_remove('0.1', '$.b'), char(10), '~')
+----
+0.1
+
+query T nosort
+select replace(hex(jsonb_remove('0.1', '$.b')), char(10), '~')
+----
+35302E31
+
+query T nosort
+select replace(json_remove('0.1', '$.b[1]'), char(10), '~')
+----
+0.1
+
+query T nosort
+select replace(hex(jsonb_remove('0.1', '$.b[1]')), char(10), '~')
+----
+35302E31
+
+query T nosort
+select replace(json_remove('0.1', '$.b[#-1]'), char(10), '~')
+----
+0.1
+
+query T nosort
+select replace(hex(jsonb_remove('0.1', '$.b[#-1]')), char(10), '~')
+----
+35302E31
+
+query T nosort
+select replace(json_remove('0.1', '$.b[#-1].c'), char(10), '~')
+----
+0.1
+
+query T nosort
+select replace(hex(jsonb_remove('0.1', '$.b[#-1].c')), char(10), '~')
+----
+35302E31
+
+query T nosort
+select replace(json_remove('0.1', '$[0]'), char(10), '~')
+----
+0.1
+
+query T nosort
+select replace(hex(jsonb_remove('0.1', '$[0]')), char(10), '~')
+----
+35302E31
+
+query T nosort
+select replace(json_remove('0.1', '$[#-1]'), char(10), '~')
+----
+0.1
+
+query T nosort
+select replace(hex(jsonb_remove('0.1', '$[#-1]')), char(10), '~')
+----
+35302E31
+
+query T nosort
+select replace(json_remove('0.1', '$[3][0]'), char(10), '~')
+----
+0.1
+
+query T nosort
+select replace(hex(jsonb_remove('0.1', '$[3][0]')), char(10), '~')
+----
+35302E31
+
+query T nosort
+select replace(json_remove('0.1', '$[4].k'), char(10), '~')
+----
+0.1
+
+query T nosort
+select replace(hex(jsonb_remove('0.1', '$[4].k')), char(10), '~')
+----
+35302E31
+
+query T nosort
+select replace(json_remove('0.1', '$.a.b.c.d'), char(10), '~')
+----
+0.1
+
+query T nosort
+select replace(hex(jsonb_remove('0.1', '$.a.b.c.d')), char(10), '~')
+----
+35302E31
+
+query T nosort
+select replace(json_remove('0.1', '$."a"'), char(10), '~')
+----
+0.1
+
+query T nosort
+select replace(hex(jsonb_remove('0.1', '$."a"')), char(10), '~')
+----
+35302E31
+
+query T nosort
+select replace(json_remove('0.1', '$.nope'), char(10), '~')
+----
+0.1
+
+query T nosort
+select replace(hex(jsonb_remove('0.1', '$.nope')), char(10), '~')
+----
+35302E31
+
+query T nosort
+select replace(json_remove('0.1', '$[99]'), char(10), '~')
+----
+0.1
+
+query T nosort
+select replace(hex(jsonb_remove('0.1', '$[99]')), char(10), '~')
+----
+35302E31
+
+statement error
+select json_remove('0.1', 'a')
+
+statement error
+select hex(jsonb_remove('0.1', 'a'))
+
+statement error
+select json_remove('0.1', '$.')
+
+statement error
+select hex(jsonb_remove('0.1', '$.'))
+
+query T nosort
+select replace(json_remove('0.1', '$['), char(10), '~')
+----
+0.1
+
+query T nosort
+select replace(hex(jsonb_remove('0.1', '$[')), char(10), '~')
+----
+35302E31
+
+query T nosort
+select replace(json_remove('0.1', '$[x]'), char(10), '~')
+----
+0.1
+
+query T nosort
+select replace(hex(jsonb_remove('0.1', '$[x]')), char(10), '~')
+----
+35302E31
+
+query T nosort
+select replace(json_remove('0.1', '$.a[0]'), char(10), '~')
+----
+0.1
+
+query T nosort
+select replace(hex(jsonb_remove('0.1', '$.a[0]')), char(10), '~')
+----
+35302E31
+
+query T nosort
+select replace(json_remove('0.1', '$.x'), char(10), '~')
+----
+0.1
+
+query T nosort
+select replace(hex(jsonb_remove('0.1', '$.x')), char(10), '~')
+----
+35302E31
+
+query T nosort
+select replace(json_remove('0.1', '$.e'), char(10), '~')
+----
+0.1
+
+query T nosort
+select replace(hex(jsonb_remove('0.1', '$.e')), char(10), '~')
+----
+35302E31
+
+query T nosort
+select replace(json_remove('0.1', '$.f'), char(10), '~')
+----
+0.1
+
+query T nosort
+select replace(hex(jsonb_remove('0.1', '$.f')), char(10), '~')
+----
+35302E31
+
+query T nosort
+select json_remove('null', '$')
+----
+NULL
+
+query T nosort
+select replace(hex(jsonb_remove('null', '$')), char(10), '~')
+----
+(empty)
+
+query T nosort
+select replace(json_remove('null', '$.a'), char(10), '~')
+----
+null
+
+query T nosort
+select replace(hex(jsonb_remove('null', '$.a')), char(10), '~')
+----
+00
+
+query T nosort
+select replace(json_remove('null', '$.b'), char(10), '~')
+----
+null
+
+query T nosort
+select replace(hex(jsonb_remove('null', '$.b')), char(10), '~')
+----
+00
+
+query T nosort
+select replace(json_remove('null', '$.b[1]'), char(10), '~')
+----
+null
+
+query T nosort
+select replace(hex(jsonb_remove('null', '$.b[1]')), char(10), '~')
+----
+00
+
+query T nosort
+select replace(json_remove('null', '$.b[#-1]'), char(10), '~')
+----
+null
+
+query T nosort
+select replace(hex(jsonb_remove('null', '$.b[#-1]')), char(10), '~')
+----
+00
+
+query T nosort
+select replace(json_remove('null', '$.b[#-1].c'), char(10), '~')
+----
+null
+
+query T nosort
+select replace(hex(jsonb_remove('null', '$.b[#-1].c')), char(10), '~')
+----
+00
+
+query T nosort
+select replace(json_remove('null', '$[0]'), char(10), '~')
+----
+null
+
+query T nosort
+select replace(hex(jsonb_remove('null', '$[0]')), char(10), '~')
+----
+00
+
+query T nosort
+select replace(json_remove('null', '$[#-1]'), char(10), '~')
+----
+null
+
+query T nosort
+select replace(hex(jsonb_remove('null', '$[#-1]')), char(10), '~')
+----
+00
+
+query T nosort
+select replace(json_remove('null', '$[3][0]'), char(10), '~')
+----
+null
+
+query T nosort
+select replace(hex(jsonb_remove('null', '$[3][0]')), char(10), '~')
+----
+00
+
+query T nosort
+select replace(json_remove('null', '$[4].k'), char(10), '~')
+----
+null
+
+query T nosort
+select replace(hex(jsonb_remove('null', '$[4].k')), char(10), '~')
+----
+00
+
+query T nosort
+select replace(json_remove('null', '$.a.b.c.d'), char(10), '~')
+----
+null
+
+query T nosort
+select replace(hex(jsonb_remove('null', '$.a.b.c.d')), char(10), '~')
+----
+00
+
+query T nosort
+select replace(json_remove('null', '$."a"'), char(10), '~')
+----
+null
+
+query T nosort
+select replace(hex(jsonb_remove('null', '$."a"')), char(10), '~')
+----
+00
+
+query T nosort
+select replace(json_remove('null', '$.nope'), char(10), '~')
+----
+null
+
+query T nosort
+select replace(hex(jsonb_remove('null', '$.nope')), char(10), '~')
+----
+00
+
+query T nosort
+select replace(json_remove('null', '$[99]'), char(10), '~')
+----
+null
+
+query T nosort
+select replace(hex(jsonb_remove('null', '$[99]')), char(10), '~')
+----
+00
+
+statement error
+select json_remove('null', 'a')
+
+statement error
+select hex(jsonb_remove('null', 'a'))
+
+statement error
+select json_remove('null', '$.')
+
+statement error
+select hex(jsonb_remove('null', '$.'))
+
+query T nosort
+select replace(json_remove('null', '$['), char(10), '~')
+----
+null
+
+query T nosort
+select replace(hex(jsonb_remove('null', '$[')), char(10), '~')
+----
+00
+
+query T nosort
+select replace(json_remove('null', '$[x]'), char(10), '~')
+----
+null
+
+query T nosort
+select replace(hex(jsonb_remove('null', '$[x]')), char(10), '~')
+----
+00
+
+query T nosort
+select replace(json_remove('null', '$.a[0]'), char(10), '~')
+----
+null
+
+query T nosort
+select replace(hex(jsonb_remove('null', '$.a[0]')), char(10), '~')
+----
+00
+
+query T nosort
+select replace(json_remove('null', '$.x'), char(10), '~')
+----
+null
+
+query T nosort
+select replace(hex(jsonb_remove('null', '$.x')), char(10), '~')
+----
+00
+
+query T nosort
+select replace(json_remove('null', '$.e'), char(10), '~')
+----
+null
+
+query T nosort
+select replace(hex(jsonb_remove('null', '$.e')), char(10), '~')
+----
+00
+
+query T nosort
+select replace(json_remove('null', '$.f'), char(10), '~')
+----
+null
+
+query T nosort
+select replace(hex(jsonb_remove('null', '$.f')), char(10), '~')
+----
+00
+
+query T nosort
+select json_remove('true', '$')
+----
+NULL
+
+query T nosort
+select replace(hex(jsonb_remove('true', '$')), char(10), '~')
+----
+(empty)
+
+query T nosort
+select replace(json_remove('true', '$.a'), char(10), '~')
+----
+true
+
+query T nosort
+select replace(hex(jsonb_remove('true', '$.a')), char(10), '~')
+----
+01
+
+query T nosort
+select replace(json_remove('true', '$.b'), char(10), '~')
+----
+true
+
+query T nosort
+select replace(hex(jsonb_remove('true', '$.b')), char(10), '~')
+----
+01
+
+query T nosort
+select replace(json_remove('true', '$.b[1]'), char(10), '~')
+----
+true
+
+query T nosort
+select replace(hex(jsonb_remove('true', '$.b[1]')), char(10), '~')
+----
+01
+
+query T nosort
+select replace(json_remove('true', '$.b[#-1]'), char(10), '~')
+----
+true
+
+query T nosort
+select replace(hex(jsonb_remove('true', '$.b[#-1]')), char(10), '~')
+----
+01
+
+query T nosort
+select replace(json_remove('true', '$.b[#-1].c'), char(10), '~')
+----
+true
+
+query T nosort
+select replace(hex(jsonb_remove('true', '$.b[#-1].c')), char(10), '~')
+----
+01
+
+query T nosort
+select replace(json_remove('true', '$[0]'), char(10), '~')
+----
+true
+
+query T nosort
+select replace(hex(jsonb_remove('true', '$[0]')), char(10), '~')
+----
+01
+
+query T nosort
+select replace(json_remove('true', '$[#-1]'), char(10), '~')
+----
+true
+
+query T nosort
+select replace(hex(jsonb_remove('true', '$[#-1]')), char(10), '~')
+----
+01
+
+query T nosort
+select replace(json_remove('true', '$[3][0]'), char(10), '~')
+----
+true
+
+query T nosort
+select replace(hex(jsonb_remove('true', '$[3][0]')), char(10), '~')
+----
+01
+
+query T nosort
+select replace(json_remove('true', '$[4].k'), char(10), '~')
+----
+true
+
+query T nosort
+select replace(hex(jsonb_remove('true', '$[4].k')), char(10), '~')
+----
+01
+
+query T nosort
+select replace(json_remove('true', '$.a.b.c.d'), char(10), '~')
+----
+true
+
+query T nosort
+select replace(hex(jsonb_remove('true', '$.a.b.c.d')), char(10), '~')
+----
+01
+
+query T nosort
+select replace(json_remove('true', '$."a"'), char(10), '~')
+----
+true
+
+query T nosort
+select replace(hex(jsonb_remove('true', '$."a"')), char(10), '~')
+----
+01
+
+query T nosort
+select replace(json_remove('true', '$.nope'), char(10), '~')
+----
+true
+
+query T nosort
+select replace(hex(jsonb_remove('true', '$.nope')), char(10), '~')
+----
+01
+
+query T nosort
+select replace(json_remove('true', '$[99]'), char(10), '~')
+----
+true
+
+query T nosort
+select replace(hex(jsonb_remove('true', '$[99]')), char(10), '~')
+----
+01
+
+statement error
+select json_remove('true', 'a')
+
+statement error
+select hex(jsonb_remove('true', 'a'))
+
+statement error
+select json_remove('true', '$.')
+
+statement error
+select hex(jsonb_remove('true', '$.'))
+
+query T nosort
+select replace(json_remove('true', '$['), char(10), '~')
+----
+true
+
+query T nosort
+select replace(hex(jsonb_remove('true', '$[')), char(10), '~')
+----
+01
+
+query T nosort
+select replace(json_remove('true', '$[x]'), char(10), '~')
+----
+true
+
+query T nosort
+select replace(hex(jsonb_remove('true', '$[x]')), char(10), '~')
+----
+01
+
+query T nosort
+select replace(json_remove('true', '$.a[0]'), char(10), '~')
+----
+true
+
+query T nosort
+select replace(hex(jsonb_remove('true', '$.a[0]')), char(10), '~')
+----
+01
+
+query T nosort
+select replace(json_remove('true', '$.x'), char(10), '~')
+----
+true
+
+query T nosort
+select replace(hex(jsonb_remove('true', '$.x')), char(10), '~')
+----
+01
+
+query T nosort
+select replace(json_remove('true', '$.e'), char(10), '~')
+----
+true
+
+query T nosort
+select replace(hex(jsonb_remove('true', '$.e')), char(10), '~')
+----
+01
+
+query T nosort
+select replace(json_remove('true', '$.f'), char(10), '~')
+----
+true
+
+query T nosort
+select replace(hex(jsonb_remove('true', '$.f')), char(10), '~')
+----
+01
+
+statement error
+select json_remove('[1,2', '$')
+
+statement error
+select hex(jsonb_remove('[1,2', '$'))
+
+statement error
+select json_remove('[1,2', '$.a')
+
+statement error
+select hex(jsonb_remove('[1,2', '$.a'))
+
+statement error
+select json_remove('[1,2', '$.b')
+
+statement error
+select hex(jsonb_remove('[1,2', '$.b'))
+
+statement error
+select json_remove('[1,2', '$.b[1]')
+
+statement error
+select hex(jsonb_remove('[1,2', '$.b[1]'))
+
+statement error
+select json_remove('[1,2', '$.b[#-1]')
+
+statement error
+select hex(jsonb_remove('[1,2', '$.b[#-1]'))
+
+statement error
+select json_remove('[1,2', '$.b[#-1].c')
+
+statement error
+select hex(jsonb_remove('[1,2', '$.b[#-1].c'))
+
+statement error
+select json_remove('[1,2', '$[0]')
+
+statement error
+select hex(jsonb_remove('[1,2', '$[0]'))
+
+statement error
+select json_remove('[1,2', '$[#-1]')
+
+statement error
+select hex(jsonb_remove('[1,2', '$[#-1]'))
+
+statement error
+select json_remove('[1,2', '$[3][0]')
+
+statement error
+select hex(jsonb_remove('[1,2', '$[3][0]'))
+
+statement error
+select json_remove('[1,2', '$[4].k')
+
+statement error
+select hex(jsonb_remove('[1,2', '$[4].k'))
+
+statement error
+select json_remove('[1,2', '$.a.b.c.d')
+
+statement error
+select hex(jsonb_remove('[1,2', '$.a.b.c.d'))
+
+statement error
+select json_remove('[1,2', '$."a"')
+
+statement error
+select hex(jsonb_remove('[1,2', '$."a"'))
+
+statement error
+select json_remove('[1,2', '$.nope')
+
+statement error
+select hex(jsonb_remove('[1,2', '$.nope'))
+
+statement error
+select json_remove('[1,2', '$[99]')
+
+statement error
+select hex(jsonb_remove('[1,2', '$[99]'))
+
+statement error
+select json_remove('[1,2', 'a')
+
+statement error
+select hex(jsonb_remove('[1,2', 'a'))
+
+statement error
+select json_remove('[1,2', '$.')
+
+statement error
+select hex(jsonb_remove('[1,2', '$.'))
+
+statement error
+select json_remove('[1,2', '$[')
+
+statement error
+select hex(jsonb_remove('[1,2', '$['))
+
+statement error
+select json_remove('[1,2', '$[x]')
+
+statement error
+select hex(jsonb_remove('[1,2', '$[x]'))
+
+statement error
+select json_remove('[1,2', '$.a[0]')
+
+statement error
+select hex(jsonb_remove('[1,2', '$.a[0]'))
+
+statement error
+select json_remove('[1,2', '$.x')
+
+statement error
+select hex(jsonb_remove('[1,2', '$.x'))
+
+statement error
+select json_remove('[1,2', '$.e')
+
+statement error
+select hex(jsonb_remove('[1,2', '$.e'))
+
+statement error
+select json_remove('[1,2', '$.f')
+
+statement error
+select hex(jsonb_remove('[1,2', '$.f'))
+
+statement error
+select json_remove('{"a":}', '$')
+
+statement error
+select hex(jsonb_remove('{"a":}', '$'))
+
+statement error
+select json_remove('{"a":}', '$.a')
+
+statement error
+select hex(jsonb_remove('{"a":}', '$.a'))
+
+statement error
+select json_remove('{"a":}', '$.b')
+
+statement error
+select hex(jsonb_remove('{"a":}', '$.b'))
+
+statement error
+select json_remove('{"a":}', '$.b[1]')
+
+statement error
+select hex(jsonb_remove('{"a":}', '$.b[1]'))
+
+statement error
+select json_remove('{"a":}', '$.b[#-1]')
+
+statement error
+select hex(jsonb_remove('{"a":}', '$.b[#-1]'))
+
+statement error
+select json_remove('{"a":}', '$.b[#-1].c')
+
+statement error
+select hex(jsonb_remove('{"a":}', '$.b[#-1].c'))
+
+statement error
+select json_remove('{"a":}', '$[0]')
+
+statement error
+select hex(jsonb_remove('{"a":}', '$[0]'))
+
+statement error
+select json_remove('{"a":}', '$[#-1]')
+
+statement error
+select hex(jsonb_remove('{"a":}', '$[#-1]'))
+
+statement error
+select json_remove('{"a":}', '$[3][0]')
+
+statement error
+select hex(jsonb_remove('{"a":}', '$[3][0]'))
+
+statement error
+select json_remove('{"a":}', '$[4].k')
+
+statement error
+select hex(jsonb_remove('{"a":}', '$[4].k'))
+
+statement error
+select json_remove('{"a":}', '$.a.b.c.d')
+
+statement error
+select hex(jsonb_remove('{"a":}', '$.a.b.c.d'))
+
+statement error
+select json_remove('{"a":}', '$."a"')
+
+statement error
+select hex(jsonb_remove('{"a":}', '$."a"'))
+
+statement error
+select json_remove('{"a":}', '$.nope')
+
+statement error
+select hex(jsonb_remove('{"a":}', '$.nope'))
+
+statement error
+select json_remove('{"a":}', '$[99]')
+
+statement error
+select hex(jsonb_remove('{"a":}', '$[99]'))
+
+statement error
+select json_remove('{"a":}', 'a')
+
+statement error
+select hex(jsonb_remove('{"a":}', 'a'))
+
+statement error
+select json_remove('{"a":}', '$.')
+
+statement error
+select hex(jsonb_remove('{"a":}', '$.'))
+
+statement error
+select json_remove('{"a":}', '$[')
+
+statement error
+select hex(jsonb_remove('{"a":}', '$['))
+
+statement error
+select json_remove('{"a":}', '$[x]')
+
+statement error
+select hex(jsonb_remove('{"a":}', '$[x]'))
+
+statement error
+select json_remove('{"a":}', '$.a[0]')
+
+statement error
+select hex(jsonb_remove('{"a":}', '$.a[0]'))
+
+statement error
+select json_remove('{"a":}', '$.x')
+
+statement error
+select hex(jsonb_remove('{"a":}', '$.x'))
+
+statement error
+select json_remove('{"a":}', '$.e')
+
+statement error
+select hex(jsonb_remove('{"a":}', '$.e'))
+
+statement error
+select json_remove('{"a":}', '$.f')
+
+statement error
+select hex(jsonb_remove('{"a":}', '$.f'))
+
+statement error
+select json_remove('', '$')
+
+statement error
+select hex(jsonb_remove('', '$'))
+
+statement error
+select json_remove('', '$.a')
+
+statement error
+select hex(jsonb_remove('', '$.a'))
+
+statement error
+select json_remove('', '$.b')
+
+statement error
+select hex(jsonb_remove('', '$.b'))
+
+statement error
+select json_remove('', '$.b[1]')
+
+statement error
+select hex(jsonb_remove('', '$.b[1]'))
+
+statement error
+select json_remove('', '$.b[#-1]')
+
+statement error
+select hex(jsonb_remove('', '$.b[#-1]'))
+
+statement error
+select json_remove('', '$.b[#-1].c')
+
+statement error
+select hex(jsonb_remove('', '$.b[#-1].c'))
+
+statement error
+select json_remove('', '$[0]')
+
+statement error
+select hex(jsonb_remove('', '$[0]'))
+
+statement error
+select json_remove('', '$[#-1]')
+
+statement error
+select hex(jsonb_remove('', '$[#-1]'))
+
+statement error
+select json_remove('', '$[3][0]')
+
+statement error
+select hex(jsonb_remove('', '$[3][0]'))
+
+statement error
+select json_remove('', '$[4].k')
+
+statement error
+select hex(jsonb_remove('', '$[4].k'))
+
+statement error
+select json_remove('', '$.a.b.c.d')
+
+statement error
+select hex(jsonb_remove('', '$.a.b.c.d'))
+
+statement error
+select json_remove('', '$."a"')
+
+statement error
+select hex(jsonb_remove('', '$."a"'))
+
+statement error
+select json_remove('', '$.nope')
+
+statement error
+select hex(jsonb_remove('', '$.nope'))
+
+statement error
+select json_remove('', '$[99]')
+
+statement error
+select hex(jsonb_remove('', '$[99]'))
+
+statement error
+select json_remove('', 'a')
+
+statement error
+select hex(jsonb_remove('', 'a'))
+
+statement error
+select json_remove('', '$.')
+
+statement error
+select hex(jsonb_remove('', '$.'))
+
+statement error
+select json_remove('', '$[')
+
+statement error
+select hex(jsonb_remove('', '$['))
+
+statement error
+select json_remove('', '$[x]')
+
+statement error
+select hex(jsonb_remove('', '$[x]'))
+
+statement error
+select json_remove('', '$.a[0]')
+
+statement error
+select hex(jsonb_remove('', '$.a[0]'))
+
+statement error
+select json_remove('', '$.x')
+
+statement error
+select hex(jsonb_remove('', '$.x'))
+
+statement error
+select json_remove('', '$.e')
+
+statement error
+select hex(jsonb_remove('', '$.e'))
+
+statement error
+select json_remove('', '$.f')
+
+statement error
+select hex(jsonb_remove('', '$.f'))
+
+query T nosort
+select json_remove('{"a":1,"a":2}', '$')
+----
+NULL
+
+query T nosort
+select replace(hex(jsonb_remove('{"a":1,"a":2}', '$')), char(10), '~')
+----
+(empty)
+
+query T nosort
+select replace(json_remove('{"a":1,"a":2}', '$.a'), char(10), '~')
+----
+{"a":2}
+
+query T nosort
+select replace(hex(jsonb_remove('{"a":1,"a":2}', '$.a')), char(10), '~')
+----
+4C17611332
+
+query T nosort
+select replace(json_remove('{"a":1,"a":2}', '$.b'), char(10), '~')
+----
+{"a":1,"a":2}
+
+query T nosort
+select replace(hex(jsonb_remove('{"a":1,"a":2}', '$.b')), char(10), '~')
+----
+8C1761133117611332
+
+query T nosort
+select replace(json_remove('{"a":1,"a":2}', '$.b[1]'), char(10), '~')
+----
+{"a":1,"a":2}
+
+query T nosort
+select replace(hex(jsonb_remove('{"a":1,"a":2}', '$.b[1]')), char(10), '~')
+----
+8C1761133117611332
+
+query T nosort
+select replace(json_remove('{"a":1,"a":2}', '$.b[#-1]'), char(10), '~')
+----
+{"a":1,"a":2}
+
+query T nosort
+select replace(hex(jsonb_remove('{"a":1,"a":2}', '$.b[#-1]')), char(10), '~')
+----
+8C1761133117611332
+
+query T nosort
+select replace(json_remove('{"a":1,"a":2}', '$.b[#-1].c'), char(10), '~')
+----
+{"a":1,"a":2}
+
+query T nosort
+select replace(hex(jsonb_remove('{"a":1,"a":2}', '$.b[#-1].c')), char(10), '~')
+----
+8C1761133117611332
+
+query T nosort
+select replace(json_remove('{"a":1,"a":2}', '$[0]'), char(10), '~')
+----
+{"a":1,"a":2}
+
+query T nosort
+select replace(hex(jsonb_remove('{"a":1,"a":2}', '$[0]')), char(10), '~')
+----
+8C1761133117611332
+
+query T nosort
+select replace(json_remove('{"a":1,"a":2}', '$[#-1]'), char(10), '~')
+----
+{"a":1,"a":2}
+
+query T nosort
+select replace(hex(jsonb_remove('{"a":1,"a":2}', '$[#-1]')), char(10), '~')
+----
+8C1761133117611332
+
+query T nosort
+select replace(json_remove('{"a":1,"a":2}', '$[3][0]'), char(10), '~')
+----
+{"a":1,"a":2}
+
+query T nosort
+select replace(hex(jsonb_remove('{"a":1,"a":2}', '$[3][0]')), char(10), '~')
+----
+8C1761133117611332
+
+query T nosort
+select replace(json_remove('{"a":1,"a":2}', '$[4].k'), char(10), '~')
+----
+{"a":1,"a":2}
+
+query T nosort
+select replace(hex(jsonb_remove('{"a":1,"a":2}', '$[4].k')), char(10), '~')
+----
+8C1761133117611332
+
+query T nosort
+select replace(json_remove('{"a":1,"a":2}', '$.a.b.c.d'), char(10), '~')
+----
+{"a":1,"a":2}
+
+query T nosort
+select replace(hex(jsonb_remove('{"a":1,"a":2}', '$.a.b.c.d')), char(10), '~')
+----
+8C1761133117611332
+
+query T nosort
+select replace(json_remove('{"a":1,"a":2}', '$."a"'), char(10), '~')
+----
+{"a":2}
+
+query T nosort
+select replace(hex(jsonb_remove('{"a":1,"a":2}', '$."a"')), char(10), '~')
+----
+4C17611332
+
+query T nosort
+select replace(json_remove('{"a":1,"a":2}', '$.nope'), char(10), '~')
+----
+{"a":1,"a":2}
+
+query T nosort
+select replace(hex(jsonb_remove('{"a":1,"a":2}', '$.nope')), char(10), '~')
+----
+8C1761133117611332
+
+query T nosort
+select replace(json_remove('{"a":1,"a":2}', '$[99]'), char(10), '~')
+----
+{"a":1,"a":2}
+
+query T nosort
+select replace(hex(jsonb_remove('{"a":1,"a":2}', '$[99]')), char(10), '~')
+----
+8C1761133117611332
+
+statement error
+select json_remove('{"a":1,"a":2}', 'a')
+
+statement error
+select hex(jsonb_remove('{"a":1,"a":2}', 'a'))
+
+statement error
+select json_remove('{"a":1,"a":2}', '$.')
+
+statement error
+select hex(jsonb_remove('{"a":1,"a":2}', '$.'))
+
+query T nosort
+select replace(json_remove('{"a":1,"a":2}', '$['), char(10), '~')
+----
+{"a":1,"a":2}
+
+query T nosort
+select replace(hex(jsonb_remove('{"a":1,"a":2}', '$[')), char(10), '~')
+----
+8C1761133117611332
+
+query T nosort
+select replace(json_remove('{"a":1,"a":2}', '$[x]'), char(10), '~')
+----
+{"a":1,"a":2}
+
+query T nosort
+select replace(hex(jsonb_remove('{"a":1,"a":2}', '$[x]')), char(10), '~')
+----
+8C1761133117611332
+
+query T nosort
+select replace(json_remove('{"a":1,"a":2}', '$.a[0]'), char(10), '~')
+----
+{"a":1,"a":2}
+
+query T nosort
+select replace(hex(jsonb_remove('{"a":1,"a":2}', '$.a[0]')), char(10), '~')
+----
+8C1761133117611332
+
+query T nosort
+select replace(json_remove('{"a":1,"a":2}', '$.x'), char(10), '~')
+----
+{"a":1,"a":2}
+
+query T nosort
+select replace(hex(jsonb_remove('{"a":1,"a":2}', '$.x')), char(10), '~')
+----
+8C1761133117611332
+
+query T nosort
+select replace(json_remove('{"a":1,"a":2}', '$.e'), char(10), '~')
+----
+{"a":1,"a":2}
+
+query T nosort
+select replace(hex(jsonb_remove('{"a":1,"a":2}', '$.e')), char(10), '~')
+----
+8C1761133117611332
+
+query T nosort
+select replace(json_remove('{"a":1,"a":2}', '$.f'), char(10), '~')
+----
+{"a":1,"a":2}
+
+query T nosort
+select replace(hex(jsonb_remove('{"a":1,"a":2}', '$.f')), char(10), '~')
+----
+8C1761133117611332
+
+query T nosort
+select json_remove('["a\\u0041\\ud83d\\ude00"]', '$')
+----
+NULL
+
+query T nosort
+select replace(hex(jsonb_remove('["a\\u0041\\ud83d\\ude00"]', '$')), char(10), '~')
+----
+(empty)
+
+query T nosort
+select replace(json_remove('["a\\u0041\\ud83d\\ude00"]', '$.a'), char(10), '~')
+----
+["a\\u0041\\ud83d\\ude00"]
+
+query T nosort
+select replace(hex(jsonb_remove('["a\\u0041\\ud83d\\ude00"]', '$.a')), char(10), '~')
+----
+CB18C816615C5C75303034315C5C75643833645C5C7564653030
+
+query T nosort
+select replace(json_remove('["a\\u0041\\ud83d\\ude00"]', '$.b'), char(10), '~')
+----
+["a\\u0041\\ud83d\\ude00"]
+
+query T nosort
+select replace(hex(jsonb_remove('["a\\u0041\\ud83d\\ude00"]', '$.b')), char(10), '~')
+----
+CB18C816615C5C75303034315C5C75643833645C5C7564653030
+
+query T nosort
+select replace(json_remove('["a\\u0041\\ud83d\\ude00"]', '$.b[1]'), char(10), '~')
+----
+["a\\u0041\\ud83d\\ude00"]
+
+query T nosort
+select replace(hex(jsonb_remove('["a\\u0041\\ud83d\\ude00"]', '$.b[1]')), char(10), '~')
+----
+CB18C816615C5C75303034315C5C75643833645C5C7564653030
+
+query T nosort
+select replace(json_remove('["a\\u0041\\ud83d\\ude00"]', '$.b[#-1]'), char(10), '~')
+----
+["a\\u0041\\ud83d\\ude00"]
+
+query T nosort
+select replace(hex(jsonb_remove('["a\\u0041\\ud83d\\ude00"]', '$.b[#-1]')), char(10), '~')
+----
+CB18C816615C5C75303034315C5C75643833645C5C7564653030
+
+query T nosort
+select replace(json_remove('["a\\u0041\\ud83d\\ude00"]', '$.b[#-1].c'), char(10), '~')
+----
+["a\\u0041\\ud83d\\ude00"]
+
+query T nosort
+select replace(hex(jsonb_remove('["a\\u0041\\ud83d\\ude00"]', '$.b[#-1].c')), char(10), '~')
+----
+CB18C816615C5C75303034315C5C75643833645C5C7564653030
+
+query T nosort
+select replace(json_remove('["a\\u0041\\ud83d\\ude00"]', '$[0]'), char(10), '~')
+----
+[]
+
+query T nosort
+select replace(hex(jsonb_remove('["a\\u0041\\ud83d\\ude00"]', '$[0]')), char(10), '~')
+----
+0B
+
+query T nosort
+select replace(json_remove('["a\\u0041\\ud83d\\ude00"]', '$[#-1]'), char(10), '~')
+----
+[]
+
+query T nosort
+select replace(hex(jsonb_remove('["a\\u0041\\ud83d\\ude00"]', '$[#-1]')), char(10), '~')
+----
+0B
+
+query T nosort
+select replace(json_remove('["a\\u0041\\ud83d\\ude00"]', '$[3][0]'), char(10), '~')
+----
+["a\\u0041\\ud83d\\ude00"]
+
+query T nosort
+select replace(hex(jsonb_remove('["a\\u0041\\ud83d\\ude00"]', '$[3][0]')), char(10), '~')
+----
+CB18C816615C5C75303034315C5C75643833645C5C7564653030
+
+query T nosort
+select replace(json_remove('["a\\u0041\\ud83d\\ude00"]', '$[4].k'), char(10), '~')
+----
+["a\\u0041\\ud83d\\ude00"]
+
+query T nosort
+select replace(hex(jsonb_remove('["a\\u0041\\ud83d\\ude00"]', '$[4].k')), char(10), '~')
+----
+CB18C816615C5C75303034315C5C75643833645C5C7564653030
+
+query T nosort
+select replace(json_remove('["a\\u0041\\ud83d\\ude00"]', '$.a.b.c.d'), char(10), '~')
+----
+["a\\u0041\\ud83d\\ude00"]
+
+query T nosort
+select replace(hex(jsonb_remove('["a\\u0041\\ud83d\\ude00"]', '$.a.b.c.d')), char(10), '~')
+----
+CB18C816615C5C75303034315C5C75643833645C5C7564653030
+
+query T nosort
+select replace(json_remove('["a\\u0041\\ud83d\\ude00"]', '$."a"'), char(10), '~')
+----
+["a\\u0041\\ud83d\\ude00"]
+
+query T nosort
+select replace(hex(jsonb_remove('["a\\u0041\\ud83d\\ude00"]', '$."a"')), char(10), '~')
+----
+CB18C816615C5C75303034315C5C75643833645C5C7564653030
+
+query T nosort
+select replace(json_remove('["a\\u0041\\ud83d\\ude00"]', '$.nope'), char(10), '~')
+----
+["a\\u0041\\ud83d\\ude00"]
+
+query T nosort
+select replace(hex(jsonb_remove('["a\\u0041\\ud83d\\ude00"]', '$.nope')), char(10), '~')
+----
+CB18C816615C5C75303034315C5C75643833645C5C7564653030
+
+query T nosort
+select replace(json_remove('["a\\u0041\\ud83d\\ude00"]', '$[99]'), char(10), '~')
+----
+["a\\u0041\\ud83d\\ude00"]
+
+query T nosort
+select replace(hex(jsonb_remove('["a\\u0041\\ud83d\\ude00"]', '$[99]')), char(10), '~')
+----
+CB18C816615C5C75303034315C5C75643833645C5C7564653030
+
+statement error
+select json_remove('["a\\u0041\\ud83d\\ude00"]', 'a')
+
+statement error
+select hex(jsonb_remove('["a\\u0041\\ud83d\\ude00"]', 'a'))
+
+statement error
+select json_remove('["a\\u0041\\ud83d\\ude00"]', '$.')
+
+statement error
+select hex(jsonb_remove('["a\\u0041\\ud83d\\ude00"]', '$.'))
+
+statement error
+select json_remove('["a\\u0041\\ud83d\\ude00"]', '$[')
+
+statement error
+select hex(jsonb_remove('["a\\u0041\\ud83d\\ude00"]', '$['))
+
+statement error
+select json_remove('["a\\u0041\\ud83d\\ude00"]', '$[x]')
+
+statement error
+select hex(jsonb_remove('["a\\u0041\\ud83d\\ude00"]', '$[x]'))
+
+query T nosort
+select replace(json_remove('["a\\u0041\\ud83d\\ude00"]', '$.a[0]'), char(10), '~')
+----
+["a\\u0041\\ud83d\\ude00"]
+
+query T nosort
+select replace(hex(jsonb_remove('["a\\u0041\\ud83d\\ude00"]', '$.a[0]')), char(10), '~')
+----
+CB18C816615C5C75303034315C5C75643833645C5C7564653030
+
+query T nosort
+select replace(json_remove('["a\\u0041\\ud83d\\ude00"]', '$.x'), char(10), '~')
+----
+["a\\u0041\\ud83d\\ude00"]
+
+query T nosort
+select replace(hex(jsonb_remove('["a\\u0041\\ud83d\\ude00"]', '$.x')), char(10), '~')
+----
+CB18C816615C5C75303034315C5C75643833645C5C7564653030
+
+query T nosort
+select replace(json_remove('["a\\u0041\\ud83d\\ude00"]', '$.e'), char(10), '~')
+----
+["a\\u0041\\ud83d\\ude00"]
+
+query T nosort
+select replace(hex(jsonb_remove('["a\\u0041\\ud83d\\ude00"]', '$.e')), char(10), '~')
+----
+CB18C816615C5C75303034315C5C75643833645C5C7564653030
+
+query T nosort
+select replace(json_remove('["a\\u0041\\ud83d\\ude00"]', '$.f'), char(10), '~')
+----
+["a\\u0041\\ud83d\\ude00"]
+
+query T nosort
+select replace(hex(jsonb_remove('["a\\u0041\\ud83d\\ude00"]', '$.f')), char(10), '~')
+----
+CB18C816615C5C75303034315C5C75643833645C5C7564653030
+
+query T nosort
+select json_remove('/* c */ [1, // x
+ 2]', '$')
+----
+NULL
+
+query T nosort
+select replace(hex(jsonb_remove('/* c */ [1, // x
+ 2]', '$')), char(10), '~')
+----
+(empty)
+
+query T nosort
+select replace(json_remove('/* c */ [1, // x
+ 2]', '$.a'), char(10), '~')
+----
+[1,2]
+
+query T nosort
+select replace(hex(jsonb_remove('/* c */ [1, // x
+ 2]', '$.a')), char(10), '~')
+----
+4B13311332
+
+query T nosort
+select replace(json_remove('/* c */ [1, // x
+ 2]', '$.b'), char(10), '~')
+----
+[1,2]
+
+query T nosort
+select replace(hex(jsonb_remove('/* c */ [1, // x
+ 2]', '$.b')), char(10), '~')
+----
+4B13311332
+
+query T nosort
+select replace(json_remove('/* c */ [1, // x
+ 2]', '$.b[1]'), char(10), '~')
+----
+[1,2]
+
+query T nosort
+select replace(hex(jsonb_remove('/* c */ [1, // x
+ 2]', '$.b[1]')), char(10), '~')
+----
+4B13311332
+
+query T nosort
+select replace(json_remove('/* c */ [1, // x
+ 2]', '$.b[#-1]'), char(10), '~')
+----
+[1,2]
+
+query T nosort
+select replace(hex(jsonb_remove('/* c */ [1, // x
+ 2]', '$.b[#-1]')), char(10), '~')
+----
+4B13311332
+
+query T nosort
+select replace(json_remove('/* c */ [1, // x
+ 2]', '$.b[#-1].c'), char(10), '~')
+----
+[1,2]
+
+query T nosort
+select replace(hex(jsonb_remove('/* c */ [1, // x
+ 2]', '$.b[#-1].c')), char(10), '~')
+----
+4B13311332
+
+query T nosort
+select replace(json_remove('/* c */ [1, // x
+ 2]', '$[0]'), char(10), '~')
+----
+[2]
+
+query T nosort
+select replace(hex(jsonb_remove('/* c */ [1, // x
+ 2]', '$[0]')), char(10), '~')
+----
+2B1332
+
+query T nosort
+select replace(json_remove('/* c */ [1, // x
+ 2]', '$[#-1]'), char(10), '~')
+----
+[1]
+
+query T nosort
+select replace(hex(jsonb_remove('/* c */ [1, // x
+ 2]', '$[#-1]')), char(10), '~')
+----
+2B1331
+
+query T nosort
+select replace(json_remove('/* c */ [1, // x
+ 2]', '$[3][0]'), char(10), '~')
+----
+[1,2]
+
+query T nosort
+select replace(hex(jsonb_remove('/* c */ [1, // x
+ 2]', '$[3][0]')), char(10), '~')
+----
+4B13311332
+
+query T nosort
+select replace(json_remove('/* c */ [1, // x
+ 2]', '$[4].k'), char(10), '~')
+----
+[1,2]
+
+query T nosort
+select replace(hex(jsonb_remove('/* c */ [1, // x
+ 2]', '$[4].k')), char(10), '~')
+----
+4B13311332
+
+query T nosort
+select replace(json_remove('/* c */ [1, // x
+ 2]', '$.a.b.c.d'), char(10), '~')
+----
+[1,2]
+
+query T nosort
+select replace(hex(jsonb_remove('/* c */ [1, // x
+ 2]', '$.a.b.c.d')), char(10), '~')
+----
+4B13311332
+
+query T nosort
+select replace(json_remove('/* c */ [1, // x
+ 2]', '$."a"'), char(10), '~')
+----
+[1,2]
+
+query T nosort
+select replace(hex(jsonb_remove('/* c */ [1, // x
+ 2]', '$."a"')), char(10), '~')
+----
+4B13311332
+
+query T nosort
+select replace(json_remove('/* c */ [1, // x
+ 2]', '$.nope'), char(10), '~')
+----
+[1,2]
+
+query T nosort
+select replace(hex(jsonb_remove('/* c */ [1, // x
+ 2]', '$.nope')), char(10), '~')
+----
+4B13311332
+
+query T nosort
+select replace(json_remove('/* c */ [1, // x
+ 2]', '$[99]'), char(10), '~')
+----
+[1,2]
+
+query T nosort
+select replace(hex(jsonb_remove('/* c */ [1, // x
+ 2]', '$[99]')), char(10), '~')
+----
+4B13311332
+
+statement error
+select json_remove('/* c */ [1, // x
+ 2]', 'a')
+
+statement error
+select hex(jsonb_remove('/* c */ [1, // x
+ 2]', 'a'))
+
+statement error
+select json_remove('/* c */ [1, // x
+ 2]', '$.')
+
+statement error
+select hex(jsonb_remove('/* c */ [1, // x
+ 2]', '$.'))
+
+statement error
+select json_remove('/* c */ [1, // x
+ 2]', '$[')
+
+statement error
+select hex(jsonb_remove('/* c */ [1, // x
+ 2]', '$['))
+
+statement error
+select json_remove('/* c */ [1, // x
+ 2]', '$[x]')
+
+statement error
+select hex(jsonb_remove('/* c */ [1, // x
+ 2]', '$[x]'))
+
+query T nosort
+select replace(json_remove('/* c */ [1, // x
+ 2]', '$.a[0]'), char(10), '~')
+----
+[1,2]
+
+query T nosort
+select replace(hex(jsonb_remove('/* c */ [1, // x
+ 2]', '$.a[0]')), char(10), '~')
+----
+4B13311332
+
+query T nosort
+select replace(json_remove('/* c */ [1, // x
+ 2]', '$.x'), char(10), '~')
+----
+[1,2]
+
+query T nosort
+select replace(hex(jsonb_remove('/* c */ [1, // x
+ 2]', '$.x')), char(10), '~')
+----
+4B13311332
+
+query T nosort
+select replace(json_remove('/* c */ [1, // x
+ 2]', '$.e'), char(10), '~')
+----
+[1,2]
+
+query T nosort
+select replace(hex(jsonb_remove('/* c */ [1, // x
+ 2]', '$.e')), char(10), '~')
+----
+4B13311332
+
+query T nosort
+select replace(json_remove('/* c */ [1, // x
+ 2]', '$.f'), char(10), '~')
+----
+[1,2]
+
+query T nosort
+select replace(hex(jsonb_remove('/* c */ [1, // x
+ 2]', '$.f')), char(10), '~')
+----
+4B13311332
+
+query T nosort
+select json_remove('{"x":[],"y":{}}', '$')
+----
+NULL
+
+query T nosort
+select replace(hex(jsonb_remove('{"x":[],"y":{}}', '$')), char(10), '~')
+----
+(empty)
+
+query T nosort
+select replace(json_remove('{"x":[],"y":{}}', '$.a'), char(10), '~')
+----
+{"x":[],"y":{}}
+
+query T nosort
+select replace(hex(jsonb_remove('{"x":[],"y":{}}', '$.a')), char(10), '~')
+----
+6C17780B17790C
+
+query T nosort
+select replace(json_remove('{"x":[],"y":{}}', '$.b'), char(10), '~')
+----
+{"x":[],"y":{}}
+
+query T nosort
+select replace(hex(jsonb_remove('{"x":[],"y":{}}', '$.b')), char(10), '~')
+----
+6C17780B17790C
+
+query T nosort
+select replace(json_remove('{"x":[],"y":{}}', '$.b[1]'), char(10), '~')
+----
+{"x":[],"y":{}}
+
+query T nosort
+select replace(hex(jsonb_remove('{"x":[],"y":{}}', '$.b[1]')), char(10), '~')
+----
+6C17780B17790C
+
+query T nosort
+select replace(json_remove('{"x":[],"y":{}}', '$.b[#-1]'), char(10), '~')
+----
+{"x":[],"y":{}}
+
+query T nosort
+select replace(hex(jsonb_remove('{"x":[],"y":{}}', '$.b[#-1]')), char(10), '~')
+----
+6C17780B17790C
+
+query T nosort
+select replace(json_remove('{"x":[],"y":{}}', '$.b[#-1].c'), char(10), '~')
+----
+{"x":[],"y":{}}
+
+query T nosort
+select replace(hex(jsonb_remove('{"x":[],"y":{}}', '$.b[#-1].c')), char(10), '~')
+----
+6C17780B17790C
+
+query T nosort
+select replace(json_remove('{"x":[],"y":{}}', '$[0]'), char(10), '~')
+----
+{"x":[],"y":{}}
+
+query T nosort
+select replace(hex(jsonb_remove('{"x":[],"y":{}}', '$[0]')), char(10), '~')
+----
+6C17780B17790C
+
+query T nosort
+select replace(json_remove('{"x":[],"y":{}}', '$[#-1]'), char(10), '~')
+----
+{"x":[],"y":{}}
+
+query T nosort
+select replace(hex(jsonb_remove('{"x":[],"y":{}}', '$[#-1]')), char(10), '~')
+----
+6C17780B17790C
+
+query T nosort
+select replace(json_remove('{"x":[],"y":{}}', '$[3][0]'), char(10), '~')
+----
+{"x":[],"y":{}}
+
+query T nosort
+select replace(hex(jsonb_remove('{"x":[],"y":{}}', '$[3][0]')), char(10), '~')
+----
+6C17780B17790C
+
+query T nosort
+select replace(json_remove('{"x":[],"y":{}}', '$[4].k'), char(10), '~')
+----
+{"x":[],"y":{}}
+
+query T nosort
+select replace(hex(jsonb_remove('{"x":[],"y":{}}', '$[4].k')), char(10), '~')
+----
+6C17780B17790C
+
+query T nosort
+select replace(json_remove('{"x":[],"y":{}}', '$.a.b.c.d'), char(10), '~')
+----
+{"x":[],"y":{}}
+
+query T nosort
+select replace(hex(jsonb_remove('{"x":[],"y":{}}', '$.a.b.c.d')), char(10), '~')
+----
+6C17780B17790C
+
+query T nosort
+select replace(json_remove('{"x":[],"y":{}}', '$."a"'), char(10), '~')
+----
+{"x":[],"y":{}}
+
+query T nosort
+select replace(hex(jsonb_remove('{"x":[],"y":{}}', '$."a"')), char(10), '~')
+----
+6C17780B17790C
+
+query T nosort
+select replace(json_remove('{"x":[],"y":{}}', '$.nope'), char(10), '~')
+----
+{"x":[],"y":{}}
+
+query T nosort
+select replace(hex(jsonb_remove('{"x":[],"y":{}}', '$.nope')), char(10), '~')
+----
+6C17780B17790C
+
+query T nosort
+select replace(json_remove('{"x":[],"y":{}}', '$[99]'), char(10), '~')
+----
+{"x":[],"y":{}}
+
+query T nosort
+select replace(hex(jsonb_remove('{"x":[],"y":{}}', '$[99]')), char(10), '~')
+----
+6C17780B17790C
+
+statement error
+select json_remove('{"x":[],"y":{}}', 'a')
+
+statement error
+select hex(jsonb_remove('{"x":[],"y":{}}', 'a'))
+
+statement error
+select json_remove('{"x":[],"y":{}}', '$.')
+
+statement error
+select hex(jsonb_remove('{"x":[],"y":{}}', '$.'))
+
+query T nosort
+select replace(json_remove('{"x":[],"y":{}}', '$['), char(10), '~')
+----
+{"x":[],"y":{}}
+
+query T nosort
+select replace(hex(jsonb_remove('{"x":[],"y":{}}', '$[')), char(10), '~')
+----
+6C17780B17790C
+
+query T nosort
+select replace(json_remove('{"x":[],"y":{}}', '$[x]'), char(10), '~')
+----
+{"x":[],"y":{}}
+
+query T nosort
+select replace(hex(jsonb_remove('{"x":[],"y":{}}', '$[x]')), char(10), '~')
+----
+6C17780B17790C
+
+query T nosort
+select replace(json_remove('{"x":[],"y":{}}', '$.a[0]'), char(10), '~')
+----
+{"x":[],"y":{}}
+
+query T nosort
+select replace(hex(jsonb_remove('{"x":[],"y":{}}', '$.a[0]')), char(10), '~')
+----
+6C17780B17790C
+
+query T nosort
+select replace(json_remove('{"x":[],"y":{}}', '$.x'), char(10), '~')
+----
+{"y":{}}
+
+query T nosort
+select replace(hex(jsonb_remove('{"x":[],"y":{}}', '$.x')), char(10), '~')
+----
+3C17790C
+
+query T nosort
+select replace(json_remove('{"x":[],"y":{}}', '$.e'), char(10), '~')
+----
+{"x":[],"y":{}}
+
+query T nosort
+select replace(hex(jsonb_remove('{"x":[],"y":{}}', '$.e')), char(10), '~')
+----
+6C17780B17790C
+
+query T nosort
+select replace(json_remove('{"x":[],"y":{}}', '$.f'), char(10), '~')
+----
+{"x":[],"y":{}}
+
+query T nosort
+select replace(hex(jsonb_remove('{"x":[],"y":{}}', '$.f')), char(10), '~')
+----
+6C17780B17790C
+
+query T nosort
+select json_remove('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]', '$')
+----
+NULL
+
+query T nosort
+select replace(hex(jsonb_remove('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]', '$')), char(10), '~')
+----
+(empty)
+
+query T nosort
+select replace(json_remove('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]', '$.a'), char(10), '~')
+----
+[9223372036854775807,18446744073709551615,-16]
+
+query T nosort
+select replace(hex(jsonb_remove('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]', '$.a')), char(10), '~')
+----
+CB2EC412307837666666666666666666666666666666C412307866666666666666666666666666666666542D30783130
+
+query T nosort
+select replace(json_remove('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]', '$.b'), char(10), '~')
+----
+[9223372036854775807,18446744073709551615,-16]
+
+query T nosort
+select replace(hex(jsonb_remove('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]', '$.b')), char(10), '~')
+----
+CB2EC412307837666666666666666666666666666666C412307866666666666666666666666666666666542D30783130
+
+query T nosort
+select replace(json_remove('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]', '$.b[1]'), char(10), '~')
+----
+[9223372036854775807,18446744073709551615,-16]
+
+query T nosort
+select replace(hex(jsonb_remove('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]', '$.b[1]')), char(10), '~')
+----
+CB2EC412307837666666666666666666666666666666C412307866666666666666666666666666666666542D30783130
+
+query T nosort
+select replace(json_remove('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]', '$.b[#-1]'), char(10), '~')
+----
+[9223372036854775807,18446744073709551615,-16]
+
+query T nosort
+select replace(hex(jsonb_remove('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]', '$.b[#-1]')), char(10), '~')
+----
+CB2EC412307837666666666666666666666666666666C412307866666666666666666666666666666666542D30783130
+
+query T nosort
+select replace(json_remove('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]', '$.b[#-1].c'), char(10), '~')
+----
+[9223372036854775807,18446744073709551615,-16]
+
+query T nosort
+select replace(hex(jsonb_remove('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]', '$.b[#-1].c')), char(10), '~')
+----
+CB2EC412307837666666666666666666666666666666C412307866666666666666666666666666666666542D30783130
+
+query T nosort
+select replace(json_remove('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]', '$[0]'), char(10), '~')
+----
+[18446744073709551615,-16]
+
+query T nosort
+select replace(hex(jsonb_remove('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]', '$[0]')), char(10), '~')
+----
+CB1AC412307866666666666666666666666666666666542D30783130
+
+query T nosort
+select replace(json_remove('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]', '$[#-1]'), char(10), '~')
+----
+[9223372036854775807,18446744073709551615]
+
+query T nosort
+select replace(hex(jsonb_remove('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]', '$[#-1]')), char(10), '~')
+----
+CB28C412307837666666666666666666666666666666C412307866666666666666666666666666666666
+
+query T nosort
+select replace(json_remove('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]', '$[3][0]'), char(10), '~')
+----
+[9223372036854775807,18446744073709551615,-16]
+
+query T nosort
+select replace(hex(jsonb_remove('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]', '$[3][0]')), char(10), '~')
+----
+CB2EC412307837666666666666666666666666666666C412307866666666666666666666666666666666542D30783130
+
+query T nosort
+select replace(json_remove('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]', '$[4].k'), char(10), '~')
+----
+[9223372036854775807,18446744073709551615,-16]
+
+query T nosort
+select replace(hex(jsonb_remove('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]', '$[4].k')), char(10), '~')
+----
+CB2EC412307837666666666666666666666666666666C412307866666666666666666666666666666666542D30783130
+
+query T nosort
+select replace(json_remove('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]', '$.a.b.c.d'), char(10), '~')
+----
+[9223372036854775807,18446744073709551615,-16]
+
+query T nosort
+select replace(hex(jsonb_remove('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]', '$.a.b.c.d')), char(10), '~')
+----
+CB2EC412307837666666666666666666666666666666C412307866666666666666666666666666666666542D30783130
+
+query T nosort
+select replace(json_remove('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]', '$."a"'), char(10), '~')
+----
+[9223372036854775807,18446744073709551615,-16]
+
+query T nosort
+select replace(hex(jsonb_remove('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]', '$."a"')), char(10), '~')
+----
+CB2EC412307837666666666666666666666666666666C412307866666666666666666666666666666666542D30783130
+
+query T nosort
+select replace(json_remove('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]', '$.nope'), char(10), '~')
+----
+[9223372036854775807,18446744073709551615,-16]
+
+query T nosort
+select replace(hex(jsonb_remove('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]', '$.nope')), char(10), '~')
+----
+CB2EC412307837666666666666666666666666666666C412307866666666666666666666666666666666542D30783130
+
+query T nosort
+select replace(json_remove('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]', '$[99]'), char(10), '~')
+----
+[9223372036854775807,18446744073709551615,-16]
+
+query T nosort
+select replace(hex(jsonb_remove('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]', '$[99]')), char(10), '~')
+----
+CB2EC412307837666666666666666666666666666666C412307866666666666666666666666666666666542D30783130
+
+statement error
+select json_remove('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]', 'a')
+
+statement error
+select hex(jsonb_remove('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]', 'a'))
+
+statement error
+select json_remove('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]', '$.')
+
+statement error
+select hex(jsonb_remove('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]', '$.'))
+
+statement error
+select json_remove('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]', '$[')
+
+statement error
+select hex(jsonb_remove('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]', '$['))
+
+statement error
+select json_remove('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]', '$[x]')
+
+statement error
+select hex(jsonb_remove('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]', '$[x]'))
+
+query T nosort
+select replace(json_remove('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]', '$.a[0]'), char(10), '~')
+----
+[9223372036854775807,18446744073709551615,-16]
+
+query T nosort
+select replace(hex(jsonb_remove('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]', '$.a[0]')), char(10), '~')
+----
+CB2EC412307837666666666666666666666666666666C412307866666666666666666666666666666666542D30783130
+
+query T nosort
+select replace(json_remove('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]', '$.x'), char(10), '~')
+----
+[9223372036854775807,18446744073709551615,-16]
+
+query T nosort
+select replace(hex(jsonb_remove('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]', '$.x')), char(10), '~')
+----
+CB2EC412307837666666666666666666666666666666C412307866666666666666666666666666666666542D30783130
+
+query T nosort
+select replace(json_remove('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]', '$.e'), char(10), '~')
+----
+[9223372036854775807,18446744073709551615,-16]
+
+query T nosort
+select replace(hex(jsonb_remove('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]', '$.e')), char(10), '~')
+----
+CB2EC412307837666666666666666666666666666666C412307866666666666666666666666666666666542D30783130
+
+query T nosort
+select replace(json_remove('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]', '$.f'), char(10), '~')
+----
+[9223372036854775807,18446744073709551615,-16]
+
+query T nosort
+select replace(hex(jsonb_remove('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]', '$.f')), char(10), '~')
+----
+CB2EC412307837666666666666666666666666666666C412307866666666666666666666666666666666542D30783130

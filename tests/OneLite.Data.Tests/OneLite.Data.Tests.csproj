@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>RecursiveAI.OneLite.Data.Tests</RootNamespace>
+    <IsTestProject>true</IsTestProject>
+    <NoWarn>$(NoWarn);CA1861</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Using Include="System" />
+    <Using Include="Xunit" />
+    <Using Include="System.Collections.Generic" />
+    <Using Include="System.IO" />
+    <Using Include="System.Threading" />
+    <Using Include="System.Threading.Tasks" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+    <!-- Test-only: Dapper is exercised through the provider; Microsoft.Data.Sqlite on its native library is the behavioural oracle for the ADO.NET surface. -->
+    <PackageReference Include="Dapper" />
+    <PackageReference Include="Microsoft.Data.Sqlite.Core" />
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" />
+    <!-- Test-only: runs the mapping generator on small sources to check its diagnostics. -->
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/OneLite/OneLite.csproj" />
+    <ProjectReference Include="../../src/OneLite.Data/OneLite.Data.csproj" />
+    <ProjectReference Include="../../src/OneLite.Generators/OneLite.Generators.csproj" OutputItemType="Analyzer" />
+    <ProjectReference Include="../../tools/OneLite.Oracle/OneLite.Oracle.csproj" />
+  </ItemGroup>
+
+</Project>

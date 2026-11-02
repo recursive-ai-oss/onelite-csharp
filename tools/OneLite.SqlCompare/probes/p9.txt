@@ -1,0 +1,373 @@
+alter table t alter column a set not null
+%%
+alter table t alter a set not null
+%%
+alter table t alter column a drop not null
+%%
+alter table t alter column a set not null on conflict abort
+%%
+alter table t alter column a drop not null on conflict abort
+%%
+alter table t alter column a set null
+%%
+alter table t alter column a set default 1
+%%
+alter table t alter column a type int
+%%
+alter table t alter column
+%%
+alter table t alter
+%%
+alter table t alter column a
+%%
+alter table t alter column a set
+%%
+alter table t alter column a set not
+%%
+alter table t add constraint c check(1)
+%%
+alter table t add check(1)
+%%
+alter table t add constraint c check(1) on conflict fail
+%%
+alter table t add constraint c not null
+%%
+alter table t add not null a
+%%
+alter table t add constraint c unique(a)
+%%
+alter table t add unique(a)
+%%
+alter table t add foreign key(a) references u
+%%
+alter table t add constraint c foreign key(a) references u
+%%
+alter table t add constraint c
+%%
+alter table t add constraint
+%%
+alter table t add constraint c check
+%%
+alter table t add column check(1)
+%%
+alter table t add column constraint c check(1)
+%%
+alter table t add check(1), check(2)
+%%
+alter table t drop constraint c
+%%
+alter table t drop constraint
+%%
+alter table t drop column constraint
+%%
+alter table t drop primary key
+%%
+alter table t drop check c
+%%
+alter table t drop not null
+%%
+alter table t add column c int constraint k check(c>1)
+%%
+alter table t add c check(1)
+%%
+alter table t add column
+%%
+alter table t add column 5
+%%
+update t x set a=1
+%%
+update t as x set a=1
+%%
+delete from t x
+%%
+delete from t as x
+%%
+insert into t x values(1)
+%%
+insert into t as x values(1)
+%%
+update t set a=1 from u x
+%%
+update t indexed by i as x set a=1
+%%
+update t as x indexed by i set a=1
+%%
+select f(1) over x
+%%
+select f(1) over 'x'
+%%
+select f(1) over [x]
+%%
+select f(1) over select
+%%
+select f(1) over from t
+%%
+select f(1) over 1
+%%
+select f(1) over cross
+%%
+select f(1) over indexed
+%%
+select f(1) over left
+%%
+select f(1) over null
+%%
+select f(1) over abort
+%%
+select f(1) over window w
+%%
+select f(1) over; 
+%%
+select f(1) over,
+%%
+select f(1) over ,1
+%%
+select f(1) over +1
+%%
+select f(1) over x as y
+%%
+select f(1) over as
+%%
+select f(1) filter
+%%
+select f(1) filter where
+%%
+select f(1) filter x
+%%
+select f(1) filter '(' 
+%%
+select f(1) filter (
+%%
+select f(1) filter ( where
+%%
+select 1 window cross as ()
+%%
+select 1 window indexed as ()
+%%
+select 1 window select as ()
+%%
+select 1 window 5 as ()
+%%
+select 1 window w as ()
+%%
+select 1 window w as(),
+%%
+select 1 window w as
+%%
+select 1 window w
+%%
+select 1 window w as x
+%%
+select 1 window w x
+%%
+select 1 window w. as ()
+%%
+select a window w as () from t
+%%
+select 1 from t window w as()
+%%
+select 1 window window as ()
+%%
+select 1 window window window as ()
+%%
+select 1 window w as () window v as ()
+%%
+with x as (select 1) select 1 from x
+%%
+with x as (select 1) with y as (select 2) select 1
+%%
+select 1 union with x as (select 1) select * from x
+%%
+select * from (with x as (select 1) select * from x)
+%%
+insert into t with x as (select 1) select * from x
+%%
+insert into t(a) with x as (select 1) select * from x
+%%
+explain with x as (select 1) select 1
+%%
+with recursive x as (select 1) select 1
+%%
+with recursive recursive as (select 1) select 1
+%%
+with materialized as (select 1) select 1
+%%
+with x as materialized not (select 1) select 1
+%%
+with x as not (select 1) select 1
+%%
+with x as not materialized materialized (select 1) select 1
+%%
+select 1 limit 1 offset
+%%
+select 1 limit 1,
+%%
+select 1 limit 1, 2, 3
+%%
+select 1 limit 1 offset 2 offset 3
+%%
+select 1 order by
+%%
+select 1 order by 1,
+%%
+select 1 order by 1 asc desc
+%%
+select 1 order by 1 nulls
+%%
+select 1 order by 1 nulls first last
+%%
+select 1 order by 1 collate nocase desc nulls last, 2
+%%
+select 1 group by
+%%
+select 1 group by 1 desc
+%%
+select 1 having
+%%
+select 1 where 1 group by 1 having 1 window w as () order by 1 limit 1
+%%
+select 1 limit 1 order by 1
+%%
+select 1 order by 1 group by 1
+%%
+select 1 where 1 from t
+%%
+select 1 from t from u
+%%
+select from t
+%%
+select * from
+%%
+select * from t,
+%%
+select * from t join
+%%
+select * from t join u on
+%%
+select * from t join u using
+%%
+select * from t join u using ()
+%%
+select * from t join u using (a
+%%
+select * from t join u using (a,)
+%%
+select * from t join u using (a.b)
+%%
+select * from t join u on 1 on 2
+%%
+select * from t join u on 1 using (a)
+%%
+select * from t on 1
+%%
+select * from t using (a)
+%%
+select * from t, u on 1
+%%
+select * from t natural join u using (a)
+%%
+select * from t natural, u
+%%
+select * from t natural join
+%%
+select * from t cross join u cross join v
+%%
+select * from t left join u
+%%
+select * from t left outer join u
+%%
+select * from t outer join u
+%%
+select * from t outer left join u
+%%
+select * from t inner outer join u
+%%
+select * from t natural natural join u
+%%
+select * from t natural left outer inner join u
+%%
+select * from t left outer inner natural join u
+%%
+select * from t left a b join u
+%%
+select * from t left a b c join u
+%%
+select * from t full join u
+%%
+select * from t right join u
+%%
+select * from t join u join v
+%%
+select * from (t join u)
+%%
+select * from (t join u) x
+%%
+select * from (t join u) x on 1
+%%
+select * from (t)
+%%
+select * from (t) x
+%%
+select * from (select 1) as x
+%%
+select * from (select 1) as
+%%
+select * from (select 1) x y
+%%
+select * from (values (1)) x
+%%
+select * from (with x as (select 1) select 1)
+%%
+select * from ()
+%%
+select * from (,)
+%%
+select * from ((select 1))
+%%
+select * from ((select 1) x)
+%%
+select * from ((select 1) x) y
+%%
+select * from (select 1) indexed by i
+%%
+select * from t as x as y
+%%
+select * from t x y
+%%
+select * from t indexed by
+%%
+select * from t indexed
+%%
+select * from t not
+%%
+select * from t not indexed by i
+%%
+select * from t indexed by i not indexed
+%%
+select * from t indexed by 'i'
+%%
+select * from f(1) indexed by i
+%%
+select * from f(1) as x
+%%
+select * from f(1) x
+%%
+select * from f()
+%%
+select * from f(1,)
+%%
+select * from main.f(1)
+%%
+select * from main.t.x
+%%
+select * from 'main'.'t'
+%%
+select * from "t"
+%%
+select * from [t]
+%%
+select * from t as 'x'
+%%
+select * from t 'x'
+%%
+select * from t "x"

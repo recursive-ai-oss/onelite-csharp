@@ -1,0 +1,13 @@
+-- OneLite differential repro
+-- status: pass
+-- class: bug:error-position-json5-white-space-after-value
+-- engine: ours
+-- families: json
+-- utf16: false
+-- oracle: diff
+-- ordered: false
+-- query: /*json*/ SELECT json_error_position('[1 /*c*/ 2]'), json_error_position('[1'||char(160)||'2]'), json_error_position('{"a" 1:2}'), json_error_position('{"b"[:{}}'), json_error_position('0x0.1')
+-- detail: after a value the first comment or JSON5 white space is the reported position
+-- setup
+-- run
+/*json*/ SELECT json_error_position('[1 /*c*/ 2]'), json_error_position('[1'||char(160)||'2]'), json_error_position('{"a" 1:2}'), json_error_position('{"b"[:{}}'), json_error_position('0x0.1');

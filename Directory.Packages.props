@@ -1,0 +1,18 @@
+<Project>
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- The one package a shipped library adapts (RecursiveAI.OneLite.SQLitePCLRaw). -->
+    <PackageVersion Include="SQLitePCLRaw.core" Version="3.0.5" />
+    <!-- Build-time only: the source generator's compiler reference. Never a runtime dependency. -->
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="4.12.0" />
+    <!-- Used by the test, fuzz and bench projects only. -->
+    <PackageVersion Include="xunit.v3" Version="4.0.2" />
+    <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />
+    <PackageVersion Include="Dapper" Version="2.1.89" />
+    <PackageVersion Include="Microsoft.Data.Sqlite.Core" Version="10.0.14" />
+    <PackageVersion Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.5" />
+    <PackageVersion Include="SharpFuzz" Version="2.2.0" />
+  </ItemGroup>
+</Project>

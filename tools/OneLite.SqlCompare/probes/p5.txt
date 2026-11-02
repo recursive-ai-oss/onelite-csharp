@@ -1,0 +1,455 @@
+create index i on t(a)
+%%
+create unique index if not exists main.i on t(a desc, b collate nocase asc, c+1) where a>1
+%%
+create index i on main.t(a)
+%%
+create index i on t()
+%%
+create index i on t(a,)
+%%
+create index i on t
+%%
+create index on t(a)
+%%
+create index i on t(a) where
+%%
+create index i on t(a nulls first)
+%%
+create temp index i on t(a)
+%%
+create index i.j on t(a)
+%%
+create index main.i on main.t(a)
+%%
+create unique i on t(a)
+%%
+create view v as select 1
+%%
+create view v(a,b) as select 1,2
+%%
+create temp view if not exists main.v as select 1
+%%
+create view v as
+%%
+create view v as values (1)
+%%
+create view v as with x as (select 1) select * from x
+%%
+create view v(a) select 1
+%%
+create view v() as select 1
+%%
+create temporary view v as select 1
+%%
+create trigger r after insert on t begin select 1; end
+%%
+create trigger r after insert on t begin select 1 end
+%%
+create trigger r after insert on t begin end
+%%
+create trigger r before delete on t for each row when 1 begin delete from u; end
+%%
+create trigger r instead of update of a,b on v begin update t set a=1; insert into u values(1); end
+%%
+create trigger r update on t begin select 1; end
+%%
+create trigger r after update of on t begin select 1; end
+%%
+create trigger r after insert on t for each statement begin select 1; end
+%%
+create trigger r after insert on t for begin select 1; end
+%%
+create temp trigger if not exists main.r after insert on t begin select 1; end
+%%
+create trigger main.r after insert on main.t begin select 1; end
+%%
+create trigger r after insert on t begin insert into main.u values(1); end
+%%
+create trigger r after insert on t begin update main.u set a=1; end
+%%
+create trigger r after insert on t begin delete from main.u; end
+%%
+create trigger r after insert on t begin update u set a=1 from v; end
+%%
+create trigger r after insert on t begin update u set a=1 returning *; end
+%%
+create trigger r after insert on t begin insert into u values(1) returning *; end
+%%
+create trigger r after insert on t begin delete from u returning *; end
+%%
+create trigger r after insert on t begin delete from u indexed by i; end
+%%
+create trigger r after insert on t begin delete from u as x; end
+%%
+create trigger r after insert on t begin with x as (select 1) select * from x; end
+%%
+create trigger r after insert on t begin with x as (select 1) insert into u select * from x; end
+%%
+create trigger r after insert on t begin select raise(ignore); end
+%%
+create trigger r after insert on t begin select raise(abort,'x'), raise(fail,'y'), raise(rollback,'z'); end
+%%
+create trigger r after insert on t begin select raise(foo,'x'); end
+%%
+create trigger r after insert on t begin select raise(ignore,'x'); end
+%%
+create trigger r after insert on t begin select raise(abort); end
+%%
+create trigger r after insert on t begin select raise(abort,x); end
+%%
+create trigger r after insert on t begin insert or replace into u values(1) on conflict do nothing; end
+%%
+create trigger r after insert on t begin create table x(a); end
+%%
+create trigger r after insert on t begin pragma foo; end
+%%
+create trigger r after insert on t begin select 1;; end
+%%
+create trigger r after insert on t begin ; end
+%%
+create trigger r after insert on t begin select 1; select 2 end
+%%
+create trigger r after insert on t begin select case when 1 then 2 end; end
+%%
+create trigger r after insert on t begin select end from t; end
+%%
+create trigger r after insert on t begin select 1; end; select 2
+%%
+create trigger r after insert on t begin values (1); end
+%%
+create trigger r after insert on t begin update u set a=1 order by a; end
+%%
+create trigger r after insert on t begin delete from u limit 1; end
+%%
+create trigger r after insert on t when new.a begin select 1; end
+%%
+create trigger r after insert on t begin select new.a, old.b; end
+%%
+create virtual table v using fts5(a, b)
+%%
+create virtual table if not exists main.v using m
+%%
+create virtual table v using m()
+%%
+create virtual table v using m(,)
+%%
+create virtual table v using m(a, b='x y', c=(1,2), [d e])
+%%
+create virtual table v using m(a
+%%
+create virtual table v using m(select, from, 1, 'x', @, !)
+%%
+create virtual table v using m(a b c)
+%%
+create virtual table v using m(a) b
+%%
+create virtual table v using m(((a)))
+%%
+create virtual table v using
+%%
+create virtual table v
+%%
+create virtual v using m
+%%
+create virtual table v using m(a;b)
+%%
+create virtual table temp.v using m
+%%
+create temp virtual table v using m
+%%
+create virtual table v using 'm'
+%%
+create virtual table v using m("a" 'b' `c`)
+%%
+alter table t rename to u
+%%
+alter table t rename column a to b
+%%
+alter table t rename a to b
+%%
+alter table main.t rename to u
+%%
+alter table t rename to main.u
+%%
+alter table t add column a int
+%%
+alter table t add a int not null default 1
+%%
+alter table t add column a
+%%
+alter table t add constraint c check(1)
+%%
+alter table t add primary key(a)
+%%
+alter table t drop column a
+%%
+alter table t drop a
+%%
+alter table t drop column a, b
+%%
+alter table t rename column to b
+%%
+alter table t rename to
+%%
+alter table t rename
+%%
+alter table t add
+%%
+alter table t drop
+%%
+alter table t foo
+%%
+alter view v rename to w
+%%
+alter table t rename column column to column
+%%
+alter table t rename column a to
+%%
+alter table t add column a, b
+%%
+alter table t add column a as (1) stored
+%%
+alter table t add a references u
+%%
+attach 'x' as y
+%%
+attach database 'x' as y
+%%
+attach 'x' as y key 'k'
+%%
+attach x as y
+%%
+attach 1+1 as 'y'
+%%
+attach (select 1) as y
+%%
+attach 'x' y
+%%
+attach database as y
+%%
+detach y
+%%
+detach database y
+%%
+detach 'y'
+%%
+detach
+%%
+detach y z
+%%
+attach ? as ?
+%%
+begin deferred
+%%
+begin immediate transaction
+%%
+begin exclusive transaction t
+%%
+begin transaction 'x'
+%%
+begin transaction transaction
+%%
+begin foo
+%%
+begin exclusive immediate
+%%
+begin concurrent transaction
+%%
+commit transaction
+%%
+commit transaction x
+%%
+commit work
+%%
+end transaction
+%%
+end transaction x
+%%
+rollback
+%%
+rollback transaction
+%%
+rollback to x
+%%
+rollback to savepoint x
+%%
+rollback transaction to x
+%%
+rollback transaction x to y
+%%
+rollback transaction to savepoint x
+%%
+rollback to savepoint
+%%
+rollback savepoint x
+%%
+savepoint x
+%%
+savepoint 'x'
+%%
+savepoint x y
+%%
+release x
+%%
+release savepoint x
+%%
+release savepoint savepoint
+%%
+release 'x'
+%%
+release x y
+%%
+pragma foo
+%%
+pragma main.foo
+%%
+pragma foo=1
+%%
+pragma foo = -1
+%%
+pragma foo = +1
+%%
+pragma foo = - 1
+%%
+pragma foo = 1.5
+%%
+pragma foo = 'x'
+%%
+pragma foo = x
+%%
+pragma foo = on
+%%
+pragma foo = delete
+%%
+pragma foo = default
+%%
+pragma foo = select
+%%
+pragma foo = null
+%%
+pragma foo = true
+%%
+pragma foo = x'ab'
+%%
+pragma foo(1)
+%%
+pragma foo(-1)
+%%
+pragma foo(x)
+%%
+pragma foo('x')
+%%
+pragma foo()
+%%
+pragma foo(1,2)
+%%
+pragma foo(1) bar
+%%
+pragma foo=
+%%
+pragma foo = 1 2
+%%
+pragma 'foo'
+%%
+pragma main.'foo'=1
+%%
+pragma a.b.c
+%%
+pragma foo = (1)
+%%
+pragma foo = 1+1
+%%
+pragma foo = -x
+%%
+pragma foo = - -1
+%%
+pragma foo = 0x10
+%%
+pragma foo = ?
+%%
+pragma table_info(t)
+%%
+pragma table_info(main.t)
+%%
+pragma main.table_info(t)
+%%
+pragma foo = cross
+%%
+pragma foo = key
+%%
+vacuum
+%%
+vacuum main
+%%
+vacuum into 'x'
+%%
+vacuum main into 'x'
+%%
+vacuum 'main' into 'x'
+%%
+vacuum into
+%%
+vacuum into x
+%%
+vacuum into 1+1
+%%
+vacuum main.x
+%%
+vacuum main main
+%%
+vacuum into ?
+%%
+reindex t
+%%
+reindex main.t
+%%
+reindex 'x'
+%%
+reindex a.b.c
+%%
+reindex a b
+%%
+analyze t
+%%
+analyze main.t
+%%
+analyze main
+%%
+analyze a.b.c
+%%
+analyze 'x'
+%%
+analyze;analyze
+%%
+explain select 1
+%%
+explain query plan select 1
+%%
+explain query select 1
+%%
+explain plan select 1
+%%
+explain explain select 1
+%%
+explain begin
+%%
+explain query plan create table t(a)
+%%
+explain pragma foo
+%%
+explain
+%%
+explain ;
+%%
+explain query plan
+%%
+explain vacuum
+%%
+explain insert into t values(1)
+%%
+explain with x as (select 1) select 1
+%%
+explain create trigger r after insert on t begin select 1; end
+%%
+explain attach 'x' as y

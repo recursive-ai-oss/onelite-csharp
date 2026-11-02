@@ -1,0 +1,117 @@
+select 'a' like 'b' escape 'x' < 1.5
+%%
+select 'a' like 'b' escape 'x' < 1.5 escape 'y'
+%%
+select 'a' like 'b' escape 'x' = 0
+%%
+select 'a' like 'b' escape 'x' = 0 escape 'y'
+%%
+select 'a' like 'b' escape 'x' is 0
+%%
+select 'a' like 'b' escape 'x' is 0 escape 'y'
+%%
+select 'a' like 'b' escape 'x' is not 0
+%%
+select 'a' like 'b' escape 'x' is not 0 escape 'y'
+%%
+select 'a' like 'b' escape 'x' and 1
+%%
+select 'a' like 'b' escape 'x' and 1 escape 'y'
+%%
+select 'a' like 'b' escape 'x' or 1
+%%
+select 'a' like 'b' escape 'x' or 1 escape 'y'
+%%
+select 'a' like 'b' escape 'x' + 1
+%%
+select 'a' like 'b' escape 'x' + 1 escape 'y'
+%%
+select 'a' like 'b' escape 'x' * 1
+%%
+select 'a' like 'b' escape 'x' * 1 escape 'y'
+%%
+select 'a' like 'b' escape 'x' || 'y'
+%%
+select 'a' like 'b' escape 'x' || 'y' escape 'y'
+%%
+select 'a' like 'b' escape 'x' & 1
+%%
+select 'a' like 'b' escape 'x' & 1 escape 'y'
+%%
+select 'a' like 'b' escape 'x' << 1
+%%
+select 'a' like 'b' escape 'x' << 1 escape 'y'
+%%
+select 'a' like 'b' escape 'x' collate nocase
+%%
+select 'a' like 'b' escape 'x' collate nocase escape 'y'
+%%
+select 'a' like 'b' escape 'x' isnull
+%%
+select 'a' like 'b' escape 'x' isnull escape 'y'
+%%
+select 'a' like 'b' escape 'x' notnull
+%%
+select 'a' like 'b' escape 'x' notnull escape 'y'
+%%
+select 'a' like 'b' escape 'x' not null
+%%
+select 'a' like 'b' escape 'x' not null escape 'y'
+%%
+select 'a' like 'b' escape 'x' in (1)
+%%
+select 'a' like 'b' escape 'x' in (1) escape 'y'
+%%
+select 'a' like 'b' escape 'x' between 1 and 2
+%%
+select 'a' like 'b' escape 'x' between 1 and 2 escape 'y'
+%%
+select 'a' like 'b' escape 'x' like 1
+%%
+select 'a' like 'b' escape 'x' like 1 escape 'y'
+%%
+select 'a' like 'b' escape 'x' glob 1
+%%
+select 'a' like 'b' escape 'x' glob 1 escape 'y'
+%%
+select 'a' like 'b' escape 'x' - 1
+%%
+select 'a' like 'b' escape 'x' - 1 escape 'y'
+%%
+select 'a' like 'b' escape 'x' / 1
+%%
+select 'a' like 'b' escape 'x' / 1 escape 'y'
+%%
+select 'a' like 'b' escape 'x' == 0
+%%
+select 'a' like 'b' escape 'x' == 0 escape 'y'
+%%
+select 'a' like 'b' escape 'x' != 5
+%%
+select 'a' like 'b' escape 'x' != 5 escape 'y'
+%%
+select 'a' like 'b' escape 'x' > 5
+%%
+select 'a' like 'b' escape 'x' > 5 escape 'y'
+%%
+select 'a' like 'b' escape 'x' <= 5
+%%
+select 'a' like 'b' escape 'x' <= 5 escape 'y'
+%%
+select 'a' like 'b' escape 'x' like 'c' escape 'y'
+%%
+select 'a' like 'b' like 'c' escape 'x'
+%%
+select 'a' like 'b' escape 'x' escape 'y'
+%%
+select 'a' like 'b' or 'c' escape 'x'
+%%
+select 'a' like 'b' + 'c' escape 'x'
+%%
+select 'a' like 'b' < 'c' escape 'x'
+%%
+select 'a' like 'b' = 'c' escape 'x'
+%%
+select 'a' like 'b' & 'c' escape 'x'
+%%
+select 'a' like 'b' escape 'x' escape

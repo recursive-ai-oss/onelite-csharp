@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>RecursiveAI.OneLite.AotSmoke</RootNamespace>
+    <PublishAot>true</PublishAot>
+    <IsAotCompatible>true</IsAotCompatible>
+    <TrimmerSingleWarn>false</TrimmerSingleWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/OneLite/OneLite.csproj" />
+    <ProjectReference Include="../../src/OneLite.Data/OneLite.Data.csproj" />
+    <!-- The row-mapper generator ships inside the core package as an analyzer; a project reference has to name it. -->
+    <ProjectReference Include="../../src/OneLite.Generators/OneLite.Generators.csproj" ReferenceOutputAssembly="false" OutputItemType="Analyzer" />
+    <!-- Analyze every shipped assembly in full, not only the parts the smoke app calls. -->
+    <TrimmerRootAssembly Include="RecursiveAI.OneLite" />
+    <TrimmerRootAssembly Include="RecursiveAI.OneLite.Data" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,13 @@
+-- OneLite differential repro
+-- status: pass
+-- class: none
+-- engine: ours
+-- families: datetime,expr
+-- utf16: false
+-- oracle: diff
+-- ordered: false
+-- query: SELECT strftime('%Y%m%d%H%M%S', '0000-01-01', '-0001-00-00', '-0001-00-00'), strftime('%F|%G|%Y', '-0001-03-04')
+-- detail: 
+-- setup
+-- run
+SELECT strftime('%Y%m%d%H%M%S', '0000-01-01', '-0001-00-00', '-0001-00-00'), strftime('%F|%G|%Y', '-0001-03-04');

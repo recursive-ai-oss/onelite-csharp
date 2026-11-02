@@ -1,0 +1,48 @@
+<Solution>
+  <Configurations>
+    <BuildType Name="Checked" />
+    <BuildType Name="Debug" />
+    <BuildType Name="Release" />
+    <Platform Name="Any CPU" />
+  </Configurations>
+  <Folder Name="/src/">
+    <Project Path="src/OneLite/OneLite.csproj" />
+    <Project Path="src/OneLite.Data/OneLite.Data.csproj" />
+    <Project Path="src/OneLite.SQLitePCLRaw/OneLite.SQLitePCLRaw.csproj" />
+    <Project Path="src/OneLite.Generators/OneLite.Generators.csproj" />
+    <Project Path="src/OneLite.Cli/OneLite.Cli.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/OneLite.Tests/OneLite.Tests.csproj" />
+    <Project Path="tests/OneLite.Data.Tests/OneLite.Data.Tests.csproj" />
+    <Project Path="tests/OneLite.History.Tests/OneLite.History.Tests.csproj" />
+    <Project Path="tests/OneLite.SqlLogicTest.Tests/OneLite.SqlLogicTest.Tests.csproj" />
+    <Project Path="tests/OneLite.Differential.Tests/OneLite.Differential.Tests.csproj" />
+    <Project Path="tests/OneLite.AotSmoke/OneLite.AotSmoke.csproj" />
+    <Project Path="tests/OneLite.WasmSmoke/OneLite.WasmSmoke.csproj" />
+    <Project Path="tests/OneLite.BrowserTests/OneLite.BrowserTests.csproj" />
+  </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/OneLite.Oracle/OneLite.Oracle.csproj" />
+    <Project Path="tools/OneLite.SqlLogicTest/OneLite.SqlLogicTest.csproj" />
+    <Project Path="tools/OneLite.Differential/OneLite.Differential.csproj" />
+    <Project Path="tools/OneLite.SqlCompare/OneLite.SqlCompare.csproj" />
+    <Project Path="tools/OneLite.Interop/OneLite.Interop.csproj" />
+    <Project Path="tools/OneLite.Durability/OneLite.Durability.csproj" />
+    <Project Path="tools/OneLite.History/OneLite.History.csproj" />
+    <Project Path="tools/OneLite.PagerKill/OneLite.PagerKill.csproj" />
+    <Project Path="tools/OneLite.WalKill/OneLite.WalKill.csproj" />
+    <Project Path="tools/OneLite.BTreeRead/OneLite.BTreeRead.csproj" />
+    <Project Path="tools/OneLite.Forensics/OneLite.Forensics.csproj" />
+    <Project Path="tools/OneLite.Cipher/OneLite.Cipher.csproj" />
+    <Project Path="tools/OneLite.QueryDiff/OneLite.QueryDiff.csproj" />
+    <Project Path="tools/OneLite.RTreeDiff/OneLite.RTreeDiff.csproj" />
+    <Project Path="tools/OneLite.SqlRun/OneLite.SqlRun.csproj" />
+  </Folder>
+  <Folder Name="/fuzz/">
+    <Project Path="fuzz/OneLite.Fuzz/OneLite.Fuzz.csproj" />
+  </Folder>
+  <Folder Name="/bench/">
+    <Project Path="bench/OneLite.Bench/OneLite.Bench.csproj" />
+  </Folder>
+</Solution>

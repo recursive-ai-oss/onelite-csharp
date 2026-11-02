@@ -1,0 +1,12 @@
+-- OneLite differential repro
+-- status: pass
+-- class: none
+-- engine: ours
+-- families: expr
+-- utf16: false
+-- oracle: diff
+-- ordered: false
+-- query: SELECT cast(1 AS REAL) <= (0 || x'00'), cast(1 AS REAL) = ('1' || x'00' || 'x'), cast(1 AS REAL) NOT BETWEEN NULL AND (0 || x'00000000'), cast(1 AS REAL) = (' 1' || x'00')
+-- detail: 
+-- run
+SELECT cast(1 AS REAL) <= (0 || x'00'), cast(1 AS REAL) = ('1' || x'00' || 'x'), cast(1 AS REAL) NOT BETWEEN NULL AND (0 || x'00000000'), cast(1 AS REAL) = (' 1' || x'00');

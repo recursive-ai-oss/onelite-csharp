@@ -1,0 +1,12 @@
+-- OneLite differential repro
+-- status: pass
+-- class: none
+-- engine: ours
+-- families: expr
+-- utf16: false
+-- oracle: diff
+-- ordered: false
+-- query: SELECT 1 FROM tv0 UNION SELECT 1 FROM tv1
+-- detail: 
+-- run
+SELECT 1 FROM tv0 UNION SELECT 1 FROM tv1;

@@ -1,0 +1,165 @@
+select from
+%%
+select 1 from
+%%
+select 'abc
+%%
+select 1 /*
+%%
+RELEASE SAVEPOINT /*
+%%
+select cast.*
+%%
+create table x(a) ,
+%%
+create table x(a) , , strict
+%%
+create table x(t (19))
+%%
+select * from t window filter as ()
+%%
+select count(*) over filter
+%%
+select 1 between 2 or 3 and 4 and 5
+%%
+select #1
+%%
+select #
+%%
+select 1+1
+%%
+select f(* order by 1)
+%%
+select 1 foo bar
+%%
+select ?32767
+%%
+select 1 between 0 and 2 = 1
+%%
+select 2 between 1 in (1) and 3
+%%
+select f(order by 1)
+%%
+select f(distinct)
+%%
+create table x(a) , strict
+%%
+create table x(a int UNIQUE generated always as (1))
+%%
+create table x(t generated(19))
+%%
+select 1 from t window w as (), filter as ()
+%%
+select #a
+%%
+select if from if
+%%
+select 1 /* unterminated
+%%
+select 'a' like 'b' escape 'x' < 1.5
+%%
+; ; select 1
+%%
+with r(n) as (select 1 union all select n+1 from r where n < 5) select n, sum(n) over (partition by n % 2 order by n rows between unbounded preceding and current row) from r where n in (1,2,3) order by 1 limit 3 offset 1
+%%
+insert into t(a,b) values (1,'x'),(2,'y') on conflict(a) do update set b = excluded.b where b <> 'q' returning *
+%%
+create table t(a integer primary key autoincrement, b text collate nocase default 'x' check (b <> ''), c as (a*2) stored, foreign key(a) references u(x) on delete cascade) without rowid
+%%
+create trigger tr after update of a on t for each row when new.a > old.a begin update u set b = new.b; delete from u where a = old.a; end
+%%
+select case when a then b else c end, cast(x as integer), (select 1), exists (select 2), a between 1 and 2, a like 'x' escape '\' from t left join u using (id) where not a
+%%
+select 1
+%%
+select a, b as c, t.*, * from t as x join u on x.a = u.a left join (select 1) using (a), v indexed by i where a is not distinct from b group by 1, 2 having count(*) > 1 window w as (order by a) order by a desc nulls last limit 5, 2
+%%
+values (1, 'a'), (2, x'ff')
+%%
+with recursive c(x) as materialized (select 1 union select x+1 from c) select * from c
+%%
+select 1 union all select 2 intersect select 3 except select 4
+%%
+select -a, ~b, not c, a || b, a -> 'k', a ->> 2, a % 3, a << 1 | 2 & 3, a collate nocase, a isnull, a notnull, a not null from t
+%%
+select a is null, a is not null, a is 1, a is not 1, a is distinct from b, a is not distinct from not b
+%%
+select a in (1,2), a not in (select 1), a in t, a in main.f(1), a between 1 and 2 and 3, a not like 'x%' escape '!', a glob 'x', a regexp 'x', a match 'x'
+%%
+select count(*), count(distinct a), group_concat(a, ',' order by a) filter (where a > 1) over (partition by b order by c range between 1 preceding and current row exclude ties), f(), f(order by 1)
+%%
+select 1, 1.5, 1e5, 0x10, 1_000, 'it''s', x'0a', null, true, false, current_time, ?, ?5, :n, @n, $n, #n
+%%
+insert or replace into t default values
+%%
+replace into main.t(a) select 1 on conflict do nothing returning a as z
+%%
+insert into t values (1) on conflict (a collate nocase desc) where a > 1 do update set (a, b) = (select 1, 2), c = 3 where c is null
+%%
+update or fail t as x set a = 1, (b, c) = (2, 3) from u where x.a = u.a returning *
+%%
+delete from main.t indexed by i where a = 1 returning a
+%%
+create temp table if not exists main.t(a int not null on conflict abort, b text default (1+1) collate rtrim, c numeric(10,2) references u(x) deferrable initially deferred, d generated always as (a) virtual, primary key (a desc, b) on conflict replace, unique (c), check (a > 0), foreign key (a) references u) without rowid, strict
+%%
+create table t as select 1 as a
+%%
+create unique index if not exists i on t(a collate nocase desc, b+1) where a > 0
+%%
+create temp view if not exists v(a, b) as select 1, 2
+%%
+create trigger if not exists tr instead of insert on v for each row when new.a is not null begin insert into t values (new.a); select raise(ignore); end
+%%
+create virtual table if not exists m using fts5(a, b, tokenize = 'porter')
+%%
+alter table t rename to u
+%%
+alter table t rename column a to b
+%%
+alter table t add column c int default 0
+%%
+alter table t drop column c
+%%
+alter table t add constraint k check (a > 0) on conflict ignore
+%%
+alter table t alter column a set not null
+%%
+drop table if exists main.t
+%%
+drop trigger tr
+%%
+pragma main.journal_mode = delete
+%%
+pragma cache_size(-2000)
+%%
+pragma journal_mode = on
+%%
+begin deferred transaction x
+%%
+commit
+%%
+end transaction
+%%
+rollback to savepoint s
+%%
+savepoint s
+%%
+release s
+%%
+vacuum main into 'f.db'
+%%
+analyze main.t
+%%
+reindex nocase
+%%
+attach database 'f.db' as aux key 'k'
+%%
+detach aux
+%%
+explain query plan select 1
+%%
+explain insert into t values (1)
+%%
+select * from t window w as (partition by a), v as (w order by b)
+%%
+select cast(a as varchar(10)), cast(a as double precision), cast(a as) from t

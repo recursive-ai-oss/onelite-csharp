@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>An ISQLite3Provider for SQLitePCLRaw that runs on OneLite, a pure-managed SQLite-compatible database, so Microsoft.Data.Sqlite and EF Core can use it. $(PackageDescriptionNotice)</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../OneLite/OneLite.csproj" />
+    <!-- The one package this adapter adapts. -->
+    <PackageReference Include="SQLitePCLRaw.core" />
+  </ItemGroup>
+
+</Project>

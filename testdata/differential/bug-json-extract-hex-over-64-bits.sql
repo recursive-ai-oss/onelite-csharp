@@ -1,0 +1,13 @@
+-- OneLite differential repro
+-- status: pass
+-- class: bug:extract-hex-over-64-bits
+-- engine: ours
+-- families: json
+-- utf16: false
+-- oracle: diff
+-- ordered: false
+-- query: /*json*/ SELECT cast(x'0D0A5B307831303030303030303030303030303030305D20' as text) ->> 0
+-- detail: ours: 1 rows; sqlite3: run error (1): malformed JSON
+-- setup
+-- run
+/*json*/ SELECT cast(x'0D0A5B307831303030303030303030303030303030305D20' as text) ->> 0;

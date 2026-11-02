@@ -1,0 +1,13 @@
+-- OneLite differential repro
+-- status: pass
+-- class: bug:error-position-key-quote
+-- engine: ours
+-- families: json
+-- utf16: false
+-- oracle: diff
+-- ordered: false
+-- query: SELECT json_error_position('[{"":{b":7}},42]')
+-- detail: row 0: ours (8); sqlite3 (17)
+-- setup
+-- run
+SELECT json_error_position('[{"":{b":7}},42]');

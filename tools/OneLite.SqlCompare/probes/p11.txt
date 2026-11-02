@@ -1,0 +1,27 @@
+create table x(b int generated always as (1) stored)
+%%
+create table x(a, b int generated always as (1) stored references c not null)
+%%
+create table x(b int generated always as (1) stored not null)
+%%
+create table x(b int as (1) stored)
+%%
+create table x(b int generated always as (1))
+%%
+create table x(b generated always as (1))
+%%
+create table x(b int generated always as (1) virtual references c)
+%%
+create table x(a, b int generated always as (1) stored references c)
+%%
+create table x(a, b int generated always as (1) stored, c)
+%%
+create table x(a, b int generated always as (1) stored references c not null, c)
+%%
+create table x(b int generated always as (1) stored, constraint k unique(a))
+%%
+create table x(b int generated always as (1) stored references c not null, constraint k unique(a))
+%%
+create table x(a primary key autoincrement, b int generated always as (1) stored)
+%%
+create table x(a int, b int generated always as (select 1 from t join (u) as q on a) stored)

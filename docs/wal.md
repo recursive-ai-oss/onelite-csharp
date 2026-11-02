@@ -1,0 +1,32 @@
+# WAL mode, as built
+
+Implements sqlite.org's `wal` and `walformat` pages, with `pragma` (`journal_mode`, `wal_checkpoint`, `wal_autocheckpoint`, `journal_size_limit`, `synchronous`). Observed call sequences are in `durability.md`. The WAL code is part of the pager (partial class `Pager.Wal*.cs`) because commit, spill, rollback, `BeginRead` and `Dispose` share the pager's request plumbing; the file formats and the wal-index live in `src/OneLite/Storage/Wal/`.
+
+## Files
+- **Log** (`-wal`): 32-byte header (magic `0x377f0682` or `0x377f0683` = checksum byte order, version 3007000, page size, checkpoint sequence, two salts, two checksum words), then frames of a 24-byte header (page number, database size for a commit frame or 0, the log's two salts, two checksum words) plus one page. The checksum is cumulative over the header's first 24 bytes and then each frame's first 8 header bytes and page, in the byte order the magic selects. A frame is valid only if its salts equal the header's and its checksum matches the chain; the first invalid frame ends the log.
+- **Wal-index** (`-shm`): 32 KiB regions. Region 0 starts with two copies of the 48-byte index header (version, change counter, init flag, `mxFrame`, `nPage`, last frame checksum, salts, header checksum, all native order), the checkpoint info (`nBackfill` and the five read marks) and the eight lock slots, then the first hash table. Each table holds a page-number array and a 8192-slot hash (`(pgno * 383) & 8191`, linear probing; the value is the 1-based index within the table). A reader trusts the index header only when both copies agree and the checksum matches.
+- Backends without shared memory (and read-only connections) use a private in-heap index, rebuilt from the log on open.
+
+## Locks (`-shm` slots, `walformat`)
+Slot 0 write, 1 checkpoint, 2 recover, 3..7 read marks 0..4. A connection keeps SHARED on the database file for as long as it is open in WAL mode. A reader holds one read-mark slot from `BeginRead` to `EndRead`; a writer holds the write slot from `BeginWrite` to commit or rollback; recovery takes the write, checkpoint and recover slots (and the read marks) exclusively. All are try-locks; waiting is the pager's busy loop.
+
+## Read transaction (`Wal.BeginRead`)
+Read the index header (recover if missing, stale or inconsistent); pick the read mark whose value is the largest not above `mxFrame` (taking an unused slot and setting it to `mxFrame` if none matches, mark 0 meaning "read the database only"); take its shared lock; re-read the header and retry if it changed. The snapshot is `(mxFrame, readMark)`. `Get` consults the index for the newest frame of a page at or below `mxFrame` and not below the mark's `nBackfill` guarantee; otherwise it reads the database. A WAL-only page may lie past the end of the database file. The wal-index lookup allocates nothing (`CachedReadsInWalModeAllocateNothing`); one iterator is allocated per `BeginRead`.
+
+## Write transaction and commit
+`BeginWrite` needs the snapshot to be the newest (else `SQLITE_BUSY_SNAPSHOT`), then takes the write slot. Pages are not written until commit or spill. `Wal.Append`: if the log is fully checkpointed and no reader is on it, restart (new salts, checkpoint sequence + 1, header written and synced); write the header if the log is empty; write the frames; the last carries the commit mark and the new size; sync under FULL; then publish the index (hash entries, then copy 2, then copy 1 of the header). **The commit point is that publication.** A spill (cache full of dirty pages) appends non-commit frames the same way; they stay unpublished until commit. Rollback drops the dirty pages and, for spilled frames, leaves them beyond `mxFrame` where the next writer overwrites them.
+
+## Recovery (`Wal.Recover`)
+Under the exclusive slots, scan the log from frame 1: header magic and page size must be valid, each frame's salts must equal the header's and the cumulative checksum must match; the last frame with a commit mark ends the valid log. Each valid frame is added to the hash tables; the index header is published with a new checksum. A log with a bad header counts as empty. The scan is bounded by the file's real size, and a wal-index header claiming more than `WalIndex.MaxFrames` (2^27) frames is treated as unusable and rebuilt from the log.
+
+## Checkpoint
+`PASSIVE`: copy as many frames as the oldest reader allows (`nBackfill` up to the smallest read mark in use), never waiting. `FULL`: also block writers, wait for readers on older marks (busy policy), copy the rest. `RESTART`: as FULL, then wait until no reader uses the log so the next writer restarts it. `TRUNCATE`: as RESTART, then truncate the log to zero. Sequence of calls: `durability.md`. Auto-checkpoint (`wal_autocheckpoint`, default 1000 frames) runs in `EndRead` after a committing transaction, as PASSIVE; its errors, including BUSY under a reader, are swallowed because the commit already succeeded (as the oracle's commit does). `journal_size_limit` truncates the log after a restart.
+
+## `journal_mode`
+`ChangeJournalMode(Wal)` commits page 1 with bytes 18 and 19 set to 2 through the rollback commit; leaving WAL checkpoints (TRUNCATE-style), removes the log and index and commits page 1 with the new bytes. `SetJournalMode(Wal)` throws `SQLITE_MISUSE`: the switch is a transaction and goes through `ChangeJournalMode`. Closing the last connection checkpoints and removes `-shm` then `-wal`.
+
+## Suspend points
+Every state is a `ResumeState` (`Wal*`, `Ckpt*`) driven by the pager's pump through `IoRequest`s, including `ShmMap` and `ShmLock`; nothing but the iterator's fields survives a `Pending`. The cancel rules follow the table in the suspend-point spec.
+
+## Tests
+`tests/OneLite.Tests/Wal`: format vectors, snapshot isolation, all checkpoint modes, spill, recovery without `-shm`, torn final frame, yield injection (N = 1, 2, 3, 7), interop with the pinned `sqlite3` (page sizes 512 to 65536, restarts, torn cuts), crash sweeps on the fault VFS (`WalDurabilityTests`). `tools/OneLite.WalKill`: live coexistence (`live`) and SIGKILL (`kill`) campaigns against the pinned `sqlite3`. `fuzz/OneLite.Fuzz` target `wal`.

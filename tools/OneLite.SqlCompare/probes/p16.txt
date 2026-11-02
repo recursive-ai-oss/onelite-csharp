@@ -1,0 +1,79 @@
+select cast from t
+%%
+select cast.a from t
+%%
+select raise from t
+%%
+select raise.a
+%%
+select cast + 1
+%%
+select cast.*
+%%
+select t.cast
+%%
+select 1 from cast
+%%
+select over
+%%
+select filter
+%%
+select current
+%%
+select abort.*
+%%
+select abort.a
+%%
+select abort
+%%
+select replace.*
+%%
+select replace
+%%
+select match
+%%
+select match.a
+%%
+select like
+%%
+select glob.*
+%%
+select regexp.*
+%%
+select current_time.a
+%%
+select current_time.*
+%%
+select exists.*
+%%
+select null.*
+%%
+select end.*
+%%
+select temp.*
+%%
+select rows.*
+%%
+select row.a
+%%
+select key
+%%
+select key.a
+%%
+select case.a
+%%
+create table x(a) , strict
+%%
+create table x(a) ,
+%%
+create table x(a) , , strict
+%%
+create table x(a) strict,
+%%
+create table x(a) strict strict
+%%
+create table x(a) , without rowid , strict
+%%
+create table x(a) without
+%%
+create table x(a) , 1

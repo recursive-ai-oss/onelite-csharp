@@ -1,0 +1,856 @@
+# JSON functions, group 'basic'. Expected results are the output of sqlite 3.53.4 (the pinned shell).
+
+query T nosort
+select replace(json('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}'), char(10), '~')
+----
+{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}
+
+query I nosort
+select json_valid('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}')
+----
+1
+
+query I nosort
+select json_error_position('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}')
+----
+0
+
+query T nosort
+select replace(json_type('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}'), char(10), '~')
+----
+object
+
+query I nosort
+select json_array_length('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}')
+----
+0
+
+query T nosort
+select replace(json_pretty('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}'), char(10), '~')
+----
+{~    "a": 1,~    "b": [~        1,~        2,~        {~            "c": "x"~        }~    ],~    "d": null,~    "e": true,~    "f": 1.5~}
+
+query T nosort
+select replace(json_quote('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}'), char(10), '~')
+----
+"{\"a\":1,\"b\":[1,2,{\"c\":\"x\"}],\"d\":null,\"e\":true,\"f\":1.5}"
+
+query T nosort
+select replace(hex(jsonb('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}')), char(10), '~')
+----
+CC1C1761133117629B133113324C17631778176400176501176635312E35
+
+query T nosort
+select replace(json(jsonb('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}')), char(10), '~')
+----
+{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}
+
+query T nosort
+select replace(json('[1,2,3,[4,5],{"k":"v"}]'), char(10), '~')
+----
+[1,2,3,[4,5],{"k":"v"}]
+
+query I nosort
+select json_valid('[1,2,3,[4,5],{"k":"v"}]')
+----
+1
+
+query I nosort
+select json_error_position('[1,2,3,[4,5],{"k":"v"}]')
+----
+0
+
+query T nosort
+select replace(json_type('[1,2,3,[4,5],{"k":"v"}]'), char(10), '~')
+----
+array
+
+query I nosort
+select json_array_length('[1,2,3,[4,5],{"k":"v"}]')
+----
+5
+
+query T nosort
+select replace(json_pretty('[1,2,3,[4,5],{"k":"v"}]'), char(10), '~')
+----
+[~    1,~    2,~    3,~    [~        4,~        5~    ],~    {~        "k": "v"~    }~]
+
+query T nosort
+select replace(json_quote('[1,2,3,[4,5],{"k":"v"}]'), char(10), '~')
+----
+"[1,2,3,[4,5],{\"k\":\"v\"}]"
+
+query T nosort
+select replace(hex(jsonb('[1,2,3,[4,5],{"k":"v"}]')), char(10), '~')
+----
+CB101331133213334B133413354C176B1776
+
+query T nosort
+select replace(json(jsonb('[1,2,3,[4,5],{"k":"v"}]')), char(10), '~')
+----
+[1,2,3,[4,5],{"k":"v"}]
+
+query T nosort
+select replace(json('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  '), char(10), '~')
+----
+{"a":[1,2],"b":"s\u00e9\n"}
+
+query I nosort
+select json_valid('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ')
+----
+1
+
+query I nosort
+select json_error_position('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ')
+----
+0
+
+query T nosort
+select replace(json_type('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  '), char(10), '~')
+----
+object
+
+query I nosort
+select json_array_length('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ')
+----
+0
+
+query T nosort
+select replace(json_pretty('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  '), char(10), '~')
+----
+{~    "a": [~        1,~        2~    ],~    "b": "s\u00e9\n"~}
+
+query T nosort
+select replace(json_quote('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  '), char(10), '~')
+----
+"  {\"a\" : [ 1 , 2 ] , \"b\" : \"s\\u00e9\\n\" }  "
+
+query T nosort
+select replace(hex(jsonb('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ')), char(10), '~')
+----
+CC1317614B13311332176298735C75303065395C6E
+
+query T nosort
+select replace(json(jsonb('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ')), char(10), '~')
+----
+{"a":[1,2],"b":"s\u00e9\n"}
+
+statement error
+select json('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}')
+
+statement error
+select json_valid('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}')
+
+statement error
+select json_error_position('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}')
+
+statement error
+select json_type('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}')
+
+statement error
+select json_array_length('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}')
+
+statement error
+select json_pretty('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}')
+
+statement error
+select json_quote('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}')
+
+statement error
+select hex(jsonb('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}'))
+
+statement error
+select json(jsonb('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}'))
+
+query T nosort
+select replace(json('{"a":{"b":{"c":{"d":[[[]]]}}}}'), char(10), '~')
+----
+{"a":{"b":{"c":{"d":[[[]]]}}}}
+
+query I nosort
+select json_valid('{"a":{"b":{"c":{"d":[[[]]]}}}}')
+----
+1
+
+query I nosort
+select json_error_position('{"a":{"b":{"c":{"d":[[[]]]}}}}')
+----
+0
+
+query T nosort
+select replace(json_type('{"a":{"b":{"c":{"d":[[[]]]}}}}'), char(10), '~')
+----
+object
+
+query I nosort
+select json_array_length('{"a":{"b":{"c":{"d":[[[]]]}}}}')
+----
+0
+
+query T nosort
+select replace(json_pretty('{"a":{"b":{"c":{"d":[[[]]]}}}}'), char(10), '~')
+----
+{~    "a": {~        "b": {~            "c": {~                "d": [~                    [~                        []~                    ]~                ]~            }~        }~    }~}
+
+query T nosort
+select replace(json_quote('{"a":{"b":{"c":{"d":[[[]]]}}}}'), char(10), '~')
+----
+"{\"a\":{\"b\":{\"c\":{\"d\":[[[]]]}}}}"
+
+query T nosort
+select replace(hex(jsonb('{"a":{"b":{"c":{"d":[[[]]]}}}}')), char(10), '~')
+----
+CC0E1761BC17628C17635C17642B1B0B
+
+query T nosort
+select replace(json(jsonb('{"a":{"b":{"c":{"d":[[[]]]}}}}')), char(10), '~')
+----
+{"a":{"b":{"c":{"d":[[[]]]}}}}
+
+query T nosort
+select replace(json('"text"'), char(10), '~')
+----
+"text"
+
+query I nosort
+select json_valid('"text"')
+----
+1
+
+query I nosort
+select json_error_position('"text"')
+----
+0
+
+query T nosort
+select replace(json_type('"text"'), char(10), '~')
+----
+text
+
+query I nosort
+select json_array_length('"text"')
+----
+0
+
+query T nosort
+select replace(json_pretty('"text"'), char(10), '~')
+----
+"text"
+
+query T nosort
+select replace(json_quote('"text"'), char(10), '~')
+----
+"\"text\""
+
+query T nosort
+select replace(hex(jsonb('"text"')), char(10), '~')
+----
+4774657874
+
+query T nosort
+select replace(json(jsonb('"text"')), char(10), '~')
+----
+"text"
+
+query T nosort
+select replace(json('12345678901234567890'), char(10), '~')
+----
+12345678901234567890
+
+query I nosort
+select json_valid('12345678901234567890')
+----
+1
+
+query I nosort
+select json_error_position('12345678901234567890')
+----
+0
+
+query T nosort
+select replace(json_type('12345678901234567890'), char(10), '~')
+----
+integer
+
+query I nosort
+select json_array_length('12345678901234567890')
+----
+0
+
+query T nosort
+select replace(json_pretty('12345678901234567890'), char(10), '~')
+----
+12345678901234567890
+
+query T nosort
+select replace(json_quote('12345678901234567890'), char(10), '~')
+----
+"12345678901234567890"
+
+query T nosort
+select replace(hex(jsonb('12345678901234567890')), char(10), '~')
+----
+C3143132333435363738393031323334353637383930
+
+query T nosort
+select replace(json(jsonb('12345678901234567890')), char(10), '~')
+----
+12345678901234567890
+
+query T nosort
+select replace(json('-0'), char(10), '~')
+----
+-0
+
+query I nosort
+select json_valid('-0')
+----
+1
+
+query I nosort
+select json_error_position('-0')
+----
+0
+
+query T nosort
+select replace(json_type('-0'), char(10), '~')
+----
+integer
+
+query I nosort
+select json_array_length('-0')
+----
+0
+
+query T nosort
+select replace(json_pretty('-0'), char(10), '~')
+----
+-0
+
+query T nosort
+select replace(json_quote('-0'), char(10), '~')
+----
+"-0"
+
+query T nosort
+select replace(hex(jsonb('-0')), char(10), '~')
+----
+232D30
+
+query T nosort
+select replace(json(jsonb('-0')), char(10), '~')
+----
+-0
+
+query T nosort
+select replace(json('1e400'), char(10), '~')
+----
+1e400
+
+query I nosort
+select json_valid('1e400')
+----
+1
+
+query I nosort
+select json_error_position('1e400')
+----
+0
+
+query T nosort
+select replace(json_type('1e400'), char(10), '~')
+----
+real
+
+query I nosort
+select json_array_length('1e400')
+----
+0
+
+query T nosort
+select replace(json_pretty('1e400'), char(10), '~')
+----
+1e400
+
+query T nosort
+select replace(json_quote('1e400'), char(10), '~')
+----
+"1e400"
+
+query T nosort
+select replace(hex(jsonb('1e400')), char(10), '~')
+----
+553165343030
+
+query T nosort
+select replace(json(jsonb('1e400')), char(10), '~')
+----
+1e400
+
+query T nosort
+select replace(json('0.1'), char(10), '~')
+----
+0.1
+
+query I nosort
+select json_valid('0.1')
+----
+1
+
+query I nosort
+select json_error_position('0.1')
+----
+0
+
+query T nosort
+select replace(json_type('0.1'), char(10), '~')
+----
+real
+
+query I nosort
+select json_array_length('0.1')
+----
+0
+
+query T nosort
+select replace(json_pretty('0.1'), char(10), '~')
+----
+0.1
+
+query T nosort
+select replace(json_quote('0.1'), char(10), '~')
+----
+"0.1"
+
+query T nosort
+select replace(hex(jsonb('0.1')), char(10), '~')
+----
+35302E31
+
+query T nosort
+select replace(json(jsonb('0.1')), char(10), '~')
+----
+0.1
+
+query T nosort
+select replace(json('null'), char(10), '~')
+----
+null
+
+query I nosort
+select json_valid('null')
+----
+1
+
+query I nosort
+select json_error_position('null')
+----
+0
+
+query T nosort
+select replace(json_type('null'), char(10), '~')
+----
+null
+
+query I nosort
+select json_array_length('null')
+----
+0
+
+query T nosort
+select replace(json_pretty('null'), char(10), '~')
+----
+null
+
+query T nosort
+select replace(json_quote('null'), char(10), '~')
+----
+"null"
+
+query T nosort
+select replace(hex(jsonb('null')), char(10), '~')
+----
+00
+
+query T nosort
+select replace(json(jsonb('null')), char(10), '~')
+----
+null
+
+query T nosort
+select replace(json('true'), char(10), '~')
+----
+true
+
+query I nosort
+select json_valid('true')
+----
+1
+
+query I nosort
+select json_error_position('true')
+----
+0
+
+query T nosort
+select replace(json_type('true'), char(10), '~')
+----
+true
+
+query I nosort
+select json_array_length('true')
+----
+0
+
+query T nosort
+select replace(json_pretty('true'), char(10), '~')
+----
+true
+
+query T nosort
+select replace(json_quote('true'), char(10), '~')
+----
+"true"
+
+query T nosort
+select replace(hex(jsonb('true')), char(10), '~')
+----
+01
+
+query T nosort
+select replace(json(jsonb('true')), char(10), '~')
+----
+true
+
+statement error
+select json('[1,2')
+
+query I nosort
+select json_valid('[1,2')
+----
+0
+
+query I nosort
+select json_error_position('[1,2')
+----
+5
+
+statement error
+select json_type('[1,2')
+
+statement error
+select json_array_length('[1,2')
+
+statement error
+select json_pretty('[1,2')
+
+query T nosort
+select replace(json_quote('[1,2'), char(10), '~')
+----
+"[1,2"
+
+statement error
+select hex(jsonb('[1,2'))
+
+statement error
+select json(jsonb('[1,2'))
+
+statement error
+select json('{"a":}')
+
+query I nosort
+select json_valid('{"a":}')
+----
+0
+
+query I nosort
+select json_error_position('{"a":}')
+----
+6
+
+statement error
+select json_type('{"a":}')
+
+statement error
+select json_array_length('{"a":}')
+
+statement error
+select json_pretty('{"a":}')
+
+query T nosort
+select replace(json_quote('{"a":}'), char(10), '~')
+----
+"{\"a\":}"
+
+statement error
+select hex(jsonb('{"a":}'))
+
+statement error
+select json(jsonb('{"a":}'))
+
+statement error
+select json('')
+
+query I nosort
+select json_valid('')
+----
+0
+
+query I nosort
+select json_error_position('')
+----
+1
+
+statement error
+select json_type('')
+
+statement error
+select json_array_length('')
+
+statement error
+select json_pretty('')
+
+query T nosort
+select replace(json_quote(''), char(10), '~')
+----
+""
+
+statement error
+select hex(jsonb(''))
+
+statement error
+select json(jsonb(''))
+
+query T nosort
+select replace(json('{"a":1,"a":2}'), char(10), '~')
+----
+{"a":1,"a":2}
+
+query I nosort
+select json_valid('{"a":1,"a":2}')
+----
+1
+
+query I nosort
+select json_error_position('{"a":1,"a":2}')
+----
+0
+
+query T nosort
+select replace(json_type('{"a":1,"a":2}'), char(10), '~')
+----
+object
+
+query I nosort
+select json_array_length('{"a":1,"a":2}')
+----
+0
+
+query T nosort
+select replace(json_pretty('{"a":1,"a":2}'), char(10), '~')
+----
+{~    "a": 1,~    "a": 2~}
+
+query T nosort
+select replace(json_quote('{"a":1,"a":2}'), char(10), '~')
+----
+"{\"a\":1,\"a\":2}"
+
+query T nosort
+select replace(hex(jsonb('{"a":1,"a":2}')), char(10), '~')
+----
+8C1761133117611332
+
+query T nosort
+select replace(json(jsonb('{"a":1,"a":2}')), char(10), '~')
+----
+{"a":1,"a":2}
+
+query T nosort
+select replace(json('["a\\u0041\\ud83d\\ude00"]'), char(10), '~')
+----
+["a\\u0041\\ud83d\\ude00"]
+
+query I nosort
+select json_valid('["a\\u0041\\ud83d\\ude00"]')
+----
+1
+
+query I nosort
+select json_error_position('["a\\u0041\\ud83d\\ude00"]')
+----
+0
+
+query T nosort
+select replace(json_type('["a\\u0041\\ud83d\\ude00"]'), char(10), '~')
+----
+array
+
+query I nosort
+select json_array_length('["a\\u0041\\ud83d\\ude00"]')
+----
+1
+
+query T nosort
+select replace(json_pretty('["a\\u0041\\ud83d\\ude00"]'), char(10), '~')
+----
+[~    "a\\u0041\\ud83d\\ude00"~]
+
+query T nosort
+select replace(json_quote('["a\\u0041\\ud83d\\ude00"]'), char(10), '~')
+----
+"[\"a\\\\u0041\\\\ud83d\\\\ude00\"]"
+
+query T nosort
+select replace(hex(jsonb('["a\\u0041\\ud83d\\ude00"]')), char(10), '~')
+----
+CB18C816615C5C75303034315C5C75643833645C5C7564653030
+
+query T nosort
+select replace(json(jsonb('["a\\u0041\\ud83d\\ude00"]')), char(10), '~')
+----
+["a\\u0041\\ud83d\\ude00"]
+
+query T nosort
+select replace(json('/* c */ [1, // x
+ 2]'), char(10), '~')
+----
+[1,2]
+
+query I nosort
+select json_valid('/* c */ [1, // x
+ 2]')
+----
+0
+
+query I nosort
+select json_error_position('/* c */ [1, // x
+ 2]')
+----
+0
+
+query T nosort
+select replace(json_type('/* c */ [1, // x
+ 2]'), char(10), '~')
+----
+array
+
+query I nosort
+select json_array_length('/* c */ [1, // x
+ 2]')
+----
+2
+
+query T nosort
+select replace(json_pretty('/* c */ [1, // x
+ 2]'), char(10), '~')
+----
+[~    1,~    2~]
+
+query T nosort
+select replace(json_quote('/* c */ [1, // x
+ 2]'), char(10), '~')
+----
+"/* c */ [1, // x\n 2]"
+
+query T nosort
+select replace(hex(jsonb('/* c */ [1, // x
+ 2]')), char(10), '~')
+----
+4B13311332
+
+query T nosort
+select replace(json(jsonb('/* c */ [1, // x
+ 2]')), char(10), '~')
+----
+[1,2]
+
+query T nosort
+select replace(json('{"x":[],"y":{}}'), char(10), '~')
+----
+{"x":[],"y":{}}
+
+query I nosort
+select json_valid('{"x":[],"y":{}}')
+----
+1
+
+query I nosort
+select json_error_position('{"x":[],"y":{}}')
+----
+0
+
+query T nosort
+select replace(json_type('{"x":[],"y":{}}'), char(10), '~')
+----
+object
+
+query I nosort
+select json_array_length('{"x":[],"y":{}}')
+----
+0
+
+query T nosort
+select replace(json_pretty('{"x":[],"y":{}}'), char(10), '~')
+----
+{~    "x": [],~    "y": {}~}
+
+query T nosort
+select replace(json_quote('{"x":[],"y":{}}'), char(10), '~')
+----
+"{\"x\":[],\"y\":{}}"
+
+query T nosort
+select replace(hex(jsonb('{"x":[],"y":{}}')), char(10), '~')
+----
+6C17780B17790C
+
+query T nosort
+select replace(json(jsonb('{"x":[],"y":{}}')), char(10), '~')
+----
+{"x":[],"y":{}}
+
+query T nosort
+select replace(json('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]'), char(10), '~')
+----
+[9223372036854775807,18446744073709551615,-16]
+
+query I nosort
+select json_valid('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]')
+----
+0
+
+query I nosort
+select json_error_position('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]')
+----
+0
+
+query T nosort
+select replace(json_type('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]'), char(10), '~')
+----
+array
+
+query I nosort
+select json_array_length('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]')
+----
+3
+
+query T nosort
+select replace(json_pretty('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]'), char(10), '~')
+----
+[~    9223372036854775807,~    18446744073709551615,~    -16~]
+
+query T nosort
+select replace(json_quote('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]'), char(10), '~')
+----
+"[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]"
+
+query T nosort
+select replace(hex(jsonb('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]')), char(10), '~')
+----
+CB2EC412307837666666666666666666666666666666C412307866666666666666666666666666666666542D30783130
+
+query T nosort
+select replace(json(jsonb('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]')), char(10), '~')
+----
+[9223372036854775807,18446744073709551615,-16]

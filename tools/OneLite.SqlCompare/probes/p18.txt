@@ -1,0 +1,7 @@
+select cast(null as a b c)
+%%
+select cast(null as real(6, -5))
+%%
+select cast(null as a b c(1))
+%%
+select cast(null as a)

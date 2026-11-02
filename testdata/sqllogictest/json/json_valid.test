@@ -1,0 +1,1729 @@
+# JSON functions, group 'valid'. Expected results are the output of sqlite 3.53.4 (the pinned shell).
+
+query I nosort
+select json_valid('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}', 1)
+----
+1
+
+query I nosort
+select json_valid(jsonb('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}'), 1)
+----
+0
+
+query I nosort
+select json_valid('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}', 2)
+----
+1
+
+query I nosort
+select json_valid(jsonb('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}'), 2)
+----
+0
+
+query I nosort
+select json_valid('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}', 3)
+----
+1
+
+query I nosort
+select json_valid(jsonb('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}'), 3)
+----
+0
+
+query I nosort
+select json_valid('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}', 4)
+----
+0
+
+query I nosort
+select json_valid(jsonb('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}'), 4)
+----
+1
+
+query I nosort
+select json_valid('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}', 5)
+----
+1
+
+query I nosort
+select json_valid(jsonb('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}'), 5)
+----
+1
+
+query I nosort
+select json_valid('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}', 6)
+----
+1
+
+query I nosort
+select json_valid(jsonb('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}'), 6)
+----
+1
+
+query I nosort
+select json_valid('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}', 8)
+----
+0
+
+query I nosort
+select json_valid(jsonb('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}'), 8)
+----
+1
+
+query I nosort
+select json_valid('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}', 9)
+----
+1
+
+query I nosort
+select json_valid(jsonb('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}'), 9)
+----
+1
+
+query I nosort
+select json_valid('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}', 15)
+----
+1
+
+query I nosort
+select json_valid(jsonb('{"a":1,"b":[1,2,{"c":"x"}],"d":null,"e":true,"f":1.5}'), 15)
+----
+1
+
+query I nosort
+select json_valid('[1,2,3,[4,5],{"k":"v"}]', 1)
+----
+1
+
+query I nosort
+select json_valid(jsonb('[1,2,3,[4,5],{"k":"v"}]'), 1)
+----
+0
+
+query I nosort
+select json_valid('[1,2,3,[4,5],{"k":"v"}]', 2)
+----
+1
+
+query I nosort
+select json_valid(jsonb('[1,2,3,[4,5],{"k":"v"}]'), 2)
+----
+0
+
+query I nosort
+select json_valid('[1,2,3,[4,5],{"k":"v"}]', 3)
+----
+1
+
+query I nosort
+select json_valid(jsonb('[1,2,3,[4,5],{"k":"v"}]'), 3)
+----
+0
+
+query I nosort
+select json_valid('[1,2,3,[4,5],{"k":"v"}]', 4)
+----
+0
+
+query I nosort
+select json_valid(jsonb('[1,2,3,[4,5],{"k":"v"}]'), 4)
+----
+1
+
+query I nosort
+select json_valid('[1,2,3,[4,5],{"k":"v"}]', 5)
+----
+1
+
+query I nosort
+select json_valid(jsonb('[1,2,3,[4,5],{"k":"v"}]'), 5)
+----
+1
+
+query I nosort
+select json_valid('[1,2,3,[4,5],{"k":"v"}]', 6)
+----
+1
+
+query I nosort
+select json_valid(jsonb('[1,2,3,[4,5],{"k":"v"}]'), 6)
+----
+1
+
+query I nosort
+select json_valid('[1,2,3,[4,5],{"k":"v"}]', 8)
+----
+0
+
+query I nosort
+select json_valid(jsonb('[1,2,3,[4,5],{"k":"v"}]'), 8)
+----
+1
+
+query I nosort
+select json_valid('[1,2,3,[4,5],{"k":"v"}]', 9)
+----
+1
+
+query I nosort
+select json_valid(jsonb('[1,2,3,[4,5],{"k":"v"}]'), 9)
+----
+1
+
+query I nosort
+select json_valid('[1,2,3,[4,5],{"k":"v"}]', 15)
+----
+1
+
+query I nosort
+select json_valid(jsonb('[1,2,3,[4,5],{"k":"v"}]'), 15)
+----
+1
+
+query I nosort
+select json_valid('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ', 1)
+----
+1
+
+query I nosort
+select json_valid(jsonb('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  '), 1)
+----
+0
+
+query I nosort
+select json_valid('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ', 2)
+----
+1
+
+query I nosort
+select json_valid(jsonb('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  '), 2)
+----
+0
+
+query I nosort
+select json_valid('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ', 3)
+----
+1
+
+query I nosort
+select json_valid(jsonb('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  '), 3)
+----
+0
+
+query I nosort
+select json_valid('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ', 4)
+----
+0
+
+query I nosort
+select json_valid(jsonb('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  '), 4)
+----
+1
+
+query I nosort
+select json_valid('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ', 5)
+----
+1
+
+query I nosort
+select json_valid(jsonb('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  '), 5)
+----
+1
+
+query I nosort
+select json_valid('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ', 6)
+----
+1
+
+query I nosort
+select json_valid(jsonb('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  '), 6)
+----
+1
+
+query I nosort
+select json_valid('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ', 8)
+----
+0
+
+query I nosort
+select json_valid(jsonb('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  '), 8)
+----
+1
+
+query I nosort
+select json_valid('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ', 9)
+----
+1
+
+query I nosort
+select json_valid(jsonb('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  '), 9)
+----
+1
+
+query I nosort
+select json_valid('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  ', 15)
+----
+1
+
+query I nosort
+select json_valid(jsonb('  {"a" : [ 1 , 2 ] , "b" : "s\u00e9\n" }  '), 15)
+----
+1
+
+statement error
+select json_valid('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}', 1)
+
+statement error
+select json_valid(jsonb('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}'), 1)
+
+statement error
+select json_valid('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}', 2)
+
+statement error
+select json_valid(jsonb('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}'), 2)
+
+statement error
+select json_valid('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}', 3)
+
+statement error
+select json_valid(jsonb('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}'), 3)
+
+statement error
+select json_valid('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}', 4)
+
+statement error
+select json_valid(jsonb('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}'), 4)
+
+statement error
+select json_valid('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}', 5)
+
+statement error
+select json_valid(jsonb('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}'), 5)
+
+statement error
+select json_valid('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}', 6)
+
+statement error
+select json_valid(jsonb('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}'), 6)
+
+statement error
+select json_valid('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}', 8)
+
+statement error
+select json_valid(jsonb('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}'), 8)
+
+statement error
+select json_valid('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}', 9)
+
+statement error
+select json_valid(jsonb('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}'), 9)
+
+statement error
+select json_valid('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}', 15)
+
+statement error
+select json_valid(jsonb('{a:1,\'b\':0x10,c:[+1,.5,5.,Infinity,-Infinity,NaN,],}'), 15)
+
+query I nosort
+select json_valid('{"a":{"b":{"c":{"d":[[[]]]}}}}', 1)
+----
+1
+
+query I nosort
+select json_valid(jsonb('{"a":{"b":{"c":{"d":[[[]]]}}}}'), 1)
+----
+0
+
+query I nosort
+select json_valid('{"a":{"b":{"c":{"d":[[[]]]}}}}', 2)
+----
+1
+
+query I nosort
+select json_valid(jsonb('{"a":{"b":{"c":{"d":[[[]]]}}}}'), 2)
+----
+0
+
+query I nosort
+select json_valid('{"a":{"b":{"c":{"d":[[[]]]}}}}', 3)
+----
+1
+
+query I nosort
+select json_valid(jsonb('{"a":{"b":{"c":{"d":[[[]]]}}}}'), 3)
+----
+0
+
+query I nosort
+select json_valid('{"a":{"b":{"c":{"d":[[[]]]}}}}', 4)
+----
+0
+
+query I nosort
+select json_valid(jsonb('{"a":{"b":{"c":{"d":[[[]]]}}}}'), 4)
+----
+1
+
+query I nosort
+select json_valid('{"a":{"b":{"c":{"d":[[[]]]}}}}', 5)
+----
+1
+
+query I nosort
+select json_valid(jsonb('{"a":{"b":{"c":{"d":[[[]]]}}}}'), 5)
+----
+1
+
+query I nosort
+select json_valid('{"a":{"b":{"c":{"d":[[[]]]}}}}', 6)
+----
+1
+
+query I nosort
+select json_valid(jsonb('{"a":{"b":{"c":{"d":[[[]]]}}}}'), 6)
+----
+1
+
+query I nosort
+select json_valid('{"a":{"b":{"c":{"d":[[[]]]}}}}', 8)
+----
+0
+
+query I nosort
+select json_valid(jsonb('{"a":{"b":{"c":{"d":[[[]]]}}}}'), 8)
+----
+1
+
+query I nosort
+select json_valid('{"a":{"b":{"c":{"d":[[[]]]}}}}', 9)
+----
+1
+
+query I nosort
+select json_valid(jsonb('{"a":{"b":{"c":{"d":[[[]]]}}}}'), 9)
+----
+1
+
+query I nosort
+select json_valid('{"a":{"b":{"c":{"d":[[[]]]}}}}', 15)
+----
+1
+
+query I nosort
+select json_valid(jsonb('{"a":{"b":{"c":{"d":[[[]]]}}}}'), 15)
+----
+1
+
+query I nosort
+select json_valid('"text"', 1)
+----
+1
+
+query I nosort
+select json_valid(jsonb('"text"'), 1)
+----
+0
+
+query I nosort
+select json_valid('"text"', 2)
+----
+1
+
+query I nosort
+select json_valid(jsonb('"text"'), 2)
+----
+0
+
+query I nosort
+select json_valid('"text"', 3)
+----
+1
+
+query I nosort
+select json_valid(jsonb('"text"'), 3)
+----
+0
+
+query I nosort
+select json_valid('"text"', 4)
+----
+0
+
+query I nosort
+select json_valid(jsonb('"text"'), 4)
+----
+1
+
+query I nosort
+select json_valid('"text"', 5)
+----
+1
+
+query I nosort
+select json_valid(jsonb('"text"'), 5)
+----
+1
+
+query I nosort
+select json_valid('"text"', 6)
+----
+1
+
+query I nosort
+select json_valid(jsonb('"text"'), 6)
+----
+1
+
+query I nosort
+select json_valid('"text"', 8)
+----
+0
+
+query I nosort
+select json_valid(jsonb('"text"'), 8)
+----
+1
+
+query I nosort
+select json_valid('"text"', 9)
+----
+1
+
+query I nosort
+select json_valid(jsonb('"text"'), 9)
+----
+1
+
+query I nosort
+select json_valid('"text"', 15)
+----
+1
+
+query I nosort
+select json_valid(jsonb('"text"'), 15)
+----
+1
+
+query I nosort
+select json_valid('12345678901234567890', 1)
+----
+1
+
+query I nosort
+select json_valid(jsonb('12345678901234567890'), 1)
+----
+0
+
+query I nosort
+select json_valid('12345678901234567890', 2)
+----
+1
+
+query I nosort
+select json_valid(jsonb('12345678901234567890'), 2)
+----
+0
+
+query I nosort
+select json_valid('12345678901234567890', 3)
+----
+1
+
+query I nosort
+select json_valid(jsonb('12345678901234567890'), 3)
+----
+0
+
+query I nosort
+select json_valid('12345678901234567890', 4)
+----
+0
+
+query I nosort
+select json_valid(jsonb('12345678901234567890'), 4)
+----
+1
+
+query I nosort
+select json_valid('12345678901234567890', 5)
+----
+1
+
+query I nosort
+select json_valid(jsonb('12345678901234567890'), 5)
+----
+1
+
+query I nosort
+select json_valid('12345678901234567890', 6)
+----
+1
+
+query I nosort
+select json_valid(jsonb('12345678901234567890'), 6)
+----
+1
+
+query I nosort
+select json_valid('12345678901234567890', 8)
+----
+0
+
+query I nosort
+select json_valid(jsonb('12345678901234567890'), 8)
+----
+1
+
+query I nosort
+select json_valid('12345678901234567890', 9)
+----
+1
+
+query I nosort
+select json_valid(jsonb('12345678901234567890'), 9)
+----
+1
+
+query I nosort
+select json_valid('12345678901234567890', 15)
+----
+1
+
+query I nosort
+select json_valid(jsonb('12345678901234567890'), 15)
+----
+1
+
+query I nosort
+select json_valid('-0', 1)
+----
+1
+
+query I nosort
+select json_valid(jsonb('-0'), 1)
+----
+0
+
+query I nosort
+select json_valid('-0', 2)
+----
+1
+
+query I nosort
+select json_valid(jsonb('-0'), 2)
+----
+0
+
+query I nosort
+select json_valid('-0', 3)
+----
+1
+
+query I nosort
+select json_valid(jsonb('-0'), 3)
+----
+0
+
+query I nosort
+select json_valid('-0', 4)
+----
+0
+
+query I nosort
+select json_valid(jsonb('-0'), 4)
+----
+1
+
+query I nosort
+select json_valid('-0', 5)
+----
+1
+
+query I nosort
+select json_valid(jsonb('-0'), 5)
+----
+1
+
+query I nosort
+select json_valid('-0', 6)
+----
+1
+
+query I nosort
+select json_valid(jsonb('-0'), 6)
+----
+1
+
+query I nosort
+select json_valid('-0', 8)
+----
+0
+
+query I nosort
+select json_valid(jsonb('-0'), 8)
+----
+1
+
+query I nosort
+select json_valid('-0', 9)
+----
+1
+
+query I nosort
+select json_valid(jsonb('-0'), 9)
+----
+1
+
+query I nosort
+select json_valid('-0', 15)
+----
+1
+
+query I nosort
+select json_valid(jsonb('-0'), 15)
+----
+1
+
+query I nosort
+select json_valid('1e400', 1)
+----
+1
+
+query I nosort
+select json_valid(jsonb('1e400'), 1)
+----
+0
+
+query I nosort
+select json_valid('1e400', 2)
+----
+1
+
+query I nosort
+select json_valid(jsonb('1e400'), 2)
+----
+0
+
+query I nosort
+select json_valid('1e400', 3)
+----
+1
+
+query I nosort
+select json_valid(jsonb('1e400'), 3)
+----
+0
+
+query I nosort
+select json_valid('1e400', 4)
+----
+0
+
+query I nosort
+select json_valid(jsonb('1e400'), 4)
+----
+1
+
+query I nosort
+select json_valid('1e400', 5)
+----
+1
+
+query I nosort
+select json_valid(jsonb('1e400'), 5)
+----
+1
+
+query I nosort
+select json_valid('1e400', 6)
+----
+1
+
+query I nosort
+select json_valid(jsonb('1e400'), 6)
+----
+1
+
+query I nosort
+select json_valid('1e400', 8)
+----
+0
+
+query I nosort
+select json_valid(jsonb('1e400'), 8)
+----
+1
+
+query I nosort
+select json_valid('1e400', 9)
+----
+1
+
+query I nosort
+select json_valid(jsonb('1e400'), 9)
+----
+1
+
+query I nosort
+select json_valid('1e400', 15)
+----
+1
+
+query I nosort
+select json_valid(jsonb('1e400'), 15)
+----
+1
+
+query I nosort
+select json_valid('0.1', 1)
+----
+1
+
+query I nosort
+select json_valid(jsonb('0.1'), 1)
+----
+0
+
+query I nosort
+select json_valid('0.1', 2)
+----
+1
+
+query I nosort
+select json_valid(jsonb('0.1'), 2)
+----
+0
+
+query I nosort
+select json_valid('0.1', 3)
+----
+1
+
+query I nosort
+select json_valid(jsonb('0.1'), 3)
+----
+0
+
+query I nosort
+select json_valid('0.1', 4)
+----
+0
+
+query I nosort
+select json_valid(jsonb('0.1'), 4)
+----
+1
+
+query I nosort
+select json_valid('0.1', 5)
+----
+1
+
+query I nosort
+select json_valid(jsonb('0.1'), 5)
+----
+1
+
+query I nosort
+select json_valid('0.1', 6)
+----
+1
+
+query I nosort
+select json_valid(jsonb('0.1'), 6)
+----
+1
+
+query I nosort
+select json_valid('0.1', 8)
+----
+0
+
+query I nosort
+select json_valid(jsonb('0.1'), 8)
+----
+1
+
+query I nosort
+select json_valid('0.1', 9)
+----
+1
+
+query I nosort
+select json_valid(jsonb('0.1'), 9)
+----
+1
+
+query I nosort
+select json_valid('0.1', 15)
+----
+1
+
+query I nosort
+select json_valid(jsonb('0.1'), 15)
+----
+1
+
+query I nosort
+select json_valid('null', 1)
+----
+1
+
+query I nosort
+select json_valid(jsonb('null'), 1)
+----
+0
+
+query I nosort
+select json_valid('null', 2)
+----
+1
+
+query I nosort
+select json_valid(jsonb('null'), 2)
+----
+0
+
+query I nosort
+select json_valid('null', 3)
+----
+1
+
+query I nosort
+select json_valid(jsonb('null'), 3)
+----
+0
+
+query I nosort
+select json_valid('null', 4)
+----
+0
+
+query I nosort
+select json_valid(jsonb('null'), 4)
+----
+1
+
+query I nosort
+select json_valid('null', 5)
+----
+1
+
+query I nosort
+select json_valid(jsonb('null'), 5)
+----
+1
+
+query I nosort
+select json_valid('null', 6)
+----
+1
+
+query I nosort
+select json_valid(jsonb('null'), 6)
+----
+1
+
+query I nosort
+select json_valid('null', 8)
+----
+0
+
+query I nosort
+select json_valid(jsonb('null'), 8)
+----
+1
+
+query I nosort
+select json_valid('null', 9)
+----
+1
+
+query I nosort
+select json_valid(jsonb('null'), 9)
+----
+1
+
+query I nosort
+select json_valid('null', 15)
+----
+1
+
+query I nosort
+select json_valid(jsonb('null'), 15)
+----
+1
+
+query I nosort
+select json_valid('true', 1)
+----
+1
+
+query I nosort
+select json_valid(jsonb('true'), 1)
+----
+0
+
+query I nosort
+select json_valid('true', 2)
+----
+1
+
+query I nosort
+select json_valid(jsonb('true'), 2)
+----
+0
+
+query I nosort
+select json_valid('true', 3)
+----
+1
+
+query I nosort
+select json_valid(jsonb('true'), 3)
+----
+0
+
+query I nosort
+select json_valid('true', 4)
+----
+0
+
+query I nosort
+select json_valid(jsonb('true'), 4)
+----
+1
+
+query I nosort
+select json_valid('true', 5)
+----
+1
+
+query I nosort
+select json_valid(jsonb('true'), 5)
+----
+1
+
+query I nosort
+select json_valid('true', 6)
+----
+1
+
+query I nosort
+select json_valid(jsonb('true'), 6)
+----
+1
+
+query I nosort
+select json_valid('true', 8)
+----
+0
+
+query I nosort
+select json_valid(jsonb('true'), 8)
+----
+1
+
+query I nosort
+select json_valid('true', 9)
+----
+1
+
+query I nosort
+select json_valid(jsonb('true'), 9)
+----
+1
+
+query I nosort
+select json_valid('true', 15)
+----
+1
+
+query I nosort
+select json_valid(jsonb('true'), 15)
+----
+1
+
+query I nosort
+select json_valid('[1,2', 1)
+----
+0
+
+statement error
+select json_valid(jsonb('[1,2'), 1)
+
+query I nosort
+select json_valid('[1,2', 2)
+----
+0
+
+statement error
+select json_valid(jsonb('[1,2'), 2)
+
+query I nosort
+select json_valid('[1,2', 3)
+----
+0
+
+statement error
+select json_valid(jsonb('[1,2'), 3)
+
+query I nosort
+select json_valid('[1,2', 4)
+----
+0
+
+statement error
+select json_valid(jsonb('[1,2'), 4)
+
+query I nosort
+select json_valid('[1,2', 5)
+----
+0
+
+statement error
+select json_valid(jsonb('[1,2'), 5)
+
+query I nosort
+select json_valid('[1,2', 6)
+----
+0
+
+statement error
+select json_valid(jsonb('[1,2'), 6)
+
+query I nosort
+select json_valid('[1,2', 8)
+----
+0
+
+statement error
+select json_valid(jsonb('[1,2'), 8)
+
+query I nosort
+select json_valid('[1,2', 9)
+----
+0
+
+statement error
+select json_valid(jsonb('[1,2'), 9)
+
+query I nosort
+select json_valid('[1,2', 15)
+----
+0
+
+statement error
+select json_valid(jsonb('[1,2'), 15)
+
+query I nosort
+select json_valid('{"a":}', 1)
+----
+0
+
+statement error
+select json_valid(jsonb('{"a":}'), 1)
+
+query I nosort
+select json_valid('{"a":}', 2)
+----
+0
+
+statement error
+select json_valid(jsonb('{"a":}'), 2)
+
+query I nosort
+select json_valid('{"a":}', 3)
+----
+0
+
+statement error
+select json_valid(jsonb('{"a":}'), 3)
+
+query I nosort
+select json_valid('{"a":}', 4)
+----
+0
+
+statement error
+select json_valid(jsonb('{"a":}'), 4)
+
+query I nosort
+select json_valid('{"a":}', 5)
+----
+0
+
+statement error
+select json_valid(jsonb('{"a":}'), 5)
+
+query I nosort
+select json_valid('{"a":}', 6)
+----
+0
+
+statement error
+select json_valid(jsonb('{"a":}'), 6)
+
+query I nosort
+select json_valid('{"a":}', 8)
+----
+0
+
+statement error
+select json_valid(jsonb('{"a":}'), 8)
+
+query I nosort
+select json_valid('{"a":}', 9)
+----
+0
+
+statement error
+select json_valid(jsonb('{"a":}'), 9)
+
+query I nosort
+select json_valid('{"a":}', 15)
+----
+0
+
+statement error
+select json_valid(jsonb('{"a":}'), 15)
+
+query I nosort
+select json_valid('', 1)
+----
+0
+
+statement error
+select json_valid(jsonb(''), 1)
+
+query I nosort
+select json_valid('', 2)
+----
+0
+
+statement error
+select json_valid(jsonb(''), 2)
+
+query I nosort
+select json_valid('', 3)
+----
+0
+
+statement error
+select json_valid(jsonb(''), 3)
+
+query I nosort
+select json_valid('', 4)
+----
+0
+
+statement error
+select json_valid(jsonb(''), 4)
+
+query I nosort
+select json_valid('', 5)
+----
+0
+
+statement error
+select json_valid(jsonb(''), 5)
+
+query I nosort
+select json_valid('', 6)
+----
+0
+
+statement error
+select json_valid(jsonb(''), 6)
+
+query I nosort
+select json_valid('', 8)
+----
+0
+
+statement error
+select json_valid(jsonb(''), 8)
+
+query I nosort
+select json_valid('', 9)
+----
+0
+
+statement error
+select json_valid(jsonb(''), 9)
+
+query I nosort
+select json_valid('', 15)
+----
+0
+
+statement error
+select json_valid(jsonb(''), 15)
+
+query I nosort
+select json_valid('{"a":1,"a":2}', 1)
+----
+1
+
+query I nosort
+select json_valid(jsonb('{"a":1,"a":2}'), 1)
+----
+0
+
+query I nosort
+select json_valid('{"a":1,"a":2}', 2)
+----
+1
+
+query I nosort
+select json_valid(jsonb('{"a":1,"a":2}'), 2)
+----
+0
+
+query I nosort
+select json_valid('{"a":1,"a":2}', 3)
+----
+1
+
+query I nosort
+select json_valid(jsonb('{"a":1,"a":2}'), 3)
+----
+0
+
+query I nosort
+select json_valid('{"a":1,"a":2}', 4)
+----
+0
+
+query I nosort
+select json_valid(jsonb('{"a":1,"a":2}'), 4)
+----
+1
+
+query I nosort
+select json_valid('{"a":1,"a":2}', 5)
+----
+1
+
+query I nosort
+select json_valid(jsonb('{"a":1,"a":2}'), 5)
+----
+1
+
+query I nosort
+select json_valid('{"a":1,"a":2}', 6)
+----
+1
+
+query I nosort
+select json_valid(jsonb('{"a":1,"a":2}'), 6)
+----
+1
+
+query I nosort
+select json_valid('{"a":1,"a":2}', 8)
+----
+0
+
+query I nosort
+select json_valid(jsonb('{"a":1,"a":2}'), 8)
+----
+1
+
+query I nosort
+select json_valid('{"a":1,"a":2}', 9)
+----
+1
+
+query I nosort
+select json_valid(jsonb('{"a":1,"a":2}'), 9)
+----
+1
+
+query I nosort
+select json_valid('{"a":1,"a":2}', 15)
+----
+1
+
+query I nosort
+select json_valid(jsonb('{"a":1,"a":2}'), 15)
+----
+1
+
+query I nosort
+select json_valid('["a\\u0041\\ud83d\\ude00"]', 1)
+----
+1
+
+query I nosort
+select json_valid(jsonb('["a\\u0041\\ud83d\\ude00"]'), 1)
+----
+0
+
+query I nosort
+select json_valid('["a\\u0041\\ud83d\\ude00"]', 2)
+----
+1
+
+query I nosort
+select json_valid(jsonb('["a\\u0041\\ud83d\\ude00"]'), 2)
+----
+0
+
+query I nosort
+select json_valid('["a\\u0041\\ud83d\\ude00"]', 3)
+----
+1
+
+query I nosort
+select json_valid(jsonb('["a\\u0041\\ud83d\\ude00"]'), 3)
+----
+0
+
+query I nosort
+select json_valid('["a\\u0041\\ud83d\\ude00"]', 4)
+----
+0
+
+query I nosort
+select json_valid(jsonb('["a\\u0041\\ud83d\\ude00"]'), 4)
+----
+1
+
+query I nosort
+select json_valid('["a\\u0041\\ud83d\\ude00"]', 5)
+----
+1
+
+query I nosort
+select json_valid(jsonb('["a\\u0041\\ud83d\\ude00"]'), 5)
+----
+1
+
+query I nosort
+select json_valid('["a\\u0041\\ud83d\\ude00"]', 6)
+----
+1
+
+query I nosort
+select json_valid(jsonb('["a\\u0041\\ud83d\\ude00"]'), 6)
+----
+1
+
+query I nosort
+select json_valid('["a\\u0041\\ud83d\\ude00"]', 8)
+----
+0
+
+query I nosort
+select json_valid(jsonb('["a\\u0041\\ud83d\\ude00"]'), 8)
+----
+1
+
+query I nosort
+select json_valid('["a\\u0041\\ud83d\\ude00"]', 9)
+----
+1
+
+query I nosort
+select json_valid(jsonb('["a\\u0041\\ud83d\\ude00"]'), 9)
+----
+1
+
+query I nosort
+select json_valid('["a\\u0041\\ud83d\\ude00"]', 15)
+----
+1
+
+query I nosort
+select json_valid(jsonb('["a\\u0041\\ud83d\\ude00"]'), 15)
+----
+1
+
+query I nosort
+select json_valid('/* c */ [1, // x
+ 2]', 1)
+----
+0
+
+query I nosort
+select json_valid(jsonb('/* c */ [1, // x
+ 2]'), 1)
+----
+0
+
+query I nosort
+select json_valid('/* c */ [1, // x
+ 2]', 2)
+----
+1
+
+query I nosort
+select json_valid(jsonb('/* c */ [1, // x
+ 2]'), 2)
+----
+0
+
+query I nosort
+select json_valid('/* c */ [1, // x
+ 2]', 3)
+----
+1
+
+query I nosort
+select json_valid(jsonb('/* c */ [1, // x
+ 2]'), 3)
+----
+0
+
+query I nosort
+select json_valid('/* c */ [1, // x
+ 2]', 4)
+----
+0
+
+query I nosort
+select json_valid(jsonb('/* c */ [1, // x
+ 2]'), 4)
+----
+1
+
+query I nosort
+select json_valid('/* c */ [1, // x
+ 2]', 5)
+----
+0
+
+query I nosort
+select json_valid(jsonb('/* c */ [1, // x
+ 2]'), 5)
+----
+1
+
+query I nosort
+select json_valid('/* c */ [1, // x
+ 2]', 6)
+----
+1
+
+query I nosort
+select json_valid(jsonb('/* c */ [1, // x
+ 2]'), 6)
+----
+1
+
+query I nosort
+select json_valid('/* c */ [1, // x
+ 2]', 8)
+----
+0
+
+query I nosort
+select json_valid(jsonb('/* c */ [1, // x
+ 2]'), 8)
+----
+1
+
+query I nosort
+select json_valid('/* c */ [1, // x
+ 2]', 9)
+----
+0
+
+query I nosort
+select json_valid(jsonb('/* c */ [1, // x
+ 2]'), 9)
+----
+1
+
+query I nosort
+select json_valid('/* c */ [1, // x
+ 2]', 15)
+----
+1
+
+query I nosort
+select json_valid(jsonb('/* c */ [1, // x
+ 2]'), 15)
+----
+1
+
+query I nosort
+select json_valid('{"x":[],"y":{}}', 1)
+----
+1
+
+query I nosort
+select json_valid(jsonb('{"x":[],"y":{}}'), 1)
+----
+0
+
+query I nosort
+select json_valid('{"x":[],"y":{}}', 2)
+----
+1
+
+query I nosort
+select json_valid(jsonb('{"x":[],"y":{}}'), 2)
+----
+0
+
+query I nosort
+select json_valid('{"x":[],"y":{}}', 3)
+----
+1
+
+query I nosort
+select json_valid(jsonb('{"x":[],"y":{}}'), 3)
+----
+0
+
+query I nosort
+select json_valid('{"x":[],"y":{}}', 4)
+----
+0
+
+query I nosort
+select json_valid(jsonb('{"x":[],"y":{}}'), 4)
+----
+1
+
+query I nosort
+select json_valid('{"x":[],"y":{}}', 5)
+----
+1
+
+query I nosort
+select json_valid(jsonb('{"x":[],"y":{}}'), 5)
+----
+1
+
+query I nosort
+select json_valid('{"x":[],"y":{}}', 6)
+----
+1
+
+query I nosort
+select json_valid(jsonb('{"x":[],"y":{}}'), 6)
+----
+1
+
+query I nosort
+select json_valid('{"x":[],"y":{}}', 8)
+----
+0
+
+query I nosort
+select json_valid(jsonb('{"x":[],"y":{}}'), 8)
+----
+1
+
+query I nosort
+select json_valid('{"x":[],"y":{}}', 9)
+----
+1
+
+query I nosort
+select json_valid(jsonb('{"x":[],"y":{}}'), 9)
+----
+1
+
+query I nosort
+select json_valid('{"x":[],"y":{}}', 15)
+----
+1
+
+query I nosort
+select json_valid(jsonb('{"x":[],"y":{}}'), 15)
+----
+1
+
+query I nosort
+select json_valid('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]', 1)
+----
+0
+
+query I nosort
+select json_valid(jsonb('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]'), 1)
+----
+0
+
+query I nosort
+select json_valid('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]', 2)
+----
+1
+
+query I nosort
+select json_valid(jsonb('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]'), 2)
+----
+0
+
+query I nosort
+select json_valid('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]', 3)
+----
+1
+
+query I nosort
+select json_valid(jsonb('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]'), 3)
+----
+0
+
+query I nosort
+select json_valid('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]', 4)
+----
+0
+
+query I nosort
+select json_valid(jsonb('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]'), 4)
+----
+1
+
+query I nosort
+select json_valid('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]', 5)
+----
+0
+
+query I nosort
+select json_valid(jsonb('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]'), 5)
+----
+1
+
+query I nosort
+select json_valid('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]', 6)
+----
+1
+
+query I nosort
+select json_valid(jsonb('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]'), 6)
+----
+1
+
+query I nosort
+select json_valid('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]', 8)
+----
+0
+
+query I nosort
+select json_valid(jsonb('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]'), 8)
+----
+1
+
+query I nosort
+select json_valid('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]', 9)
+----
+0
+
+query I nosort
+select json_valid(jsonb('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]'), 9)
+----
+1
+
+query I nosort
+select json_valid('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]', 15)
+----
+1
+
+query I nosort
+select json_valid(jsonb('[0x7fffffffffffffff, 0xffffffffffffffff, -0x10]'), 15)
+----
+1

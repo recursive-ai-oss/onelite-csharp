@@ -1,0 +1,93 @@
+select 1 between 2 or 3 and 4
+%%
+select 1 between 2 in (1) and 4
+%%
+select 1 between 2 = 3 and 4
+%%
+select 1 between 2 and 3 and 4
+%%
+select 1 between not 2 and 3
+%%
+select 1 between 2 is null and 3
+%%
+select 1 between 2 between 3 and 4 and 5
+%%
+select 1 between 2 or 3 and 4 and 5
+%%
+select 1 between 2 and 3 or 4
+%%
+select 1 between 2 and 3 in (4)
+%%
+select 1 between 2 and 3 = 4
+%%
+select 1 between 2 and 3 + 4
+%%
+select 1 between 2 and not 3
+%%
+select 1 between 2 and 3 between 4 and 5
+%%
+select 1 like 2 or 3
+%%
+select 1 like 2 = 3
+%%
+select 1 like 2 in (3)
+%%
+select 1 like 2 escape 3 escape 4
+%%
+select 1 like 2 like 3
+%%
+select 1 like 2 is null
+%%
+select 1 like 2 between 3 and 4
+%%
+select 1 between 2 < 3 and 4
+%%
+select 1 between 2 isnull and 3
+%%
+select 1 between 2 not null and 3
+%%
+select 1 between 2 collate x and 3
+%%
+select 1 is 2 between 3 and 4
+%%
+select 1 in (2) between 3 and 4
+%%
+select 1 isnull between 3 and 4
+%%
+select 1 between 2 not between 3 and 4 and 5
+%%
+select 1 between 2 like 3 and 4
+%%
+select 1 between 2 and 3 like 4
+%%
+select 1 not between 2 and 3 and 4
+%%
+select 1 between 2 and 3 and 4 and 5
+%%
+select 1 between 2 or 3 or 4 and 5
+%%
+select 1 between 2 and 3 not null
+%%
+select 1 between 2 and 3 isnull
+%%
+select 1 between 2 and 3 is 4
+%%
+select 1 = 2 between 3 and 4
+%%
+select 1 + 2 between 3 and 4
+%%
+select not 1 between 2 and 3
+%%
+select 1 between 2 is not 3 and 4
+%%
+select 1 between 2 match 3 and 4
+%%
+select 1 between 2 glob 3 escape 4 and 5
+%%
+select 1 between (2 and 3) and 4
+%%
+select 1 in (2) in (3)
+%%
+select 1 is not 2 in (3)
+%%
+select 1 or 2 between 3 and 4

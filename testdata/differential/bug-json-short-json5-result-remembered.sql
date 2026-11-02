@@ -1,0 +1,13 @@
+-- OneLite differential repro
+-- status: pass
+-- class: bug:short-json5-result-remembered
+-- engine: ours
+-- families: json
+-- utf16: false
+-- oracle: diff
+-- ordered: false
+-- query: /*json*/ SELECT hex(jsonb_array_insert(json_insert('0xFF', '$.a', 42), '$[0]', 'abc'))
+-- detail: the next function sees the edit result with its hexadecimal integer
+-- setup
+-- run
+/*json*/ SELECT hex(jsonb_array_insert(json_insert('0xFF', '$.a', 42), '$[0]', 'abc'));

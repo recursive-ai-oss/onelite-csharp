@@ -1,0 +1,12 @@
+-- OneLite differential repro
+-- status: pass
+-- class: none
+-- engine: ours
+-- families: expr
+-- utf16: false
+-- oracle: diff
+-- ordered: false
+-- query: SELECT min(json_array('a' COLLATE nocase), 'B'), coalesce('a ' COLLATE rtrim, 'b' COLLATE nocase)='a', ('A' COLLATE nocase || 'x') = ('ax' COLLATE binary), (CASE WHEN 1 THEN 'A' COLLATE nocase END) = 'a'
+-- detail: 
+-- run
+SELECT min(json_array('a' COLLATE nocase), 'B'), coalesce('a ' COLLATE rtrim, 'b' COLLATE nocase)='a', ('A' COLLATE nocase || 'x') = ('ax' COLLATE binary), (CASE WHEN 1 THEN 'A' COLLATE nocase END) = 'a';
