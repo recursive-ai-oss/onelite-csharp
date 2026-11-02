@@ -19,6 +19,9 @@ internal sealed class Outcome
     internal int Code;
     internal string Message = "";
 
+    /// <summary>The statement needed a synchronous backend call the cold async mode refuses (see <see cref="Qd"/>).</summary>
+    internal bool NeedsBlocking;
+
     internal string ErrorText => HasError ? $"{Phase} error ({Code}): {Message}" : "";
 }
 
@@ -39,16 +42,17 @@ internal static class Canon
 /// <summary>Runs queries on OneLite.</summary>
 internal static class OursRunner
 {
-    internal static Outcome Run(Connection conn, string sql)
+    internal static Outcome Run(Connection conn, string sql, bool cold = false)
     {
         var o = new Outcome();
         Statement st;
         try
         {
-            st = conn.Prepare(sql);
+            st = Qd.Prepare(conn, sql, cold);
         }
         catch (OneLiteException e)
         {
+            o.NeedsBlocking = Qd.NeedsBlocking(e);
             o.HasError = true;
             o.Phase = "parse";
             o.Code = e.Code;
@@ -56,7 +60,7 @@ internal static class OursRunner
             return o;
         }
 
-        using (st)
+        try
         {
             try
             {
@@ -86,6 +90,7 @@ internal static class OursRunner
             }
             catch (OneLiteException e)
             {
+                o.NeedsBlocking = Qd.NeedsBlocking(e);
                 o.HasError = true;
                 o.Phase = "run";
                 o.Code = e.Code;
@@ -98,6 +103,10 @@ internal static class OursRunner
                 o.Phase = "run";
                 o.Message = "internal error: " + e.GetType().Name + " " + e.StackTrace?.Split('\n')[0].Trim();
             }
+        }
+        finally
+        {
+            Qd.Close(st, cold);
         }
 
         return o;

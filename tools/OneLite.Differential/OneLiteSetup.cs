@@ -1,4 +1,5 @@
 using RecursiveAI.OneLite.Oracle;
+using RecursiveAI.OneLite.QueryDiff;
 using RecursiveAI.OneLite.Storage;
 
 namespace RecursiveAI.OneLite.Differential;
@@ -14,12 +15,43 @@ internal static class OneLiteSetup
     /// </summary>
     internal static string? Build(string path, string referencePath, IReadOnlyList<string> statements, bool utf16, out bool unsupported)
     {
+        if (Qd.Cold)
+        {
+            // Build through the backend with only asynchronous calls. A script that uses something that cannot suspend (VACUUM, a journal mode change, ...)
+            // is built again on the sync driver from an empty file, and the tool counts it.
+            string? r = BuildCore(path, referencePath, statements, utf16, true, out unsupported);
+            if (r != AsyncBlocked)
+            {
+                return r;
+            }
+
+            Qd.CountFallback();
+            Executor.DeleteFiles(path);
+        }
+
+        return BuildCore(path, referencePath, statements, utf16, false, out unsupported);
+    }
+
+    private const string AsyncBlocked = "\0async-blocked";
+
+    private static string? BuildCore(string path, string referencePath, IReadOnlyList<string> statements, bool utf16, bool cold, out bool unsupported)
+    {
         unsupported = false;
         try
         {
-            using (Database db = Database.Open(path, new DatabaseOptions { Encoding = !utf16 ? TextEncoding.Utf8 : statements.Any(x => x.Contains("16be", StringComparison.OrdinalIgnoreCase)) ? TextEncoding.Utf16Be : TextEncoding.Utf16Le, Synchronous = RecursiveAI.OneLite.Storage.Pager.SynchronousMode.Off }))
-            using (Connection conn = db.Connect())
+            var options = new DatabaseOptions
             {
+                Encoding = !utf16 ? TextEncoding.Utf8 : statements.Any(x => x.Contains("16be", StringComparison.OrdinalIgnoreCase)) ? TextEncoding.Utf16Be : TextEncoding.Utf16Le,
+                Synchronous = RecursiveAI.OneLite.Storage.Pager.SynchronousMode.Off,
+                Vfs = cold ? Qd.ColdVfs : null,
+                CacheSize = cold ? 6 : -2000,
+                YieldEvery = cold ? Qd.Options.YieldEvery : 0,
+            };
+            using (Database db = Database.Open(path, options))
+            {
+                Connection conn = cold ? db.ConnectAsync().AsTask().GetAwaiter().GetResult() : db.Connect();
+                try
+                {
                 foreach (string sql in statements)
                 {
                     if (sql.Contains("encoding", StringComparison.OrdinalIgnoreCase) && sql.TrimStart().StartsWith("pragma", StringComparison.OrdinalIgnoreCase))
@@ -33,15 +65,38 @@ internal static class OneLiteSetup
                         string rest = sql;
                         while (!string.IsNullOrWhiteSpace(rest))
                         {
-                            using Statement st = conn.Prepare(rest);
-                            rest = st.Tail;
-                            while (st.Step())
+                            Statement st = Qd.Prepare(conn, rest, cold);
+                            try
                             {
+                                rest = st.Tail;
+                                while (cold ? st.StepAsync().AsTask().GetAwaiter().GetResult() : st.Step())
+                                {
+                                }
+                            }
+                            finally
+                            {
+                                Qd.Close(st, cold);
                             }
                         }
                     }
+                    catch (OneLiteException e) when (cold && Qd.NeedsBlocking(e))
+                    {
+                        return AsyncBlocked;
+                    }
                     catch (OneLiteException e) when (!e.Message.StartsWith("unsupported", StringComparison.Ordinal))
                     {
+                    }
+                }
+                }
+                finally
+                {
+                    if (cold)
+                    {
+                        conn.DisposeAsync().AsTask().GetAwaiter().GetResult();
+                    }
+                    else
+                    {
+                        conn.Dispose();
                     }
                 }
             }
