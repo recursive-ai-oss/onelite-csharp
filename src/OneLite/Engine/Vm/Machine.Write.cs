@@ -435,6 +435,9 @@ internal sealed partial class Machine
     /// <summary>The statement failed with SQLITE_BUSY asking for the write lock: it stays active in the reference until reset (see <see cref="Connection.BlockedStatements"/>).</summary>
     internal bool BlockedByBusy { get; private set; }
 
+    /// <summary>The statement failed with SQLITE_BUSY asking for the read lock. It also stays active, but a checkpoint or a journal-mode change does not count it.</summary>
+    internal bool BlockedAtRead { get; private set; }
+
     private bool _ownKnown;
     private bool _beginsTransaction;
     private bool _connWasWriting;
@@ -877,7 +880,7 @@ internal sealed partial class Machine
                             break;
                         case 3:
                         {
-                            if (_conn.ActiveWriters > 0 || _conn.BlockedStatements > 0)
+                            if (_conn.ActiveWriters > 0 || _conn.BlockedStatements > 0 || _conn.BlockedReadStatements > 0)
                             {
                                 throw new OneLiteException(ResultCode.Busy, "cannot open savepoint - SQL statements in progress");
                             }
@@ -929,6 +932,11 @@ internal sealed partial class Machine
                                 // Releasing the outermost savepoint of a transaction no BEGIN opened commits it (lang_savepoint). If the commit is
                                 // refused (SQLITE_BUSY) the savepoints and the transaction must still be there, so nothing is taken apart before
                                 // it succeeds; EndTransactionState clears them afterwards.
+                                if (_conn.HasWritableBlob || _conn.BlockedStatements > 0 || _conn.BlockedReadStatements > 0 || _conn.ActiveWriters > 0)
+                                {
+                                    throw new OneLiteException(ResultCode.Busy, "cannot release savepoint - SQL statements in progress");
+                                }
+
                                 _wstep = 10;
                                 break;
                             }
@@ -973,7 +981,7 @@ internal sealed partial class Machine
                 case 10:
                 {
                     // COMMIT
-                    if (_conn.HasWritableBlob || _conn.BlockedStatements > 0 || _conn.ActiveWriters > 0)
+                    if (_conn.HasWritableBlob || _conn.BlockedStatements > 0 || _conn.BlockedReadStatements > 0 || _conn.ActiveWriters > 0)
                     {
                         throw new OneLiteException(ResultCode.Busy, "cannot commit transaction - SQL statements in progress");
                     }

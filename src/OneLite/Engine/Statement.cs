@@ -292,6 +292,11 @@ public sealed class Statement : IDisposable
                                 _blocked = true;
                                 _conn.BlockedStatements++;
                             }
+                            else if (_machine.BlockedAtRead && !_blockedRead && !_blocked)
+                            {
+                                _blockedRead = true;
+                                _conn.BlockedReadStatements++;
+                            }
 
                             return failed;
                         }
@@ -301,7 +306,7 @@ public sealed class Statement : IDisposable
         }
     }
 
-    private bool _blocked;
+    private bool _blocked, _blockedRead;
 
     private void ReleaseBlocked()
     {
@@ -309,6 +314,12 @@ public sealed class Statement : IDisposable
         {
             _blocked = false;
             _conn.BlockedStatements--;
+        }
+
+        if (_blockedRead)
+        {
+            _blockedRead = false;
+            _conn.BlockedReadStatements--;
         }
     }
 

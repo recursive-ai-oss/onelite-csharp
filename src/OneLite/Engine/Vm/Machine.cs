@@ -123,6 +123,7 @@ internal sealed partial class Machine
         _finished = false;
         _failed = false;
         BlockedByBusy = false;
+        BlockedAtRead = false;
         _cleanupFailed = false;
         Error = null;
         DropTransient();
@@ -1505,6 +1506,7 @@ internal sealed partial class Machine
             if (s == PagerStatus.Error)
             {
                 Error = _conn.PagerError;
+                BlockedAtRead = Error is OneLiteException { Code: ResultCode.Busy };
                 return RunResult.Error;
             }
 

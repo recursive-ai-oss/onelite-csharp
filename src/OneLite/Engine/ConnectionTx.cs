@@ -158,6 +158,9 @@ public sealed partial class Connection
     /// </summary>
     internal int BlockedStatements;
 
+    /// <summary>Statements refused with SQLITE_BUSY asking for the read lock; they block COMMIT, RELEASE and SAVEPOINT until reset.</summary>
+    internal int BlockedReadStatements;
+
     /// <summary>Statements that have begun writing and not finished (a RETURNING statement not read to its end, or one in the middle of a step).</summary>
     internal int ActiveWriters;
 
