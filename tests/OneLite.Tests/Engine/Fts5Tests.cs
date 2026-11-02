@@ -286,6 +286,40 @@ public sealed class Fts5Tests : IDisposable
         Assert.Equal(shell, ours);
     }
 
+    /// <summary>Where the instances of the right side of a NOT whose left side matches nothing still show in highlight (below an OR or at the top, not as a child of an AND, and only when the left terms share no row).</summary>
+    [Fact]
+    public void NotWithAnEmptyLeftSideKeepsInstancesAsTheShellDoes()
+    {
+        NeedOracle();
+        string setup = "CREATE VIRTUAL TABLE t USING fts5(c0);" +
+            "INSERT INTO t(rowid, c0) VALUES(1,'fox epsilon bb'),(2,'epsilon bb aa x fox'),(3,'fox epsilon a'),(4,'epsilon'),(5,'fox epsilon bb x aa'),(6,'a i fox');";
+        string[] matches =
+        [
+            "(zzz NOT fox) OR epsilon", "a AND (zzz NOT fox) OR epsilon", "a AND zzz NOT fox AND i OR epsilon", "epsilon OR (a AND zzz NOT fox)",
+            "a AND (zzz NOT fox OR epsilon)", "epsilon AND (a OR (zzz NOT fox))", "\"aa bb\" NOT fox OR epsilon", "aa AND bb NOT fox OR epsilon",
+            "\"zz yy\" NOT fox OR epsilon", "\"aa bb\" NOT fo* OR epsilon",
+        ];
+        string[] qs = [.. matches.Select(m => $"SELECT rowid, highlight(t, 0, '[', ']') FROM t WHERE t MATCH '{m}' ORDER BY rowid")];
+        (string ours, string shell) = Both(setup, qs);
+        Assert.Equal(shell, ours);
+    }
+
+    [Fact]
+    public void SnippetWindowsOfTrigramPhrasesMatchTheShell()
+    {
+        NeedOracle();
+        string setup = "CREATE VIRTUAL TABLE t USING fts5(x, tokenize='trigram');" +
+            "INSERT INTO t VALUES('sky, II. GENERALIZATION  gamma. beta quick, ZOE. ipsum. a'),('ilao hbfd lphm dhag nifm fceo eeaa. ggff jkgg zqxjk alnf eick jakc jljp');";
+        var qs = new List<string>();
+        foreach (int n in new[] { 6, 8, 11, 14 })
+        {
+            qs.Add($"SELECT rowid, snippet(t, 0, '[', ']', '~', {n}) FROM t WHERE t MATCH 'quick OR zqxjk' ORDER BY rowid");
+        }
+
+        (string ours, string shell) = Both(setup, [.. qs]);
+        Assert.Equal(shell, ours);
+    }
+
     [Fact]
     public void ErrorsMatchTheShell()
     {

@@ -434,7 +434,8 @@ internal static class Fts5Aux
             }
         }
 
-        bool Starts(int t) => t == 0 || SentenceStart(text, toks[t - 1].End, toks[t].Start);
+        // tokens that overlap (trigram) have no gap between them: the characters before the token are looked at instead
+        bool Starts(int t) => t == 0 || SentenceStart(text, toks[t - 1].End <= toks[t].Start ? toks[t - 1].End : 0, toks[t].Start);
 
         // observed: a window may start at the latest sentence start at or before the match when that start reaches the match (the
         // text start is a sentence start). A start at the match itself is not used for the last instance, and for any other instance

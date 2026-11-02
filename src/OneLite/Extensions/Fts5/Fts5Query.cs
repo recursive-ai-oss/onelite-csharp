@@ -736,7 +736,81 @@ internal sealed class QueryEval
         return res;
     }
 
-    internal List<DocMatch> Eval(QNode n)
+    /// <summary>The rows in which the terms of a node meet, whatever their positions (a phrase that never occurs can still have some).</summary>
+    private HashSet<long> Candidates(QNode n)
+    {
+        switch (n)
+        {
+            case QPhrase p:
+            {
+                HashSet<long>? acc = null;
+                foreach (PTerm t in p.Terms)
+                {
+                    var rows = new HashSet<long>();
+                    foreach (Posting po in Postings(t))
+                    {
+                        rows.Add(po.Rowid);
+                    }
+
+                    if (acc is null)
+                    {
+                        acc = rows;
+                    }
+                    else
+                    {
+                        acc.IntersectWith(rows);
+                    }
+                }
+
+                return acc ?? [];
+            }
+
+            case QNear near:
+            {
+                HashSet<long>? acc = null;
+                foreach (QPhrase p in near.Phrases)
+                {
+                    HashSet<long> rows = Candidates(p);
+                    if (acc is null)
+                    {
+                        acc = rows;
+                    }
+                    else
+                    {
+                        acc.IntersectWith(rows);
+                    }
+                }
+
+                return acc ?? [];
+            }
+
+            case QBin b:
+            {
+                HashSet<long> l = Candidates(b.L);
+                if (b.Op == '-')
+                {
+                    return l;
+                }
+
+                HashSet<long> r = Candidates(b.R);
+                if (b.Op == '&')
+                {
+                    l.IntersectWith(r);
+                }
+                else
+                {
+                    l.UnionWith(r);
+                }
+
+                return l;
+            }
+
+            default:
+                return [];
+        }
+    }
+
+    internal List<DocMatch> Eval(QNode n, bool parentIsAnd = false)
     {
         switch (n)
         {
@@ -746,9 +820,12 @@ internal sealed class QueryEval
                 return EvalNear(near);
             case QBin b:
             {
-                List<DocMatch> l = Eval(b.L);
-                List<DocMatch> r = Eval(b.R);
-                if (b.Op == '-' && l.Count == 0 && r.Count > 0)
+                List<DocMatch> l = Eval(b.L, b.Op == '&');
+                List<DocMatch> r = Eval(b.R, b.Op == '&');
+                // observed: as a child of an AND the reference never reaches the right side of a NOT whose left side is empty (below an
+                // OR that is itself below an AND it does), and when the left side's terms do share rows (a phrase that never occurs) the
+                // right side does not stay on its first row either
+                if (b.Op == '-' && l.Count == 0 && r.Count > 0 && !parentIsAnd && Candidates(b.L).Count == 0)
                 {
                     _leaks.Add(r[0]);
                 }
