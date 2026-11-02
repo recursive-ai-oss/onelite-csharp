@@ -81,7 +81,7 @@ internal sealed class QueryParser
     }
 
     /// <summary>Parses <paramref name="query"/>; <paramref name="column"/> restricts everything to one column (the <c>col MATCH</c> form), or -1.</summary>
-    internal static (QNode? Root, List<QPhrase> Phrases) Parse(Fts5Config cfg, string query, int column)
+    internal static (QNode? Root, List<QPhrase> Phrases, List<QNode> Leaks) Parse(Fts5Config cfg, string query, int column)
     {
         var p = new QueryParser(cfg, query);
         p.Next();
@@ -113,8 +113,9 @@ internal sealed class QueryParser
             throw Fts5Config.Err("fts5: column queries are not supported (detail=none)");
         }
 
-        QNode? root = Simplify(n);
-        return (root is QNone ? null : root, p.Phrases);
+        var leaks = new List<QNode>();
+        QNode? root = Simplify(n, ' ', leaks);
+        return (root is QNone ? null : root, p.Phrases, leaks);
     }
 
     /// <summary>Drops phrases that tokenized to nothing (a one-letter word under trigram): they neither match nor restrict.</summary>
@@ -125,7 +126,11 @@ internal sealed class QueryParser
         return b;
     }
 
-    private static QNode? Simplify(QNode n)
+    /// <summary>
+    /// Simplifies the tree. The right side of a NOT whose left side was an empty phrase is collected in <paramref name="leaks"/> unless the NOT is a
+    /// child of an AND: the reference still positions it (see <c>EvalRoot</c>).
+    /// </summary>
+    private static QNode? Simplify(QNode n, char parent, List<QNode> leaks)
     {
         switch (n)
         {
@@ -135,13 +140,18 @@ internal sealed class QueryParser
                 nr.Phrases.RemoveAll(x => x.Terms.Count == 0);
                 return nr.Phrases.Count == 0 ? null : nr.Phrases.Count == 1 ? nr.Phrases[0] : nr;
             case QBin b:
-                QNode? l = Simplify(b.L);
-                QNode? r = Simplify(b.R);
+                QNode? l = Simplify(b.L, b.Op, leaks);
+                QNode? r = Simplify(b.R, b.Op, leaks);
                 switch (b.Op)
                 {
                     case '|':
                         return l is null or QNone ? r : r is null or QNone ? l : Join(b, l, r);
                     case '-':
+                        if (l is null && r is not null and not QNone && parent != '&')
+                        {
+                            leaks.Add(r);
+                        }
+
                         return l is null or QNone ? l : r is null or QNone ? l : Join(b, l, r);
                     default: // an empty phrase is dropped from an implicit AND but makes an explicit one match nothing
                         if (l is QNone || r is QNone || (!b.Implicit && (l is null || r is null)))
@@ -710,10 +720,19 @@ internal sealed class QueryEval
     private readonly List<DocMatch> _leaks = [];
 
     /// <summary>Evaluates the whole query tree, with the NOT quirk above applied to the result.</summary>
-    internal List<DocMatch> EvalRoot(QNode n)
+    internal List<DocMatch> EvalRoot(QNode n, List<QNode>? emptyLeft = null)
     {
         _leaks.Clear();
         List<DocMatch> res = Eval(n);
+        foreach (QNode right in emptyLeft ?? [])
+        {
+            List<DocMatch> rr = Eval(right);
+            if (rr.Count > 0)
+            {
+                _leaks.Add(rr[0]);
+            }
+        }
+
         foreach (DocMatch leak in _leaks)
         {
             foreach (DocMatch d in res)

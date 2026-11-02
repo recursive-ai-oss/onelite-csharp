@@ -50,12 +50,13 @@ modified by both engines. Tokenizers (`unicode61`, `ascii`, `porter`, `trigram`)
     least 6 more in a window of 8). The best score wins and the first candidate wins ties. A column whose whole text fits in `n` tokens is
     its own window and gets no bonus.
   - *Output.* A phrase that began before the window is not marked. A snippet that reaches the end of the text keeps the text after its last
-    token; one starting at token 0 starts at the text start. Unindexed columns are returned whole. For `snippet(t, -1, ...)` the column
-    with the best score wins; ties keep the first column.
+    token; one starting at token 0 starts at the text start. Unindexed columns are returned whole; with a `detail` below full their matches are found by tokenizing the text and marked in the
+    whole text, and such a column takes part in the choice for `snippet(t, -1, ...)`, where the column with the best score wins and ties keep
+    the first column.
 
 ## Known differences (open)
 
-- `snippet()` of an UNINDEXED column in a `detail=column` or `detail=none` table, when that column's own text contains a token the query matches (found by tokenizing the text): for many such texts the reference shell fails with "database disk image is malformed" (SQLITE_CORRUPT) on files that pass its own integrity check, for others it marks the match or returns the text; we mark the matches in a window and never fail. A text with no match is returned whole, as with `detail=full`. Seen in 1 to 4 of every 130 random cases per seed.
+- `snippet()` of an UNINDEXED column in a `detail=column` or `detail=none` table, when that column's own text contains a token the query matches (found by tokenizing the text): for many such texts (every one seen has its first match after the first token) the reference shell fails with "database disk image is malformed" (SQLITE_CORRUPT) on files that pass its own integrity check; for the others it marks the matches in the whole text, which is what we do in every case. Seen in 1 to 4 of every 130 random cases per seed.
 - `bm25`/`highlight`/`snippet` quirks that are matched on purpose: when the left side of a NOT has no row in which its terms even meet (a term or prefix that is absent, a phrase or `NEAR` whose terms never share a row), the right side stays on its first row, and the instances of that row's phrases still show in `highlight` and `snippet`, and count in `bm25`, if the row matches another way (a branch of an `OR`, or the top of the query). It does not happen when the NOT is a direct child of an `AND` (below an `OR` that is below an `AND` it does), nor when the left terms share a row but never form the phrase. A segment recorded with first and last page 0 and no page 0 is empty; a combining mark continues a token but never starts one; a contentless table without size records reads each indexed column's size as -1.
 - Query nesting: the reference parser stack holds 100 entries and reports "fts5: parser stack overflow". Ours counts one entry for a bare parenthesis and three for one that follows an operator or a column filter, and agrees on plain, `AND`/`OR`/`NOT` and column-filter chains; the exact limit differs by a level or so in chains that mix several pending operators.
 - `contentless_delete`, `tokendata`, `locale` and `fts5_locale()` are not implemented. UTF-8 and UTF-16 databases both work.

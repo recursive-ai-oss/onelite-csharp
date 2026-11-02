@@ -531,11 +531,6 @@ internal static class Fts5Aux
             bestCol = 0;
             for (int i = 0; i < ncol; i++)
             {
-                if (c.Config.Unindexed[i])
-                {
-                    continue;
-                }
-
                 byte[]? colText = c.ColumnText(i);
                 if (colText is null)
                 {
@@ -560,10 +555,12 @@ internal static class Fts5Aux
         }
 
         // nothing is tokenized in an unindexed column: the whole text. With less detail than full the matches are found in the text
-        // instead; the reference marks them in a text that fits the window and fails with SQLITE_CORRUPT on a longer one (documented)
-        if (c.Config.Unindexed[bestCol] && (c.Config.Detail == DetailMode.Full || Inst(c, bestCol).Count == 0))
+        // instead and marked in the whole text; the reference fails with SQLITE_CORRUPT for many such texts (documented)
+        if (c.Config.Unindexed[bestCol])
         {
-            return Encoding.UTF8.GetString(text);
+            return c.Config.Detail == DetailMode.Full || Inst(c, bestCol).Count == 0
+                ? Encoding.UTF8.GetString(text)
+                : Highlight(c, bestCol, open, close);
         }
 
         var toks = new Toks();
