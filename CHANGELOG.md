@@ -12,7 +12,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Fixed
 
-- FTS5 `snippet()` now picks the same window as SQLite-compatible reference output. The window is chosen by scoring candidate windows (distinct phrases first, then instances), with a bonus for a window that starts at a sentence start and a larger one for the start of the text; a sentence start at the match itself, phrases that begin inside a window but end past it, and the column choice of `snippet(t, -1, ...)` follow the observed rules, which are written down in `docs/fts5.md`. In a 25-minute random differential run, 17 of 647 cases used to differ and none does now.
+- FTS5 `snippet()` now picks the same window as SQLite-compatible reference output. The window is chosen by scoring candidate windows (distinct phrases first, then instances), with a bonus for a window that starts at a sentence start and a larger one for the start of the text; a sentence start at the match itself, phrases that begin inside a window but end past it, and the column choice of `snippet(t, -1, ...)` follow the observed rules, which are written down in `docs/fts5.md`. In a 25-minute random differential run against the reference shell, 17 of 647 cases used to differ in the window; none does now. Highlight and `bm25` follow the reference where a `NOT` has an empty left side, and a `trigram` sentence start is found the way the reference finds it.
 
 ## [0.2.0-preview.2]
 
