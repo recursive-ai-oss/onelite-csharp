@@ -147,6 +147,28 @@ public sealed partial class Database : IDisposable, IAsyncDisposable
         return db;
     }
 
+    /// <summary>Asynchronous twin of <see cref="OpenReadOnly"/>: awaits the backend for the existence check, so it works on a backend that has only asynchronous calls.</summary>
+    /// <param name="path">The database file.</param>
+    /// <param name="options">Settings; null means the defaults.</param>
+    /// <param name="ct">Observed while the check waits for I/O.</param>
+    /// <returns>The database.</returns>
+    /// <exception cref="OneLiteException">SQLITE_CANTOPEN if the file does not exist.</exception>
+    public static async ValueTask<Database> OpenReadOnlyAsync(string path, DatabaseOptions? options = null, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(path);
+        var db = new Database(path, options ?? new DatabaseOptions());
+        if (!await db.ExistsAsync(ct).ConfigureAwait(false))
+        {
+            throw new OneLiteException(ResultCode.CantOpen, "unable to open database file");
+        }
+
+        return db;
+    }
+
+    /// <summary>True if the database file exists (always true for an in-memory database).</summary>
+    private async ValueTask<bool> ExistsAsync(CancellationToken ct)
+        => _memory || await _vfs.AccessAsync(_path, AccessMode.Exists, ct).ConfigureAwait(false);
+
     /// <summary>Opens a database file for reading and writing, creating it when it does not exist (SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE).</summary>
     /// <param name="path">The database file.</param>
     /// <param name="options">Settings; null means the defaults.</param>
@@ -185,7 +207,7 @@ public sealed partial class Database : IDisposable, IAsyncDisposable
     /// <exception cref="OperationCanceledException">The token was cancelled while the connection waited for I/O.</exception>
     public async ValueTask<Connection> ConnectAsync(CancellationToken ct = default)
     {
-        Connection conn = NewConnection();
+        Connection conn = await NewConnectionAsync(ct).ConfigureAwait(false);
         if (_options.JournalMode == JournalMode.Wal && !_readOnly && !_memory)
         {
             using Statement st = conn.Prepare("PRAGMA journal_mode=WAL");
@@ -198,6 +220,18 @@ public sealed partial class Database : IDisposable, IAsyncDisposable
     }
 
     private Connection NewConnection()
+    {
+        (PagerOptions po, IVfs vfs, BusyPolicy busy) = ConnectionParts();
+        return Wrap(StorageEngine.Open(vfs, _path, po), vfs, busy);
+    }
+
+    private async ValueTask<Connection> NewConnectionAsync(CancellationToken ct)
+    {
+        (PagerOptions po, IVfs vfs, BusyPolicy busy) = ConnectionParts();
+        return Wrap(await StorageEngine.OpenAsync(vfs, _path, po, ct).ConfigureAwait(false), vfs, busy);
+    }
+
+    private (PagerOptions Options, IVfs Vfs, BusyPolicy Busy) ConnectionParts()
     {
         var busy = new BusyPolicy(_options.Busy, _options.BusyTimeoutMs);
         var po = new PagerOptions
@@ -218,7 +252,12 @@ public sealed partial class Database : IDisposable, IAsyncDisposable
         };
         // A private in-memory database belongs to its connection; only a shared-cache URI shares one between connections.
         IVfs vfs = _memory && !_memoryShared ? new MemoryVfs() : _vfs;
-        return new Connection(StorageEngine.Open(vfs, _path, po))
+        return (po, vfs, busy);
+    }
+
+    private Connection Wrap(StorageEngine engine, IVfs vfs, BusyPolicy busy)
+    {
+        return new Connection(engine)
         {
             ForeignKeysEnabled = _options.ForeignKeys,
             OpenedReadOnly = _readOnly,
@@ -242,7 +281,7 @@ public sealed partial class Database : IDisposable, IAsyncDisposable
 /// One connection to a database: a pager, the cached schema and the statements prepared on it. Not thread-safe.
 /// A connection reads the file only while a statement is running (or while it loads the schema), under the SHARED lock.
 /// </summary>
-public sealed partial class Connection : IDisposable
+public sealed partial class Connection : IDisposable, IAsyncDisposable
 {
     private readonly StorageEngine _engine;
     private readonly Pager _pager;
@@ -305,6 +344,139 @@ public sealed partial class Connection : IDisposable
         var st = new Statement(this, sql);
         _statements.Add(st);
         return st;
+    }
+
+    /// <summary>
+    /// Compiles the first SQL statement of <paramref name="sql"/> like <see cref="Prepare(string)"/>, awaiting the VFS for the I/O of loading the schema, so it works on
+    /// a backend that has only asynchronous calls. When the schema is already loaded no I/O happens and the task is complete.
+    /// </summary>
+    /// <param name="sql">SQL text. Only the first statement is compiled; the rest is <see cref="Statement.Tail"/>.</param>
+    /// <param name="ct">Observed while the schema load waits for I/O; cancelling ends its read transaction and throws <see cref="OperationCanceledException"/>.</param>
+    /// <returns>The prepared statement.</returns>
+    /// <exception cref="OneLiteException">As <see cref="Prepare(string)"/>.</exception>
+    /// <exception cref="OperationCanceledException">The token was cancelled while the schema load waited for I/O.</exception>
+    public ValueTask<Statement> PrepareAsync(string sql, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(sql);
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (_catalog is not null)
+        {
+            return new ValueTask<Statement>(Prepare(sql));
+        }
+
+        return PrepareSlowAsync(sql, ct);
+    }
+
+    private async ValueTask<Statement> PrepareSlowAsync(string sql, CancellationToken ct)
+    {
+        // Compile with synchronous schema loads forbidden: a statement that needs the schema throws CatalogNotLoadedException before it does anything
+        // else, the schema is then loaded by awaiting the VFS, and the compile runs again against the loaded catalog.
+        for (int attempt = 0; attempt < 3; attempt++)
+        {
+            _syncSchemaLoadForbidden = true;
+            try
+            {
+                return Prepare(sql);
+            }
+            catch (CatalogNotLoadedException)
+            {
+            }
+            finally
+            {
+                _syncSchemaLoadForbidden = false;
+            }
+
+            await EnsureCatalogAsync(ct).ConfigureAwait(false);
+        }
+
+        return Prepare(sql);
+    }
+
+    private bool _syncSchemaLoadForbidden;
+    private bool _deferAbortRead;
+    private bool _endReadOwed;
+
+    /// <summary>Thrown inside the compile of <see cref="PrepareAsync(string, CancellationToken)"/> when the schema must be loaded first; never escapes.</summary>
+    private sealed class CatalogNotLoadedException : Exception
+    {
+    }
+
+    /// <summary>Loads the schema if it is not loaded, awaiting the VFS.</summary>
+    internal async ValueTask EnsureCatalogAsync(CancellationToken ct)
+    {
+        if (_catalog != null)
+        {
+            return;
+        }
+
+        for (; ; )
+        {
+            RunResult r = ReloadSchemaStep();
+            if (r == RunResult.Done)
+            {
+                return;
+            }
+
+            try
+            {
+                await _pager.ExecuteAsync(ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                // Like sqlite3_interrupt: drop the request and end the read transaction the load began.
+                _pager.Abandon();
+                if (_rs > 0)
+                {
+                    ReaderDone();
+                }
+
+                _rs = 0;
+                _loader = null;
+
+                // The read transaction may be half begun (the lock taken, page 1 not yet read): end it either way.
+                if (_readers == 0)
+                {
+                    await WithAsyncAbort(AbortRead).ConfigureAwait(false);
+                }
+
+                throw;
+            }
+        }
+    }
+
+    /// <summary>Ends a read transaction that an abort left owed, awaiting the VFS (see <see cref="AbortRead"/>).</summary>
+    internal async ValueTask FlushAbortReadAsync()
+    {
+        if (!_endReadOwed)
+        {
+            return;
+        }
+
+        _endReadOwed = false;
+        try
+        {
+            await _pager.EndReadAsync().ConfigureAwait(false);
+        }
+        catch (OneLiteException)
+        {
+            // As in AbortRead: a lock that cannot be released goes with the file handle.
+        }
+    }
+
+    /// <summary>Runs <paramref name="work"/> with read-transaction aborts deferred, then ends the read transaction by awaiting the VFS.</summary>
+    internal async ValueTask WithAsyncAbort(Action work)
+    {
+        _deferAbortRead = true;
+        try
+        {
+            work();
+        }
+        finally
+        {
+            _deferAbortRead = false;
+        }
+
+        await FlushAbortReadAsync().ConfigureAwait(false);
     }
 
     /// <summary>Compiles the first SQL statement of <paramref name="sql"/>, optionally with a counter in each table loop so <see cref="Statement.Plan"/> reports actual row counts.</summary>
@@ -604,6 +776,12 @@ public sealed partial class Connection : IDisposable
         try
         {
             _pager.Abandon();
+            if (_deferAbortRead)
+            {
+                _endReadOwed = true;
+                return;
+            }
+
             _pager.EndReadSync();
         }
         catch (OneLiteException)
@@ -924,6 +1102,11 @@ public sealed partial class Connection : IDisposable
             return;
         }
 
+        if (_syncSchemaLoadForbidden)
+        {
+            throw new CatalogNotLoadedException();
+        }
+
         for (; ; )
         {
             RunResult r = ReloadSchemaStep();
@@ -934,6 +1117,32 @@ public sealed partial class Connection : IDisposable
 
             _pager.ExecuteSync();
         }
+    }
+
+    /// <summary>
+    /// Closes the connection like <see cref="Dispose"/>, awaiting the VFS to release the file lock, so it works on a backend that has only asynchronous calls.
+    /// </summary>
+    /// <returns>A task that completes when the connection is closed.</returns>
+    public async ValueTask DisposeAsync()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        foreach (Statement s in _statements.ToArray())
+        {
+            await s.DisposeAsync().ConfigureAwait(false);
+        }
+
+        _disposed = true;
+        foreach (AttachedDb a in Attached)
+        {
+            a.Dispose();
+        }
+
+        _temp?.Dispose();
+        await _engine.DisposeAsync().ConfigureAwait(false);
     }
 
     /// <summary>Closes the connection after finalizing its statements. Releases the file lock.</summary>

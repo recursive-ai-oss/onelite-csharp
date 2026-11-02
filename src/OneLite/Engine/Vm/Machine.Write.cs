@@ -56,6 +56,15 @@ internal sealed partial class Machine
         }
     }
 
+    /// <summary>Asynchronous twin of <see cref="FinishWriteSync"/>.</summary>
+    internal async ValueTask FinishWriteAsync()
+    {
+        while (_writing && FinishCleanup(false) == RunResult.Pending)
+        {
+            await _conn.Pager.ExecuteAsync().ConfigureAwait(false);
+        }
+    }
+
     /// <summary>COMMIT, or the RELEASE that commits, fails while a deferred foreign key is violated; the transaction stays open.</summary>
     private void CheckDeferredForeignKeys()
     {
@@ -2160,6 +2169,7 @@ internal sealed partial class Machine
                             }
                             else
                             {
+                                pg.RequireBlockingBackend("PRAGMA journal_mode");
                                 PagerStatus ps;
                                 while ((ps = pg.ChangeJournalMode(want)) == PagerStatus.Pending)
                                 {
@@ -2234,6 +2244,7 @@ internal sealed partial class Machine
                         break;
                     }
 
+                    pg.RequireBlockingBackend("PRAGMA wal_checkpoint");
                     a.EndReadQuiet();
                     PagerStatus cs;
                     while ((cs = pg.Checkpoint(mode)) == PagerStatus.Pending)

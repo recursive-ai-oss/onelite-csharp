@@ -558,6 +558,7 @@ internal sealed partial class Machine
                 }
 
                 int limit = call.Arg is not null && int.TryParse(call.Arg, out int n) && n > 0 ? n : 100;
+                _conn.PagerOf(call.Db).RequireBlockingBackend("integrity_check");
                 var chk = new BtIntegrity(ctx, _conn.PagerOf(call.Db).ExecuteSync);
                 chk.Check(trees);
                 IReadOnlyList<string> problems = chk.Problems;

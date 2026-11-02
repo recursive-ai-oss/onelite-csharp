@@ -53,7 +53,7 @@ public enum ColumnType
 /// <para>Parameters: <c>?</c>, <c>?NNN</c>, <c>:name</c>, <c>@name</c> and <c>$name</c>; bind them with the <c>Bind</c> methods before the first step. Unbound parameters are NULL.</para>
 /// <para>Column readers follow the C API's conversions. Text and blob spans point into the page cache or the statement's registers and are valid until the next <see cref="Advance"/>, <see cref="Step"/> or <see cref="Reset"/>.</para>
 /// </summary>
-public sealed class Statement : IDisposable
+public sealed class Statement : IDisposable, IAsyncDisposable
 {
     private enum Phase : byte
     {
@@ -374,7 +374,20 @@ public sealed class Statement : IDisposable
             }
             catch (OperationCanceledException)
             {
-                Abandon();
+                if (_pending)
+                {
+                    _conn.Pager.Abandon();
+                    _pending = false;
+                }
+
+                await ResetAsync().ConfigureAwait(false);
+
+                // Cancelled while the read transaction was half begun (the lock taken, page 1 not read): no statement holds it yet, so end it here.
+                if (_conn.ActiveReaders == 0)
+                {
+                    await _conn.WithAsyncAbort(_conn.AbortRead).ConfigureAwait(false);
+                }
+
                 throw;
             }
 
@@ -422,6 +435,56 @@ public sealed class Statement : IDisposable
     }
 
     internal void AbortForRollback() => _machine.Abort();
+
+    /// <summary>
+    /// Returns the statement to its initial state like <see cref="Reset"/>, awaiting the VFS to end the read transaction, so it works on a backend that has
+    /// only asynchronous calls. Bound parameters are kept.
+    /// </summary>
+    /// <returns>A task that completes when the statement is reset.</returns>
+    public async ValueTask ResetAsync()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (_pending)
+        {
+            _conn.Pager.Abandon();
+            _pending = false;
+        }
+
+        if (_machine.Writing)
+        {
+            await _machine.FinishWriteAsync().ConfigureAwait(false);
+        }
+
+        await _conn.WithAsyncAbort(ResetAfterWrite).ConfigureAwait(false);
+    }
+
+    private void ResetAfterWrite()
+    {
+        _machine.ReleaseForReset();
+        _machine.Rewind();
+        _error = null;
+        _phase = Phase.Ready;
+    }
+
+    /// <summary>Finalizes the statement like <see cref="Dispose"/>, awaiting the VFS to end its read transaction.</summary>
+    /// <returns>A task that completes when the statement is finalized.</returns>
+    public async ValueTask DisposeAsync()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        if (_pending)
+        {
+            _conn.Pager.Abandon();
+            _pending = false;
+        }
+
+        await _conn.WithAsyncAbort(_machine.Close).ConfigureAwait(false);
+        _disposed = true;
+        _conn.Forget(this);
+    }
 
     /// <summary>Finalizes the statement.</summary>
     public void Dispose()

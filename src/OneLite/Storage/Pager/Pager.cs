@@ -9,7 +9,7 @@ namespace RecursiveAI.OneLite.Storage.Pager;
 /// <see cref="PendingIo"/> (<see cref="ExecuteSync"/> or <see cref="ExecuteAsync"/>) and call again with the same arguments.
 /// A pager is used by one thread at a time.
 /// </summary>
-public sealed partial class Pager : IDisposable
+public sealed partial class Pager : IDisposable, IAsyncDisposable
 {
     private enum TxState : byte
     {
@@ -259,6 +259,59 @@ public sealed partial class Pager : IDisposable
         catch (VfsException)
         {
             // Closing is best effort: the locks vanish with the descriptor anyway.
+        }
+
+        _jfile = null;
+        _dbFile = null;
+        DisposeCipher();
+    }
+
+    /// <summary>
+    /// Fails with MISUSE unless this pager's backend can answer a synchronous call that has to wait: operations that run to completion inside one VM
+    /// instruction (the integrity check, VACUUM, changing the journal mode, checkpoints) cannot suspend, so on a backend with only asynchronous calls
+    /// they report "backend requires the async driver" instead of failing half way (docs/engine.md).
+    /// </summary>
+    /// <param name="what">The operation, for the message.</param>
+    /// <exception cref="OneLiteException">SQLITE_MISUSE on a backend with only asynchronous calls.</exception>
+    internal void RequireBlockingBackend(string what)
+    {
+        if ((_vfs.Caps & (VfsCaps.Sync | VfsCaps.BlockingOk)) == 0)
+        {
+            throw new OneLiteException(ResultCode.Misuse, Msg(ResultCode.Misuse), what + ": backend requires the async driver");
+        }
+    }
+
+    /// <summary>
+    /// Asynchronous twin of <see cref="Dispose"/>: releases the file lock by awaiting the backend, so a backend with only asynchronous calls (browser storage)
+    /// really drops its lock. A WAL connection on a backend without synchronous calls closes without the checkpoint <see cref="Dispose"/> would run
+    /// (the log stays in place and the next connection recovers it, wal "Checkpointing").
+    /// </summary>
+    /// <returns>A task that completes when the files are closed.</returns>
+    public async ValueTask DisposeAsync()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        if (_wal != null && (_vfs.Caps & VfsCaps.Sync) != 0)
+        {
+            WalCloseSync();
+        }
+
+        _disposed = true;
+        try
+        {
+            _jfile?.Dispose();
+            if (_dbFile != null)
+            {
+                await _dbFile.UnlockAsync(LockLevel.None, CancellationToken.None).ConfigureAwait(false);
+                _dbFile.Dispose();
+            }
+        }
+        catch (VfsException)
+        {
+            // Closing is best effort, as in Dispose.
         }
 
         _jfile = null;

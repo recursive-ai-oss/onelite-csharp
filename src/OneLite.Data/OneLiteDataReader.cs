@@ -37,12 +37,22 @@ public sealed class OneLiteDataReader : DbDataReader
 
     private void Finish(Statement st)
     {
+        Count(st);
+        st.Dispose();
+    }
+
+    private async ValueTask FinishAsync(Statement st)
+    {
+        Count(st);
+        await st.DisposeAsync().ConfigureAwait(false);
+    }
+
+    private void Count(Statement st)
+    {
         if (!st.IsReadOnly)
         {
             _recordsAffected = (_recordsAffected < 0 ? 0 : _recordsAffected) + _connection.Engine.ChangesCount;
         }
-
-        st.Dispose();
     }
 
     /// <summary>Runs statements that return no columns, and stops at the first that does (stepping once to its first row).</summary>
@@ -102,7 +112,7 @@ public sealed class OneLiteDataReader : DbDataReader
         {
             while (true)
             {
-                Statement? st = _source.Next();
+                Statement? st = await _source.NextAsync(ct).ConfigureAwait(false);
                 if (st is null)
                 {
                     _st = null;
@@ -118,7 +128,7 @@ public sealed class OneLiteDataReader : DbDataReader
                         }
                     }
 
-                    Finish(st);
+                    await FinishAsync(st).ConfigureAwait(false);
                     continue;
                 }
 
@@ -141,14 +151,26 @@ public sealed class OneLiteDataReader : DbDataReader
         }
         catch (OneLiteException e)
         {
-            Abort();
+            await AbortAsync().ConfigureAwait(false);
             throw new OneLiteDataException(e);
         }
         catch (OperationCanceledException)
         {
-            Abort();
+            await AbortAsync().ConfigureAwait(false);
             throw;
         }
+    }
+
+    private async ValueTask AbortAsync()
+    {
+        if (_st is { } st)
+        {
+            _st = null;
+            await st.DisposeAsync().ConfigureAwait(false);
+        }
+
+        _closed = true;
+        _connection.Untrack(this);
     }
 
     private void Abort()
@@ -186,7 +208,7 @@ public sealed class OneLiteDataReader : DbDataReader
 
         Statement done = _st;
         _st = null;
-        Finish(done);
+        await FinishAsync(done).ConfigureAwait(false);
         await StartAsync(cancellationToken).ConfigureAwait(false);
         return _st is not null;
     }
@@ -602,12 +624,12 @@ public sealed class OneLiteDataReader : DbDataReader
             if (_st is { } st)
             {
                 _st = null;
-                Finish(st);
+                await FinishAsync(st).ConfigureAwait(false);
             }
 
             if ((_behavior & CommandBehavior.SingleResult) == 0)
             {
-                while (_source.Next() is { } next)
+                while (await _source.NextAsync(CancellationToken.None).ConfigureAwait(false) is { } next)
                 {
                     try
                     {
@@ -617,7 +639,7 @@ public sealed class OneLiteDataReader : DbDataReader
                     }
                     finally
                     {
-                        Finish(next);
+                        await FinishAsync(next).ConfigureAwait(false);
                     }
                 }
             }

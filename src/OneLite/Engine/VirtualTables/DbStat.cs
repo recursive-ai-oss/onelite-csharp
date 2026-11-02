@@ -168,6 +168,7 @@ internal sealed class DbStatCursor(DbStatTable table) : VCursor
 
     private static byte[] ReadPage(Connection conn, int db, IBtPageSource src, uint pgno)
     {
+        conn.PagerOf(db).RequireBlockingBackend("dbstat");
         PageHandle? h;
         BtStatus s;
         while ((s = src.GetPage(pgno, out h)) == BtStatus.Pending)

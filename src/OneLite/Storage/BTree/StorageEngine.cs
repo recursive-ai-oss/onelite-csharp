@@ -157,6 +157,10 @@ public sealed class StorageEngine : IDisposable
     /// <summary>Closes the pager. A transaction left open is rolled back.</summary>
     public void Dispose() => Pager.Dispose();
 
+    /// <summary>Closes the pager like <see cref="Dispose"/>, awaiting the VFS to release the lock.</summary>
+    /// <returns>A task that completes when the files are closed.</returns>
+    public ValueTask DisposeAsync() => Pager.DisposeAsync();
+
     /// <summary>Forwarded to the B-tree context: see the context's Changed member.</summary>
     internal Action<uint, long>? Changed { get; set; }
 
