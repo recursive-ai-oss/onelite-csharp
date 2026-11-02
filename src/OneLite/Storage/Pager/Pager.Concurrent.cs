@@ -85,6 +85,47 @@ public sealed partial class Pager
         ResetWriteState();
     }
 
+    /// <summary>True after a concurrent commit was given up part way (cancelled): the transaction's work and the write lock are gone and it can only be rolled back.</summary>
+    internal bool ConcurrentAbandoned { get; set; }
+
+    // The caller walked away from a concurrent commit (cancelled it, or reset the statement) between its steps. The lock goes now, not
+    // when somebody remembers to roll back; the cached changes go with it, so the transaction cannot be committed any more.
+    private void ConcAbandon()
+    {
+        if (_ccStep == 0 || _ccStep == 9)
+        {
+            return;
+        }
+
+        if (_ccStep == 1)
+        {
+            _ccStep = 0;
+            return;
+        }
+
+        WalConnection w = _wal!;
+        DiscardDirty();
+        try
+        {
+            if ((_wHeldExcl & (1 << WalIndex.WriteLock)) != 0)
+            {
+                w.Index.Shm.Lock(WalIndex.WriteLock, 1, ShmLockOptions.Unlock | ShmLockOptions.Exclusive);
+                _wHeldExcl &= ~(1 << WalIndex.WriteLock);
+            }
+        }
+        catch (VfsException)
+        {
+            // Unlocking cannot fail in the backends here; if one does, the lock goes with the handle.
+        }
+
+        w.Writing = false;
+        w.Hdr = w.Snap;
+        _state = w.ReadSlot >= 0 ? TxState.Read : TxState.None;
+        _concurrent = false;
+        _ccStep = 0;
+        ConcurrentAbandoned = true;
+    }
+
     private IEnumerable<IoRequest> ConcLockOp()
     {
         WalConnection w = _wal!;

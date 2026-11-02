@@ -462,4 +462,31 @@ public sealed class ConcurrentTransactionTests : IDisposable
         Assert.True(RecursiveAI.OneLite.Oracle.PinnedSqlite.IntegrityOk(path, out string detail), detail);
         Assert.All(Directory.GetFiles(_dir).Select(Path.GetFileName), f => Assert.Contains(f, s_standardFiles));
     }
+
+    [Theory]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(7)]
+    public void ReplayResumesAtEverySuspendPoint(int yieldEvery)
+    {
+        var opts = new DatabaseOptions { JournalMode = JournalMode.Wal, ConcurrentWrites = true, Synchronous = SynchronousMode.Off, YieldEvery = yieldEvery };
+        using Database db = Database.Open(Path.Combine(_dir, "y" + yieldEvery + ".db"), opts);
+        using Connection a = db.Connect();
+        using Connection b = db.Connect();
+        Run(a, "CREATE TABLE t(id INTEGER PRIMARY KEY, v INT)");
+        Run(a, "CREATE INDEX tv ON t(v)");
+        Run(a, "WITH RECURSIVE s(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM s WHERE n<400) INSERT INTO t SELECT n, n FROM s");
+        Run(a, "BEGIN CONCURRENT");
+        Run(b, "BEGIN CONCURRENT");
+        Run(a, "UPDATE t SET v = v + 1000 WHERE id BETWEEN 10 AND 60");
+        Run(a, "INSERT INTO t(v) VALUES (5000)");
+        Run(b, "UPDATE t SET v = v + 2000 WHERE id BETWEEN 300 AND 350");
+        Run(b, "DELETE FROM t WHERE id > 390");
+        Run(b, "COMMIT");
+        Run(a, "COMMIT");
+        Assert.Equal("ok", Q(a, "PRAGMA integrity_check"));
+        Assert.Equal("51", Q(a, "SELECT count(*) FROM t WHERE v BETWEEN 1010 AND 1060"));
+        Assert.Equal("51", Q(a, "SELECT count(*) FROM t WHERE v BETWEEN 2300 AND 2350"));
+        Assert.Equal("391", Q(a, "SELECT count(*) FROM t"));
+    }
 }

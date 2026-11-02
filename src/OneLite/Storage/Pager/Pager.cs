@@ -408,6 +408,7 @@ public sealed partial class Pager : IDisposable, IAsyncDisposable
     /// <summary>Drops the outstanding request without completing it (the caller will not re-enter the operation; call <see cref="Rollback"/> next if in a write transaction).</summary>
     public void Abandon()
     {
+        ConcAbandon();
         _pending = false;
         _hasComp = false;
         ClearProgress();

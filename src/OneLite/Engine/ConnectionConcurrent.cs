@@ -51,6 +51,7 @@ public sealed partial class Connection
 
         _pager.Trace = null;
         _pager.ConcurrentReplay = null;
+        _pager.ConcurrentAbandoned = false;
         ConcTx.Clear();
         ConcTx = null;
         ConcDoomed = false;

@@ -126,7 +126,7 @@ public sealed partial class Connection
     /// <summary>Starts the pager's write transaction (the RESERVED lock or the WAL write lock) and opens the pager savepoints for the stack entries that wait for it.</summary>
     internal PagerStatus BeginWriteStep(bool exclusive = false, bool noWait = false)
     {
-        if (ConcDoomed)
+        if (ConcDoomed || _pager.ConcurrentAbandoned)
         {
             throw new OneLiteException(ResultCode.BusySnapshot, Pager.Msg(ResultCode.BusySnapshot), "this transaction's commit was refused by a conflict; roll it back");
         }

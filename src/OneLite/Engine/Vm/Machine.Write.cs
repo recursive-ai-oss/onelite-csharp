@@ -1030,7 +1030,7 @@ internal sealed partial class Machine
                         throw new OneLiteException(ResultCode.Busy, "cannot commit transaction - SQL statements in progress");
                     }
 
-                    if (_conn.ConcDoomed)
+                    if (_conn.ConcDoomed || pg.ConcurrentAbandoned)
                     {
                         throw new OneLiteException(ResultCode.BusySnapshot, Pager.Msg(ResultCode.BusySnapshot), "this transaction's commit was refused by a conflict; roll it back");
                     }
