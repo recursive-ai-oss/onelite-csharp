@@ -106,7 +106,10 @@ internal sealed partial class Compiler
 
         string? arg = ps.Value is null ? null : ps.Value.Text;
         // Setting user_version writes page 1, so it opens a write transaction (flag 1); every pragma skips the schema-cookie check (flag 4).
-        Emit(Op.Transaction, 0, 0, 0, null, id == 10 && ps.Value is not null ? 1 | 4 : 4);
+        // Flag 32: these pragmas read the connection's settings, not the file, so inside a transaction they do not start the read transaction
+        // that the transaction would otherwise keep (observed on the reference: another connection can still write).
+        int noHold = id is 1 or 2 or 3 or 4 or 5 or 6 or 7 or 9 ? 32 : 0;
+        Emit(Op.Transaction, 0, 0, 0, null, (id == 10 && ps.Value is not null ? 1 | 4 : 4) | noHold);
         int b = NewRegs(cols.Length);
         Emit(Op.PragmaOp, id, b, cols.Length, arg, SlotOfSchema(ps.Schema));
         bool returns = arg is null || id is 1 or 4 or 6 or 7;

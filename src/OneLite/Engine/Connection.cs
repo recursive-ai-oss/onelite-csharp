@@ -435,6 +435,60 @@ public sealed partial class Connection : IDisposable
     /// <summary>Compiles one statement (parse, then name resolution against the schema).</summary>
     internal VmProgram CompileSql(string sql, out string tail, out bool empty, PlanMode mode = PlanMode.Off)
     {
+        try
+        {
+            return CompileSqlCore(sql, out tail, out empty, mode);
+        }
+        catch (OneLiteException e) when (e.Code == ResultCode.Error && _catalog != null
+            && (e.Message.StartsWith("no such ", StringComparison.Ordinal) || e.Message.Contains(" already exists", StringComparison.Ordinal)))
+        {
+            // A name that is missing (or taken) in the schema this connection loaded earlier may be there in the file now: another connection can
+            // have changed it since. The schema is read again and the statement compiled once more, as the reference does when a statement
+            // fails to compile and the schema cookie has moved. If the file cannot be read right now (another connection holds a lock), the
+            // original error stands, as it does there.
+            if (!TryReloadSchema())
+            {
+                throw;
+            }
+
+            return CompileSqlCore(sql, out tail, out empty, mode);
+        }
+    }
+
+    // Reads the schema again; the loaded one is replaced only if that works. False if the file cannot be read now (a lock held by another
+    // connection): the schema already loaded stays in use.
+    private bool TryReloadSchema()
+    {
+        Catalog? old = _catalog;
+        try
+        {
+            for (; ; )
+            {
+                RunResult r = ReloadSchemaStep();
+                if (r == RunResult.Done)
+                {
+                    break;
+                }
+
+                _pager.ExecuteSync();
+            }
+        }
+        catch (OneLiteException e) when (e.Code == ResultCode.Busy)
+        {
+            _catalog = old;
+            return false;
+        }
+
+        if (!ReferenceEquals(old, _catalog))
+        {
+            DisconnectVirtuals(old);
+        }
+
+        return true;
+    }
+
+    private VmProgram CompileSqlCore(string sql, out string tail, out bool empty, PlanMode mode)
+    {
         SqlStatement? stmt = SqlParser.ParseOne(sql, 0, out int end);
         tail = end >= sql.Length ? string.Empty : sql[end..];
         empty = stmt is null;

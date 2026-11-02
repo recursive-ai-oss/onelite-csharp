@@ -23,13 +23,16 @@ internal sealed partial class Compiler
                     throw Unsupported("BEGIN CONCURRENT");
                 }
 
-                Emit(Op.TxControl, 0);
                 if (b.Mode is BeginMode.Immediate or BeginMode.Exclusive)
                 {
                     // IMMEDIATE takes the write lock now (lockingv3 RESERVED / the WAL write lock). EXCLUSIVE also takes EXCLUSIVE in rollback mode
-                    // (bit 16), which keeps readers out; in WAL mode it is IMMEDIATE.
+                    // (bit 16), which keeps readers out; in WAL mode it is IMMEDIATE. The lock comes first, as in the reference: when it is busy
+                    // the statement fails with SQLITE_BUSY and the connection stays in autocommit mode, and inside a transaction a busy lock is
+                    // reported before "cannot start a transaction within a transaction".
                     Emit(Op.Transaction, 0, 0, 0, null, 1 | 4 | (b.Mode == BeginMode.Exclusive ? 16 : 0));
                 }
+
+                Emit(Op.TxControl, 0);
 
                 return Finish0(1);
             case CommitStatement:

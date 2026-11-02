@@ -77,8 +77,9 @@ public sealed partial class Pager
 
         if (_state == TxState.Write)
         {
-            // BEGIN EXCLUSIVE after a write began (lang_transaction): rollback mode raises the lock now; WAL has no exclusive writer lock.
-            return exclusive && _wal == null ? TakeLock(LockLevel.Exclusive) : PagerStatus.Ok;
+            // A write has already begun. Observed on the reference: BEGIN EXCLUSIVE here takes no further lock (it then fails with "cannot start
+            // a transaction within a transaction", and other connections can still read).
+            return PagerStatus.Ok;
         }
 
         if (_opts.ReadOnly)

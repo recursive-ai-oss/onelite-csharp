@@ -122,6 +122,7 @@ internal sealed partial class Machine
         _busyTry = 0;
         _finished = false;
         _failed = false;
+        _cleanupFailed = false;
         Error = null;
         DropTransient();
         _rowSet?.Clear();
@@ -212,8 +213,13 @@ internal sealed partial class Machine
         return BtStatus.Ok;
     }
 
+    // Whether this cleanup has already seen a failure. The cleanup can suspend after the write side has failed (while the read transaction
+    // ends), and the re-entry arrives with error=false; without this memory a failed commit (SQLITE_BUSY at the EXCLUSIVE lock) came back as success.
+    private bool _cleanupFailed;
+
     private RunResult FinishCleanup(bool error)
     {
+        error |= _cleanupFailed;
         // Pins first, then the read transaction (pager rule: all pages released before EndRead).
         foreach (VmCursor c in _cur)
         {
@@ -238,6 +244,7 @@ internal sealed partial class Machine
             }
 
             error |= fw == RunResult.Error;
+            _cleanupFailed = error;
         }
 
         DropTransient();
@@ -255,11 +262,13 @@ internal sealed partial class Machine
             {
                 Error = _conn.PagerError;
                 _finished = true;
+                _cleanupFailed = false;
                 return RunResult.Error;
             }
         }
 
         _finished = true;
+        _cleanupFailed = false;
         return error ? RunResult.Error : RunResult.Done;
     }
 
@@ -1446,7 +1455,13 @@ internal sealed partial class Machine
                 }
             }
 
-            _conn.HoldForTransaction();
+            if ((ins.P5 & 1) == 0 && (ins.P5 & 32) == 0)
+            {
+                _conn.HoldForTransaction();
+            }
+
+            // A write statement keeps the read transaction for the open transaction only once it has the write lock: when the lock is refused
+            // the read lock taken just for it goes too (lockingv3), so a failed write does not block the connection that holds RESERVED.
             _dml |= (ins.P5 & 8) != 0;
             _txStep = 1;
         }
@@ -1484,8 +1499,19 @@ internal sealed partial class Machine
             return RunResult.Done;
         }
 
+        _beginsTransaction = (ins.P5 & 4) != 0;
         RunResult w = DoTransactionWrite((ins.P5 & 16) != 0);
-        return w == RunResult.Done && _txStep >= 20 ? DoTransaction(ref ins) : w;
+        if (w == RunResult.Done && _txStep >= 20)
+        {
+            return DoTransaction(ref ins);
+        }
+
+        if (w == RunResult.Done)
+        {
+            _conn.HoldForTransaction();
+        }
+
+        return w;
     }
 
     // ------------------------------------------------------------------ seeks
