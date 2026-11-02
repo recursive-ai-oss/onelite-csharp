@@ -209,6 +209,83 @@ public sealed class Fts5Tests : IDisposable
         Assert.Equal(shell, ours);
     }
 
+    /// <summary>A text of <paramref name="length"/> filler tokens with the given words at the given token positions and a full stop before each token in <paramref name="sentenceStarts"/>.</summary>
+    private static string Filler(int length, (int At, string Word)[] words, int[] sentenceStarts)
+    {
+        var sb = new StringBuilder();
+        for (int i = 0; i < length; i++)
+        {
+            if (i > 0)
+            {
+                sb.Append(Array.IndexOf(sentenceStarts, i) >= 0 ? ". " : " ");
+            }
+
+            string w = "xx";
+            foreach ((int at, string word) in words)
+            {
+                if (at == i)
+                {
+                    w = word;
+                }
+            }
+
+            sb.Append(w);
+        }
+
+        return sb.ToString();
+    }
+
+    /// <summary>Window choice rules found by running the shell on texts of filler tokens: the score of a window (distinct phrases, then instances that start in it), the bonus for a window that starts at a sentence start or the text start, and when a sentence start at the match is used.</summary>
+    [Fact]
+    public void SnippetWindowChoiceMatchesTheShell()
+    {
+        NeedOracle();
+        var setup = new StringBuilder("CREATE VIRTUAL TABLE t USING fts5(x);");
+        int id = 0;
+        void Row((int, string)[] w, params int[] starts) => setup.Append($"INSERT INTO t(rowid, x) VALUES({++id}, '{Filler(50, w, starts)}');");
+
+        Row([(10, "aa"), (11, "bb"), (30, "aa"), (31, "aa"), (32, "aa")]); // 1: two phrases beat three instances of one
+        Row([(10, "aa"), (30, "bb"), (31, "bb")]); // 2: equal phrases: more instances
+        Row([(3, "aa"), (20, "aa"), (21, "aa"), (22, "aa"), (23, "aa")]); // 3: a window at the text start beats a bigger one
+        Row([(12, "aa"), (25, "aa"), (26, "aa")], 12); // 4: a sentence start at the match is used when another instance follows
+        Row([(12, "aa")], 12); // 5: and not when it is the only one
+        Row([(12, "aa"), (22, "bb")], 12, 22); // 6: not when the next instance starts a sentence
+        Row([(12, "aa"), (22, "bb")], 12, 15); // 7: not when a sentence starts before the next instance
+        Row([(12, "aa"), (22, "bb")], 10, 13); // 8: but a start before the match is used
+        Row([(12, "aa"), (13, "aa"), (14, "aa"), (30, "aa"), (31, "aa")], 5, 29); // 9: the window is scored where it starts, not at the match
+        Row([(5, "aa"), (12, "aa")], 12); // 10: the text start window wins the tie
+        Row([(12, "aa"), (22, "bb"), (32, "cc")], 22, 32); // 11
+        var qs = new List<string>();
+        foreach (string m in new[] { "aa OR bb", "aa OR bb OR cc", "aa" })
+        {
+            qs.Add($"SELECT rowid, snippet(t, 0, '[', ']', '~', 8) FROM t WHERE t MATCH '{m}' ORDER BY rowid");
+        }
+
+        (string ours, string shell) = Both(setup.ToString(), [.. qs]);
+        Assert.Equal(shell, ours);
+    }
+
+    /// <summary>A phrase window is placed by the end of the last instance listed, and an instance counts for a window that holds its first token; a column whose whole text is shorter than the window gets no bonus.</summary>
+    [Fact]
+    public void SnippetPhraseAndColumnChoiceMatchTheShell()
+    {
+        NeedOracle();
+        string setup = "CREATE VIRTUAL TABLE t USING fts5(c0, c1);" +
+            "INSERT INTO t VALUES('hh cc ff aa ee gg bb hh cc ff', 'a b c');" +
+            "INSERT INTO t VALUES('x x x x x x x x x x x x x x x x x x x x dd', 'dd e f');" +
+            "INSERT INTO t VALUES('ee ff gg ff ff hh ff ee ee cc hh cc bb dd ff ee ee gg ff bb ff cc aa', 'dd');" +
+            "INSERT INTO t VALUES('aa x x x x x x x x x x x x x x x dd', 'x x x x x x x x x x x x x x dd x x x');";
+        string[] qs =
+        [
+            "SELECT rowid, snippet(t, -1, '[', ']', '~', 5) FROM t WHERE t MATCH '\"hh cc\" OR hh' ORDER BY rowid",
+            "SELECT rowid, snippet(t, -1, '[', ']', '~', 9) FROM t WHERE t MATCH 'dd' ORDER BY rowid",
+            "SELECT rowid, snippet(t, 0, '[', ']', '~', 12) FROM t WHERE t MATCH '\"cc bb\"' ORDER BY rowid",
+            "SELECT rowid, snippet(t, 0, '[', ']', '~', 5) FROM t WHERE t MATCH '\"gg dd\" OR hh OR aa' ORDER BY rowid",
+        ];
+        (string ours, string shell) = Both(setup, qs);
+        Assert.Equal(shell, ours);
+    }
+
     [Fact]
     public void ErrorsMatchTheShell()
     {

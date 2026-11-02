@@ -34,18 +34,27 @@ modified by both engines. Tokenizers (`unicode61`, `ascii`, `porter`, `trigram`)
   an unterminated string is `unterminated string`, `* a` is `unknown special query: a`, `NEAR` is a word unless a `(` follows.
 - **Contentless tables**: the `'delete'` command also drops the `t_docsize` row; without `t_docsize` (`columnsize=0`) a scan is
   `t: table does not support scanning` and `bm25` runs with a column size of -1.
-- **snippet** (window of `n` tokens, `n` clamped to 1..64): the best anchor is the instance whose window holds the most instances; the window
-  starts at `anchor - (n - span)/2` clamped to the text, except that it starts at the latest *sentence start* before the first match that
-  still reaches it, and at the text start when the first match lies in the first `n` tokens. A sentence start is a token whose preceding
-  gap ends in `.` or `:` followed by white space (`. `, `: `, ` . `; not `.` alone, `?`, `!`, `;`). A phrase that began before the window is
-  not marked. A snippet that reaches the end of the text keeps the text after its last token; one starting at token 0 starts at the text
-  start. Unindexed columns are returned whole. For `snippet(t, -1, ...)` the column is the one whose best anchor scores most, where an
-  instance with no more than `n` tokens after it to the end of its text scores 0; ties keep the first column.
+- **snippet** (window of `n` tokens, `n` clamped to 1..64). Found by running the shell on texts of filler tokens; every rule below has a
+  regression case in `Fts5Tests`.
+  - *Candidates.* Every instance of a phrase proposes up to two windows. Instances are listed by first token, then phrase number; "the next
+    instance" is the next one that starts after this one.
+    - The *plain* window is placed around the instance: it starts at `anchor - (n - span)/2` clamped to the text, where the span runs from
+      the instance to the end of the last instance listed that starts within `n` tokens of it (a phrase that starts inside the window counts
+      with its whole length). It scores like the window that starts at the instance.
+    - The *sentence* window starts at the latest sentence start at or before the instance (the text start is one), when that start is within
+      `n` tokens of the instance. A sentence start is a token whose preceding gap ends in `.` or `:` followed by white space (`. `, `: `,
+      ` . `; not `.` alone, `?`, `!`, `;`). A start *at* the instance is not used when it is the last instance, nor when another sentence
+      starts between the instance and the next one (the next instance's own token included).
+  - *Score.* 1000 per distinct phrase with an instance starting in the `n` tokens of the window, plus 1 per such instance; a sentence window
+    adds a bonus larger than the instances an `n`-token window can hold (100 here), and the window at the text start adds more (200; at
+    least 6 more in a window of 8). The best score wins and the first candidate wins ties. A column whose whole text fits in `n` tokens is
+    its own window and gets no bonus.
+  - *Output.* A phrase that began before the window is not marked. A snippet that reaches the end of the text keeps the text after its last
+    token; one starting at token 0 starts at the text start. Unindexed columns are returned whole. For `snippet(t, -1, ...)` the column
+    with the best score wins; ties keep the first column.
 
 ## Known differences (open)
 
-- `snippet` when several matches lie near sentence starts and the span of the first match equals the window (a few percent of random
-  differential cases), and the window around trigram phrases of different lengths.
 - `snippet()` of an UNINDEXED column in a `detail=column` or `detail=none` table: for some rows the reference shell fails with "database disk image is malformed" (SQLITE_CORRUPT) on files that pass its own integrity check; we return the snippet text. Seen twice in 1,450 random cases (seed 21).
 - `bm25`/`highlight`/`snippet` quirks that are matched on purpose: when the left side of a NOT matches no row at all, the right side keeps its first row's instances (they show in that row if it matches another way); a segment recorded with first and last page 0 and no page 0 is empty; a combining mark continues a token but never starts one; a contentless table without size records reads each indexed column's size as -1.
 - The NOT quirk below is matched when the left side is empty because its terms are absent, or because the phrase never occurs; in one of 373 random cases (seed 41, a prefix on the right of the NOT, a two-token phrase on the left) the reference does not keep the right side's instances, and `highlight` and `bm25` differ by one marked token or 1e-6.

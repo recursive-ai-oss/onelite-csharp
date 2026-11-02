@@ -10,6 +10,10 @@ All notable changes to this project are documented here. The format follows [Kee
 - `HttpRangeVfs`, a read-only backend over HTTP range requests, with a block cache; a file that changes on the server (ETag or Last-Modified) is reported as an I/O error, and journals and write-ahead logs are refused.
 - An I/O error from the pager keeps the backend's exception as its inner exception.
 
+### Fixed
+
+- FTS5 `snippet()` now picks the same window as SQLite-compatible reference output. The window is chosen by scoring candidate windows (distinct phrases first, then instances), with a bonus for a window that starts at a sentence start and a larger one for the start of the text; a sentence start at the match itself, phrases that begin inside a window but end past it, and the column choice of `snippet(t, -1, ...)` follow the observed rules, which are written down in `docs/fts5.md`. In a 25-minute random differential run, 17 of 647 cases used to differ and none does now.
+
 ## [0.2.0-preview.2]
 
 ### Fixed
