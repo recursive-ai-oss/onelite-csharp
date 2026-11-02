@@ -4,6 +4,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.3.0-preview.1]
+
 ### Added
 
 - `PRAGMA incremental_vacuum[(N)]` now returns free pages to the file in an `auto_vacuum=INCREMENTAL` database, one empty row per page freed, as SQLite does; the page and free-page counts match it and the file passes `integrity_check` in both directions. Before, the pragma did nothing.
