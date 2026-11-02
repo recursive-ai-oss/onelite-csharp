@@ -65,6 +65,12 @@ public sealed class DatabaseOptions
     /// <summary>How long to keep retrying a lock another connection holds, in milliseconds (<c>PRAGMA busy_timeout</c>). Default 0: give up at once unless <see cref="Busy"/> says otherwise.</summary>
     public int BusyTimeoutMs { get; init; }
 
+    /// <summary>
+    /// Accept <c>BEGIN CONCURRENT</c> (row-level concurrent writers, docs/concurrency.md). Default off: with it off the statement is a syntax error, as in SQLite.
+    /// The database must be in WAL mode when the transaction begins.
+    /// </summary>
+    public bool ConcurrentWrites { get; init; }
+
     /// <summary>Pages after which a commit in WAL mode checkpoints (<c>PRAGMA wal_autocheckpoint</c>). Default 1000.</summary>
     public int WalAutoCheckpoint { get; init; } = 1000;
 }
@@ -260,6 +266,7 @@ public sealed partial class Database : IDisposable, IAsyncDisposable
         return new Connection(engine)
         {
             ForeignKeysEnabled = _options.ForeignKeys,
+            ConcurrentEnabled = _options.ConcurrentWrites,
             OpenedReadOnly = _readOnly,
             Busy = busy,
             SortVfs = vfs,
@@ -661,7 +668,7 @@ public sealed partial class Connection : IDisposable, IAsyncDisposable
 
     private VmProgram CompileSqlCore(string sql, out string tail, out bool empty, PlanMode mode)
     {
-        SqlStatement? stmt = SqlParser.ParseOne(sql, 0, out int end);
+        SqlStatement? stmt = SqlParser.ParseOne(sql, 0, out int end, ConcurrentEnabled ? ParserOptions.WithConcurrent : null);
         tail = end >= sql.Length ? string.Empty : sql[end..];
         empty = stmt is null;
         if (stmt is null)

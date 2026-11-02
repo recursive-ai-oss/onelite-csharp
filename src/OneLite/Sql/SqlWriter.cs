@@ -774,7 +774,7 @@ internal sealed class SqlWriter
                 Ex(d.SchemaName);
                 break;
             case BeginStatement b:
-                Put(b.Mode switch { BeginMode.Deferred => "BEGIN DEFERRED", BeginMode.Immediate => "BEGIN IMMEDIATE", BeginMode.Exclusive => "BEGIN EXCLUSIVE", BeginMode.Concurrent => "BEGIN CONCURRENT", _ => "BEGIN" });
+                Put(b.Mode switch { BeginMode.Deferred => "BEGIN DEFERRED", BeginMode.Immediate => "BEGIN IMMEDIATE", BeginMode.Exclusive => "BEGIN EXCLUSIVE", BeginMode.Concurrent => "BEGIN CONCURRENT", BeginMode.ConcurrentSnapshot => "BEGIN CONCURRENT SNAPSHOT", _ => "BEGIN" });
                 Txn(b.TransactionName);
                 break;
             case CommitStatement c:

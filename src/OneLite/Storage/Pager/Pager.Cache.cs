@@ -355,6 +355,13 @@ public sealed partial class Pager
     /// </summary>
     private PagerStatus Spill()
     {
+        if (_concurrent)
+        {
+            // A concurrent transaction holds no write lock, so it cannot append frames: its pages stay in memory until commit.
+            _spillNone = true;
+            return PagerStatus.Ok;
+        }
+
         if (_wal != null)
         {
             return SpillWal();

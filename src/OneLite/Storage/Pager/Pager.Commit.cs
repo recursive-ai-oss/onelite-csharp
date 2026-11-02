@@ -37,7 +37,7 @@ public sealed partial class Pager
 
         if (_wal != null)
         {
-            return CommitWal();
+            return _concurrent || _ccStep != 0 ? CommitConcurrent() : CommitWal();
         }
 
         if (_cmPhase == 0)

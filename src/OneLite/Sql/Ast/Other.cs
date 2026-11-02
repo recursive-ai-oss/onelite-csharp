@@ -7,7 +7,7 @@ internal sealed record AttachStatement(Expr Database, Expr SchemaName, Expr? Key
 internal sealed record DetachStatement(Expr SchemaName) : Statement;
 
 /// <summary><c>Concurrent</c> exists only when the parser option for the BEGIN CONCURRENT extension is on.</summary>
-internal enum BeginMode { Default, Deferred, Immediate, Exclusive, Concurrent }
+internal enum BeginMode { Default, Deferred, Immediate, Exclusive, Concurrent, ConcurrentSnapshot }
 
 internal sealed record BeginStatement(BeginMode Mode, Name? TransactionName) : Statement;
 

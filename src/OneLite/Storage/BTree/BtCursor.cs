@@ -109,6 +109,7 @@ public sealed partial class BtCursor : IDisposable
     /// <summary>Releases every pinned page and returns the cursor to <see cref="CursorState.Invalid"/>, abandoning any operation in progress.</summary>
     public void Reset()
     {
+        TraceReset(TraceOp.Reset);
         ReleasePath();
         _op = Op.None;
         _wop = WOp.None;
@@ -121,6 +122,7 @@ public sealed partial class BtCursor : IDisposable
     /// <summary>Releases the cursor's pages and unregisters it.</summary>
     public void Dispose()
     {
+        TraceReset(TraceOp.Dispose);
         Reset();
         _ctx.Unregister(this);
     }
@@ -247,7 +249,13 @@ public sealed partial class BtCursor : IDisposable
             throw new InvalidOperationException("MoveToRowid on an index tree");
         }
 
-        return SeekGuard(rowid, default, 0, out cmp);
+        BtStatus st = SeekGuard(rowid, default, 0, out cmp);
+        if (_ctx.Trace is { Active: true } tr)
+        {
+            TraceSeek(tr, st, rowid, default, 0, cmp);
+        }
+
+        return st;
     }
 
     /// <summary>
@@ -265,7 +273,13 @@ public sealed partial class BtCursor : IDisposable
             throw new InvalidOperationException("MoveToKey on a rowid table");
         }
 
-        return SeekGuard(0, key, prefixResult, out cmp);
+        BtStatus st = SeekGuard(0, key, prefixResult, out cmp);
+        if (_ctx.Trace is { Active: true } tr)
+        {
+            TraceSeek(tr, st, 0, key, prefixResult, cmp);
+        }
+
+        return st;
     }
 
     private BtStatus SeekGuard(long rowid, ReadOnlySpan<Mem> key, int prefix, out int cmp)
@@ -556,7 +570,9 @@ public sealed partial class BtCursor : IDisposable
             CellInfo ci = CurrentCell(out PageHandle pg, out int off);
             if (ci.PayloadSize <= ci.Local)
             {
-                return new ReadOnlySpan<byte>(pg.Data, ci.PayloadOff, ci.Local);
+                ReadOnlySpan<byte> local = new(pg.Data, ci.PayloadOff, ci.Local);
+                TracePayload(local);
+                return local;
             }
 
             if (!_gActive || !_gDone || _gPgno != pg.Number || _gOff != off)
@@ -564,7 +580,9 @@ public sealed partial class BtCursor : IDisposable
                 throw new InvalidOperationException("payload has overflow pages: call LoadPayload first");
             }
 
-            return new ReadOnlySpan<byte>(_scratch, 0, (int)ci.PayloadSize);
+            ReadOnlySpan<byte> whole = new(_scratch, 0, (int)ci.PayloadSize);
+            TracePayload(whole);
+            return whole;
         }
     }
 
@@ -574,6 +592,7 @@ public sealed partial class BtCursor : IDisposable
         CellInfo ci = CurrentCell(out PageHandle pg, out int off);
         if (ci.PayloadSize <= ci.Local)
         {
+            TracePayload(new ReadOnlySpan<byte>(pg.Data, ci.PayloadOff, ci.Local));
             return view.Parse(pg.Data, ci.PayloadOff, ci.Local);
         }
 
@@ -582,16 +601,17 @@ public sealed partial class BtCursor : IDisposable
             throw new InvalidOperationException("payload has overflow pages: call LoadPayload first");
         }
 
+        TracePayload(new ReadOnlySpan<byte>(_scratch, 0, (int)ci.PayloadSize));
         return view.Parse(_scratch, 0, (int)ci.PayloadSize);
     }
 
     // ---------------------------------------------------------------- walking
 
     /// <summary>Moves to the first entry (Seek.Root, Seek.Descend through leftmost children). The cursor is <see cref="CursorState.Invalid"/> afterwards if the tree is empty.</summary>
-    public BtStatus First() => Edge(true);
+    public BtStatus First() => TraceMove(TraceOp.First, Edge(true));
 
     /// <summary>Moves to the last entry.</summary>
-    public BtStatus Last() => Edge(false);
+    public BtStatus Last() => TraceMove(TraceOp.Last, Edge(false));
 
     private BtStatus Edge(bool left)
     {
@@ -672,10 +692,10 @@ public sealed partial class BtCursor : IDisposable
     }
 
     /// <summary>Moves to the next entry in key order (Step.Restore, Step.Leaf, Step.Ascend, Step.Descend, Step.VisitInterior). Afterwards <see cref="State"/> is <see cref="CursorState.Invalid"/> if there was none.</summary>
-    public BtStatus Next() => Step(true);
+    public BtStatus Next() => TraceMove(TraceOp.Next, Step(true));
 
     /// <summary>Moves to the previous entry in key order.</summary>
-    public BtStatus Previous() => Step(false);
+    public BtStatus Previous() => TraceMove(TraceOp.Previous, Step(false));
 
     private BtStatus Step(bool forward)
     {

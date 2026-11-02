@@ -10,6 +10,11 @@ internal sealed partial class Machine
 {
     private RunResult DoVirtual(ref Instr ins)
     {
+        if (ins.Op != Op.VtFilter)
+        {
+            _conn.ConcOpaque("writes a virtual table");
+        }
+
         Mem[] r = R;
         switch (ins.Op)
         {

@@ -1636,7 +1636,9 @@ internal sealed partial class Machine
             return RunResult.Done;
         }
 
-        BtStatus s = c.Bt!.MoveToRowid(target, out int cmp);
+        c.Bt!.TraceRequired = (ins.P5 & 0x200) != 0;
+        BtStatus s = c.Bt.MoveToRowid(target, out int cmp);
+        c.Bt.TraceRequired = false;
         if (s == BtStatus.Pending)
         {
             return RunResult.Pending;

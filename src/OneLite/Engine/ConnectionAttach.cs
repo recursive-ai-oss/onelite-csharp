@@ -70,6 +70,11 @@ public sealed partial class Connection
     /// <summary>Tells the backups reading from this connection that it committed.</summary>
     internal void AfterCommit()
     {
+        if (ConcTx is not null)
+        {
+            ConcurrentRowids.NoteCommit(_pager.FullPath);
+        }
+
         if (Backups.Count > 0)
         {
             foreach (Backup b in Backups.ToArray())
@@ -271,6 +276,11 @@ public sealed partial class Connection
             int bit = 1 << a.Slot;
             if ((writeMask & bit) != 0)
             {
+                if (ConcTx is not null)
+                {
+                    throw new OneLiteException(ResultCode.Error, "cannot write to an attached database inside BEGIN CONCURRENT");
+                }
+
                 a.BeginWrite();
                 // A savepoint opened before this database joined the transaction covers it from here on.
                 foreach (SavepointEntry e in Savepoints)

@@ -1180,6 +1180,16 @@ public sealed partial class Pager
                     _incremental = _incrementalAtBegin;
                     EndRekey(committed: false);
                     ResetWriteState();
+                    if (_concurrent)
+                    {
+                        // A concurrent transaction that never took the write lock has nothing to release.
+                        _concurrent = false;
+                        _ccStep = 0;
+                        _wrbStep = 0;
+                        _state = TxState.Read;
+                        return PagerStatus.Ok;
+                    }
+
                     _wOp = WalEndWriteOp(rollback: true).GetEnumerator();
                     _wrbStep = 1;
                     break;

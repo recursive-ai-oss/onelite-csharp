@@ -18,9 +18,12 @@ internal sealed partial class Compiler
         switch (stmt)
         {
             case BeginStatement b:
-                if (b.Mode == BeginMode.Concurrent)
+                if (b.Mode is BeginMode.Concurrent or BeginMode.ConcurrentSnapshot)
                 {
-                    throw Unsupported("BEGIN CONCURRENT");
+                    // The read transaction starts now, so the snapshot is the one at BEGIN and the journal mode is known (P2 = 1 serializable, 2 snapshot).
+                    Emit(Op.Transaction, 0, 0, 0, null, 4);
+                    Emit(Op.TxControl, 0, b.Mode == BeginMode.Concurrent ? 1 : 2);
+                    return Finish0(1);
                 }
 
                 if (b.Mode is BeginMode.Immediate or BeginMode.Exclusive)
