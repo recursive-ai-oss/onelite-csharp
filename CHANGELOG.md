@@ -4,6 +4,12 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- A database on a storage backend with only asynchronous calls (the browser's OPFS on the main thread, HTTP range reads) can now be opened, prepared, stepped and closed without blocking: `PrepareAsync`, `OpenReadOnlyAsync`, `ResetAsync` and `DisposeAsync`. `RecursiveAI.OneLite.Data` and the happy path use them. Cancelling a read that waits on storage releases its lock.
+- `HttpRangeVfs`, a read-only backend over HTTP range requests, with a block cache; a file that changes on the server (ETag or Last-Modified) is reported as an I/O error, and journals and write-ahead logs are refused.
+- An I/O error from the pager keeps the backend's exception as its inner exception.
+
 ## [0.2.0-preview.2]
 
 ### Fixed
