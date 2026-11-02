@@ -442,4 +442,96 @@ public static class ConcKill
         _ = writers;
         return string.Empty;
     }
+
+    /// <summary>
+    /// Indicative throughput: W threads, one connection each, run small write transactions (a read, five inserts, an update of their own row) for a fixed time,
+    /// with <c>BEGIN CONCURRENT</c> or with <c>BEGIN IMMEDIATE</c> (a single writer at a time). The work inside a transaction is the point: with concurrent
+    /// writers it overlaps, with a single writer it does not.
+    /// <c>conc-throughput [--mode concurrent|immediate] [--writers W] [--seconds S] [--sync full|normal|off] [--work DIR]</c>
+    /// </summary>
+    public static int Throughput(string[] a)
+    {
+        Dictionary<string, string> o = [];
+        for (int i = 0; i + 1 < a.Length; i += 2)
+        {
+            o[a[i].TrimStart('-')] = a[i + 1];
+        }
+
+        bool concurrent = o.GetValueOrDefault("mode", "concurrent") == "concurrent";
+        int writers = int.Parse(o.GetValueOrDefault("writers", "4"), CultureInfo.InvariantCulture);
+        int seconds = int.Parse(o.GetValueOrDefault("seconds", "5"), CultureInfo.InvariantCulture);
+        string sy = o.GetValueOrDefault("sync", "normal");
+        SynchronousMode sync = sy == "full" ? SynchronousMode.Full : sy == "off" ? SynchronousMode.Off : SynchronousMode.Normal;
+        string work = o.GetValueOrDefault("work") ?? Path.Combine(Path.GetTempPath(), "onelite-conc-tp-" + Environment.ProcessId.ToString(CultureInfo.InvariantCulture));
+        Directory.CreateDirectory(work);
+        string db = Path.Combine(work, "tp.db");
+        foreach (string f in new[] { db, db + "-wal", db + "-shm" })
+        {
+            File.Delete(f);
+        }
+
+        var opts = new DatabaseOptions { JournalMode = JournalMode.Wal, ConcurrentWrites = true, Synchronous = sync, BusyTimeoutMs = 60000 };
+        using (Database setup = Database.Open(db, opts))
+        using (Connection sc = setup.Connect())
+        {
+            Exec(sc, "CREATE TABLE ev(id INTEGER PRIMARY KEY, src INT NOT NULL, n INT NOT NULL, pad TEXT)");
+            Exec(sc, "CREATE INDEX evs ON ev(src, n)");
+            Exec(sc, "CREATE TABLE acc(id INTEGER PRIMARY KEY, total INT NOT NULL)");
+            for (int w = 1; w <= writers; w++)
+            {
+                Exec(sc, $"INSERT INTO acc VALUES ({w}, 0)");
+            }
+        }
+
+        long deadline = System.Diagnostics.Stopwatch.GetTimestamp() + (seconds * System.Diagnostics.Stopwatch.Frequency);
+        var tasks = new List<Task<(long Commits, long Aborts)>>();
+        for (int w = 1; w <= writers; w++)
+        {
+            int src = w;
+            tasks.Add(Task.Run(() =>
+            {
+                using Database d = Database.Open(db, opts);
+                using Connection c = d.Connect();
+                long commits = 0, aborts = 0;
+                string begin = concurrent ? "BEGIN CONCURRENT" : "BEGIN IMMEDIATE";
+                while (System.Diagnostics.Stopwatch.GetTimestamp() < deadline)
+                {
+                    try
+                    {
+                        Exec(c, begin);
+                        _ = Scalar(c, $"SELECT total FROM acc WHERE id = {src}");
+                        for (int k = 0; k < 5; k++)
+                        {
+                            Exec(c, $"INSERT INTO ev(src, n, pad) VALUES ({src}, {commits * 5 + k}, 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx')");
+                        }
+
+                        Exec(c, $"UPDATE acc SET total = total + 1 WHERE id = {src}");
+                        Exec(c, "COMMIT");
+                        commits++;
+                    }
+                    catch (OneLiteException e) when (e.Code == ResultCode.Busy)
+                    {
+                        aborts++;
+                        if (!c.AutoCommit)
+                        {
+                            Exec(c, "ROLLBACK");
+                        }
+                    }
+                }
+
+                return (commits, aborts);
+            }));
+        }
+
+        Task.WaitAll([.. tasks]);
+        long total = 0, ab = 0;
+        foreach (Task<(long Commits, long Aborts)> t in tasks)
+        {
+            total += t.Result.Commits;
+            ab += t.Result.Aborts;
+        }
+
+        Console.WriteLine($"conc-throughput: mode={(concurrent ? "concurrent" : "immediate")} writers={writers} sync={sy} {seconds}s: {total} commits ({total / (double)seconds:F0}/s), {ab} aborts, cores={Environment.ProcessorCount}");
+        return 0;
+    }
 }
