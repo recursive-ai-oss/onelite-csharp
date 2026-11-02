@@ -147,7 +147,10 @@ public sealed partial class Connection
     internal bool HoldsNoRead => _readers == 0 && !TxHeld;
 
     /// <summary>True when a read transaction is held by an open transaction or by another running statement, not only by the caller's own statement.</summary>
-    internal bool ReadsBeyondThisStatement => _readers > 1 || TxHeld || BlockedStatements > 0;
+    internal bool ReadsBeyondThisStatement => ReadsHeldBesidesThisStatement || BlockedStatements > 0;
+
+    /// <summary>Like <see cref="ReadsBeyondThisStatement"/> without the statements refused with SQLITE_BUSY: those hold no read, so a WAL checkpoint is not blocked by them.</summary>
+    internal bool ReadsHeldBesidesThisStatement => _readers > 1 || TxHeld;
 
     /// <summary>
     /// Write statements that returned SQLITE_BUSY while asking for the write lock. In the reference such a statement stays active until it is reset or

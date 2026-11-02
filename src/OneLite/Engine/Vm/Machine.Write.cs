@@ -2732,7 +2732,7 @@ internal sealed partial class Machine
                 {
                     // A checkpoint cannot run inside a read transaction: give ours up first. A transaction that has not touched the database yet
                     // (BEGIN or SAVEPOINT alone) does not count: only a read held by the transaction or by another statement does.
-                    if (_conn.ReadsBeyondThisStatement)
+                    if (_conn.ReadsHeldBesidesThisStatement)
                     {
                         throw new OneLiteException(ResultCode.Locked, "database table is locked", "a checkpoint cannot run inside a transaction");
                     }
