@@ -489,4 +489,53 @@ public sealed class ConcurrentTransactionTests : IDisposable
         Assert.Equal("51", Q(a, "SELECT count(*) FROM t WHERE v BETWEEN 2300 AND 2350"));
         Assert.Equal("391", Q(a, "SELECT count(*) FROM t"));
     }
+
+    [Fact]
+    public void AbandonedCommitReleasesTheWriteLockAndOnlyRollbackWorks()
+    {
+        var opts = new DatabaseOptions { JournalMode = JournalMode.Wal, ConcurrentWrites = true, Synchronous = SynchronousMode.Off, YieldEvery = 1 };
+        using Database db = Database.Open(Path.Combine(_dir, "ab.db"), opts);
+        using Connection a = db.Connect();
+        using Connection b = db.Connect();
+        Run(a, "CREATE TABLE t(id INTEGER PRIMARY KEY, v INT)");
+        Run(a, "WITH RECURSIVE s(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM s WHERE n<200) INSERT INTO t SELECT n, n FROM s");
+        Run(a, "BEGIN CONCURRENT");
+        Run(a, "UPDATE t SET v = v + 1 WHERE id < 50");
+        Run(b, "UPDATE t SET v = 0 WHERE id = 150");
+
+        // a's commit has to replay on the newer snapshot; walk away from it after a few suspensions, with the write lock held.
+        using (Statement commit = a.Prepare("COMMIT"))
+        {
+            int pendings = 0;
+            StepStatus s;
+            while ((s = commit.Advance()) == StepStatus.Pending)
+            {
+                if (++pendings == 6)
+                {
+                    break;
+                }
+
+                a.Pager.ExecuteSync();
+            }
+
+            Assert.True(s == StepStatus.Pending, $"status {s} after {pendings} pendings");
+            commit.Abandon();
+        }
+
+        // The lock is free: another connection commits at once, without waiting for a to roll back.
+        Run(b, "UPDATE t SET v = 1 WHERE id = 151");
+        Assert.Equal("1", Q(b, "SELECT v FROM t WHERE id = 151"));
+
+        // a's work is gone with its dirty pages: nothing but ROLLBACK is accepted.
+        Fails(() => Run(a, "COMMIT"));
+        Run(a, "ROLLBACK");
+        Assert.Equal("1", Q(a, "SELECT v FROM t WHERE id = 1"));
+
+        // and the same work can be run again.
+        Run(a, "BEGIN CONCURRENT");
+        Run(a, "UPDATE t SET v = v + 1 WHERE id < 50");
+        Run(a, "COMMIT");
+        Assert.Equal("2", Q(b, "SELECT v FROM t WHERE id = 1"));
+        Assert.Equal("ok", Q(a, "PRAGMA integrity_check"));
+    }
 }
