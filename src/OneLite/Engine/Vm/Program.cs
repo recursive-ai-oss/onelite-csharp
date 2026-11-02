@@ -169,6 +169,9 @@ internal enum Op : byte
     PragmaVar,
     PragmaIntegrity,
     Vacuum,
+
+    /// <summary>PRAGMA incremental_vacuum: P1 = database slot, P4 = how many pages to free (0 = all). The number freed goes to register P2.</summary>
+    IncrVacuum,
     RecTrig,
     AttachDb,
     DetachDb,

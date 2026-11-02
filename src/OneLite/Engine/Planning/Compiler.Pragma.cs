@@ -41,7 +41,7 @@ internal sealed partial class Compiler
             // The attached database's transaction starts with the statement; a pragma that changes its header writes.
             string pn = ps.Name.Text.ToLowerInvariant();
             p.ExtraReadMask |= 1 << slot;
-            if (ps.Value is not null && pn is "user_version" or "application_id" or "default_cache_size")
+            if (ps.Value is not null && pn is "user_version" or "application_id" or "default_cache_size" || pn == "incremental_vacuum")
             {
                 p.ExtraWriteMask |= 1 << slot;
             }
@@ -69,6 +69,11 @@ internal sealed partial class Compiler
             // The temporary database has no memory-mapped I/O: the pragma says nothing about it.
             Emit(Op.Halt);
             return new VmProgram { Code = Finish(), RegisterCount = _nReg + 1, ColumnNames = [], ParameterNames = [], Encoding = _enc };
+        }
+
+        if (name == "incremental_vacuum")
+        {
+            return CompileIncrementalVacuum(ps);
         }
 
         if (PragmaVars.TryGetValue(name, out (string Col, bool GetRow, bool SetRow) pv))

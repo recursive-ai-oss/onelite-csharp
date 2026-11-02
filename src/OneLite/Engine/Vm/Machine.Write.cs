@@ -363,6 +363,25 @@ internal sealed partial class Machine
                 return DoPragmaIntegrity(ref ins);
             case Op.Vacuum:
                 return ins.P2 != 0 ? DoVacuumInto(ins.P1, ins.P2) : DoVacuum(ins.P1);
+            case Op.IncrVacuum:
+            {
+                Pager pg = _conn.PagerOf(ins.P1);
+                PagerStatus ps = pg.IncrementalVacuumStep((uint)(long)ins.P4!, out uint freed);
+                if (ps == PagerStatus.Pending)
+                {
+                    return RunResult.Pending;
+                }
+
+                if (ps == PagerStatus.Error)
+                {
+                    Error = pg.Error;
+                    return RunResult.Error;
+                }
+
+                Values.SetInt(ref R[ins.P2], freed);
+                _pc++;
+                return RunResult.Done;
+            }
             case Op.AttachDb:
             case Op.DetachDb:
                 return DoAttach(ref ins);

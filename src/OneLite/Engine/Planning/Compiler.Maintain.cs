@@ -278,6 +278,55 @@ internal sealed partial class Compiler
         return vp;
     }
 
+    // PRAGMA incremental_vacuum(N) (pragma): a write transaction, then up to N pages leave the freelist, one result row without columns for each page freed.
+    // N below 1, missing or not a number means the whole freelist. The temp database has no auto-vacuum, so there is nothing to do there.
+    private VmProgram CompileIncrementalVacuum(PragmaStatement ps)
+    {
+        int slot = SlotOfSchema(ps.Schema);
+        long n = 0;
+        if (ps.Value is { } v)
+        {
+            string t = v.Text.Trim();
+            int i = 0;
+            bool neg = false;
+            if (i < t.Length && (t[i] == '-' || t[i] == '+'))
+            {
+                neg = t[i] == '-';
+                i++;
+            }
+
+            for (; i < t.Length && t[i] is >= '0' and <= '9' && n < int.MaxValue; i++)
+            {
+                n = (n * 10) + (t[i] - '0');
+            }
+
+            if (neg)
+            {
+                n = 0;
+            }
+        }
+
+        if (slot == 1)
+        {
+            Emit(Op.Halt);
+            return new VmProgram { Code = Finish(), RegisterCount = _nReg + 1, ColumnNames = [], ParameterNames = [], Encoding = _enc };
+        }
+
+        Emit(Op.Transaction, 0, 0, 0, null, 1 | 4);
+        int cnt = NewReg();
+        Emit(Op.IncrVacuum, slot, cnt, 0, n);
+        int again = NewLabel(), body = NewLabel(), end = NewLabel();
+        Mark(again);
+        Emit(Op.IfPos, cnt, body, 1);
+        Emit(Op.Goto, 0, end);
+        Mark(body);
+        Emit(Op.ResultRow, cnt, 0);
+        Emit(Op.Goto, 0, again);
+        Mark(end);
+        Emit(Op.Halt);
+        return new VmProgram { Code = Finish(), RegisterCount = _nReg + 1, ColumnNames = [], ResultBase = cnt, ResultCount = 0, ParameterNames = [], Encoding = _enc };
+    }
+
     private static bool Analyzable(TableInfo t)
         => t.View is null && t.Unsupported is null && !t.Name.StartsWith("sqlite_", StringComparison.OrdinalIgnoreCase);
 
