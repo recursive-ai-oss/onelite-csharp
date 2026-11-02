@@ -339,6 +339,21 @@ public sealed class Fts5Tests : IDisposable
     }
 
     [Fact]
+    public void NotWithAnEmptyPhraseOnTheLeftKeepsItsRightSideAsTheShellDoes()
+    {
+        NeedOracle();
+        string setup = "CREATE VIRTUAL TABLE t USING fts5(a, b, tokenize='trigram');" +
+            "INSERT INTO t VALUES('naive hissing', 'jump foobar'),('naive x', 'foobar'),('plain', 'foobar jump');";
+        string[] qs =
+        [
+            "SELECT rowid, round(bm25(t), 8), highlight(t, 1, '[', ']') FROM t WHERE t MATCH 'naive OR x NOT foobar' ORDER BY rowid",
+            "SELECT rowid, round(bm25(t), 8), highlight(t, 1, '[', ']') FROM t WHERE t MATCH 'naive AND (x NOT foobar)' ORDER BY rowid",
+        ];
+        (string ours, string shell) = Both(setup, qs);
+        Assert.Equal(shell, ours);
+    }
+
+    [Fact]
     public void ErrorsMatchTheShell()
     {
         NeedOracle();
