@@ -98,8 +98,9 @@ public sealed class PragmaEffectTests : IDisposable
             Assert.True(baseline == obs, $"{name}: path {path} left\n{obs}\nbut running to the end left\n{baseline}");
         }
 
-        // PRAGMA optimize and PRAGMA incremental_vacuum are accepted and do nothing yet (listed in docs/compatibility.md); the paths still agree.
-        if (File.Exists(OraclePaths.Cli) && name is not ("optimize" or "incremental_vacuum" or "key" or "hexkey" or "cipher_page_size"))
+        // A statement stepped once and then reset or disposed does all of an incremental vacuum's work on that first step (the reference frees one page per
+        // step), so the paths agree with each other and with the shell when the statement runs to its end.
+        if (File.Exists(OraclePaths.Cli) && name is not ("key" or "hexkey" or "cipher_page_size"))
         {
             string oracle = ObserveOracle(c);
             Assert.Equal(oracle.Replace("\n", "|"), baseline.Replace("\n", "|"));
