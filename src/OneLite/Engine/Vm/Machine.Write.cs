@@ -1432,8 +1432,10 @@ internal sealed partial class Machine
             }
 
             c.Bt!.TraceRequired = (ins.P5 & 0x200) != 0;
+            c.Bt.TraceExact = true;
             BtStatus s = c.Bt!.MoveToKey(PrepareKey(ins.P3, n), 0, out int cmp);
             c.Bt.TraceRequired = false;
+            c.Bt.TraceExact = false;
             if (s == BtStatus.Pending)
             {
                 return RunResult.Pending;

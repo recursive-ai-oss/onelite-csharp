@@ -171,7 +171,7 @@ public sealed partial class Pager : IDisposable, IAsyncDisposable
     public bool InTransaction => _state != TxState.None;
 
     /// <summary>True while a write transaction is open.</summary>
-    public bool InWriteTransaction => _state == TxState.Write;
+    public bool InWriteTransaction => _state == TxState.Write || _ccStep != 0;
 
     /// <summary>The error from the last call that returned <see cref="PagerStatus.Error"/>.</summary>
     public OneLiteException? Error => _error;

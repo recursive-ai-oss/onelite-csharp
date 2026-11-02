@@ -19,6 +19,22 @@ public sealed partial class BtCursor
     /// <summary>Set by the engine around a probe that enforces a constraint: the trace marks such reads as required at every isolation level.</summary>
     internal bool TraceRequired { get; set; }
 
+    /// <summary>Set by the engine around a lookup of one key: what it observed is whether the key is there (and, if so, the entry), not which entries are its neighbours.</summary>
+    internal bool TraceExact { get; set; }
+
+    // What a seek observed. A lookup of one key sees the key or its absence; any other seek also sees where it landed (its neighbours),
+    // so that a row inserted into the gap it scanned from is noticed.
+    internal ulong SeekHash(int cmp, bool exact)
+    {
+        bool found = State == CursorState.Valid && cmp == 0;
+        if (exact)
+        {
+            return found ? TraceHash.Mix(LandingHash(), 1) : 0xAB5E47UL;
+        }
+
+        return TraceHash.Mix(LandingHash(), (ulong)(cmp < 0 ? 0 : cmp == 0 ? 1 : 2));
+    }
+
     private int TraceCursorId(ConcTrace t)
     {
         if (!ReferenceEquals(_traceOwner, t))
@@ -65,7 +81,8 @@ public sealed partial class BtCursor
         e.Aux = prefix;
         e.Required = IsRequiredRead();
         e.Data = Tree.IntKey ? null : TraceHash.Clone(key);
-        e.Hash = TraceHash.Mix(LandingHash(), (ulong)(cmp < 0 ? 0 : cmp == 0 ? 1 : 2));
+        e.Existed = (byte)(TraceExact ? 1 : 0);
+        e.Hash = SeekHash(cmp, TraceExact);
     }
 
     private BtStatus TraceMove(TraceOp op, BtStatus st)

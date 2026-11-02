@@ -1,0 +1,268 @@
+using System;
+using System.IO;
+using System.Linq;
+using System.Text;
+using RecursiveAI.OneLite.Storage.Pager;
+using Xunit;
+
+namespace RecursiveAI.OneLite.Tests.Engine;
+
+/// <summary>BEGIN CONCURRENT: row-level conflict detection by replaying a transaction's B-tree trace on the latest snapshot (docs/concurrency.md).</summary>
+public sealed class ConcurrentTransactionTests : IDisposable
+{
+    private readonly string _dir = Path.Combine(Path.GetTempPath(), "onelite-conc-" + Guid.NewGuid().ToString("N"));
+
+    public ConcurrentTransactionTests() => Directory.CreateDirectory(_dir);
+
+    public void Dispose() => Directory.Delete(_dir, true);
+
+    private static readonly DatabaseOptions s_opts = new() { JournalMode = JournalMode.Wal, ConcurrentWrites = true, Synchronous = SynchronousMode.Off };
+
+    private Database Open(string name = "c.db", bool wal = true)
+    {
+        Database db = Database.Open(Path.Combine(_dir, name), wal ? s_opts : new DatabaseOptions { ConcurrentWrites = true });
+        return db;
+    }
+
+    private static void Run(Connection c, string sql)
+    {
+        using Statement st = c.Prepare(sql);
+        try
+        {
+            while (st.Step())
+            {
+            }
+        }
+        catch (OneLiteException e) when (e.Detail is not null && Environment.GetEnvironmentVariable("ONELITE_TEST_DETAIL") == "1")
+        {
+            Console.Error.WriteLine($"{sql}: {e.ExtendedCode} {e.Detail}");
+            throw;
+        }
+    }
+
+    private static string Q(Connection c, string sql)
+    {
+        using Statement st = c.Prepare(sql);
+        var sb = new StringBuilder();
+        while (st.Step())
+        {
+            for (int i = 0; i < st.ColumnCount; i++)
+            {
+                sb.Append(i > 0 ? "|" : sb.Length > 0 ? ";" : "").Append(st.IsNull(i) ? "NULL" : st.GetString(i));
+            }
+        }
+
+        return sb.ToString();
+    }
+
+    private static OneLiteException Fails(Action a) => Assert.Throws<OneLiteException>(a);
+
+    private static void Setup(Connection c)
+    {
+        Run(c, "CREATE TABLE t(id INTEGER PRIMARY KEY, v INT)");
+        Run(c, "INSERT INTO t VALUES (1, 10), (2, 20), (3, 30)");
+    }
+
+    [Fact]
+    public void DisjointRowsBothCommit()
+    {
+        using Database db = Open();
+        using Connection a = db.Connect();
+        using Connection b = db.Connect();
+        Setup(a);
+        Run(a, "BEGIN CONCURRENT");
+        Run(b, "BEGIN CONCURRENT");
+        Run(a, "UPDATE t SET v = v + 1 WHERE id = 1");
+        Run(b, "UPDATE t SET v = v + 1 WHERE id = 3");
+        Run(a, "COMMIT");
+        Run(b, "COMMIT");
+        Assert.Equal("1|11;2|20;3|31", Q(a, "SELECT id, v FROM t ORDER BY id"));
+        Assert.Equal("ok", Q(b, "PRAGMA integrity_check"));
+    }
+
+    [Fact]
+    public void SameRowConflicts()
+    {
+        using Database db = Open();
+        using Connection a = db.Connect();
+        using Connection b = db.Connect();
+        Setup(a);
+        Run(a, "BEGIN CONCURRENT");
+        Run(b, "BEGIN CONCURRENT");
+        Run(a, "UPDATE t SET v = v + 1 WHERE id = 2");
+        Run(b, "UPDATE t SET v = v + 5 WHERE id = 2");
+        Run(a, "COMMIT");
+        OneLiteException e = Fails(() => Run(b, "COMMIT"));
+        Assert.Equal(ResultCode.BusySnapshot, e.ExtendedCode);
+        Run(b, "ROLLBACK");
+        Assert.Equal("21", Q(b, "SELECT v FROM t WHERE id = 2"));
+
+        // The connection is usable again, and the lock is free.
+        Run(b, "BEGIN CONCURRENT");
+        Run(b, "UPDATE t SET v = 0 WHERE id = 2");
+        Run(b, "COMMIT");
+        Assert.Equal("0", Q(a, "SELECT v FROM t WHERE id = 2"));
+    }
+
+    [Fact]
+    public void WriteSkewIsRefusedWhenSerializableAndAllowedUnderSnapshot()
+    {
+        foreach (bool snapshot in new[] { false, true })
+        {
+            string name = snapshot ? "si.db" : "ser.db";
+            using Database db = Open(name);
+            using Connection a = db.Connect();
+            using Connection b = db.Connect();
+            Setup(a);
+            string begin = snapshot ? "BEGIN CONCURRENT SNAPSHOT" : "BEGIN CONCURRENT";
+            Run(a, begin);
+            Run(b, begin);
+            Assert.Equal("10", Q(a, "SELECT v FROM t WHERE id = 1"));
+            Assert.Equal("20", Q(b, "SELECT v FROM t WHERE id = 2"));
+            Run(a, "UPDATE t SET v = 11 WHERE id = 2");
+            Run(b, "UPDATE t SET v = 21 WHERE id = 1");
+            Run(a, "COMMIT");
+            if (snapshot)
+            {
+                Run(b, "COMMIT");
+                Assert.Equal("1|21;2|11;3|30", Q(a, "SELECT id, v FROM t ORDER BY id"));
+            }
+            else
+            {
+                Assert.Equal(ResultCode.BusySnapshot, Fails(() => Run(b, "COMMIT")).ExtendedCode);
+                Run(b, "ROLLBACK");
+                Assert.Equal("1|10;2|11;3|30", Q(a, "SELECT id, v FROM t ORDER BY id"));
+            }
+        }
+    }
+
+    [Fact]
+    public void ScannedRangeSeesInsertedRow()
+    {
+        using Database db = Open();
+        using Connection a = db.Connect();
+        using Connection b = db.Connect();
+        Setup(a);
+        Run(a, "BEGIN CONCURRENT");
+        Run(b, "BEGIN CONCURRENT");
+        Assert.Equal("3", Q(a, "SELECT count(*) FROM t"));
+        Run(a, "INSERT INTO t VALUES (100, 1)");
+        Run(b, "INSERT INTO t VALUES (101, 1)");
+        Run(b, "COMMIT");
+        Assert.Equal(ResultCode.BusySnapshot, Fails(() => Run(a, "COMMIT")).ExtendedCode);
+        Run(a, "ROLLBACK");
+    }
+
+    [Fact]
+    public void AppendersGetDistinctRowidsAndDoNotConflict()
+    {
+        using Database db = Open();
+        using Connection a = db.Connect();
+        using Connection b = db.Connect();
+        Setup(a);
+        Run(a, "BEGIN CONCURRENT");
+        Run(b, "BEGIN CONCURRENT");
+        Run(a, "INSERT INTO t(v) VALUES (100)");
+        string ra = Q(a, "SELECT last_insert_rowid()");
+        Run(b, "INSERT INTO t(v) VALUES (200)");
+        string rb = Q(b, "SELECT last_insert_rowid()");
+        Assert.NotEqual(ra, rb);
+        Run(b, "COMMIT");
+        Run(a, "COMMIT");
+        Assert.Equal("100", Q(a, $"SELECT v FROM t WHERE id = {ra}"));
+        Assert.Equal("200", Q(a, $"SELECT v FROM t WHERE id = {rb}"));
+        Assert.Equal("5", Q(a, "SELECT count(*) FROM t"));
+    }
+
+    [Fact]
+    public void UniqueIndexIsEnforcedAcrossTransactions()
+    {
+        using Database db = Open();
+        using Connection a = db.Connect();
+        using Connection b = db.Connect();
+        Run(a, "CREATE TABLE u(id INTEGER PRIMARY KEY, k TEXT UNIQUE)");
+        foreach (string mode in new[] { "BEGIN CONCURRENT", "BEGIN CONCURRENT SNAPSHOT" })
+        {
+            Run(a, "DELETE FROM u");
+            Run(a, mode);
+            Run(b, mode);
+            Run(a, "INSERT INTO u(k) VALUES ('x')");
+            Run(b, "INSERT INTO u(k) VALUES ('x')");
+            Run(a, "COMMIT");
+            Assert.Equal(ResultCode.BusySnapshot, Fails(() => Run(b, "COMMIT")).ExtendedCode);
+            Run(b, "ROLLBACK");
+            Assert.Equal("1", Q(a, "SELECT count(*) FROM u"));
+        }
+    }
+
+    [Fact]
+    public void RolledBackStatementsLeaveNoTrace()
+    {
+        using Database db = Open();
+        using Connection a = db.Connect();
+        using Connection b = db.Connect();
+        Setup(a);
+        Run(a, "BEGIN CONCURRENT");
+        Run(a, "INSERT INTO t VALUES (50, 1)");
+        Fails(() => Run(a, "INSERT INTO t VALUES (50, 2)"));
+        Run(a, "SAVEPOINT s");
+        Run(a, "INSERT INTO t VALUES (51, 1)");
+        Run(a, "ROLLBACK TO s");
+        Run(b, "INSERT INTO t VALUES (7, 7)");
+        Run(a, "COMMIT");
+        Assert.Equal("1;2;3;7;50", string.Join(';', Q(a, "SELECT id FROM t ORDER BY id").Split(';')));
+        Assert.Equal("ok", Q(a, "PRAGMA integrity_check"));
+    }
+
+    [Fact]
+    public void RequiresWalMode()
+    {
+        using Database db = Open("rollback.db", wal: false);
+        using Connection a = db.Connect();
+        Setup(a);
+        OneLiteException e = Fails(() => Run(a, "BEGIN CONCURRENT"));
+        Assert.Contains("WAL", e.Message, StringComparison.Ordinal);
+        Run(a, "BEGIN");
+        Run(a, "COMMIT");
+    }
+
+    [Fact]
+    public void SyntaxErrorWithoutTheOption()
+    {
+        using Database db = Database.Open(Path.Combine(_dir, "plain.db"), new DatabaseOptions { JournalMode = JournalMode.Wal });
+        using Connection a = db.Connect();
+        Assert.Throws<OneLiteException>(() => a.Prepare("BEGIN CONCURRENT"));
+    }
+
+    [Fact]
+    public void AutoincrementNeverReusesAnId()
+    {
+        using Database db = Open();
+        using Connection a = db.Connect();
+        using Connection b = db.Connect();
+        Run(a, "CREATE TABLE s(id INTEGER PRIMARY KEY AUTOINCREMENT, v INT)");
+        Run(a, "INSERT INTO s(v) VALUES (1),(2),(3)");
+        Run(a, "DELETE FROM s WHERE id = 3");
+        Run(a, "BEGIN CONCURRENT");
+        Run(b, "BEGIN CONCURRENT");
+        Run(a, "INSERT INTO s(v) VALUES (4)");
+        Run(b, "INSERT INTO s(v) VALUES (5)");
+        long ia = long.Parse(Q(a, "SELECT last_insert_rowid()"), System.Globalization.CultureInfo.InvariantCulture);
+        long ib = long.Parse(Q(b, "SELECT last_insert_rowid()"), System.Globalization.CultureInfo.InvariantCulture);
+        Assert.True(ia > 3 && ib > 3 && ia != ib);
+        Run(a, "COMMIT");
+        try
+        {
+            Run(b, "COMMIT");
+        }
+        catch (OneLiteException e)
+        {
+            // Out-of-order commits may be refused to keep the counter monotone.
+            Assert.Equal(ResultCode.BusySnapshot, e.ExtendedCode);
+            Run(b, "ROLLBACK");
+        }
+
+        Assert.Equal("ok", Q(a, "PRAGMA integrity_check"));
+        Assert.Equal(Math.Max(ia, Q(a, "SELECT max(id) FROM s").Length > 0 ? long.Parse(Q(a, "SELECT max(id) FROM s"), System.Globalization.CultureInfo.InvariantCulture) : 0).ToString(System.Globalization.CultureInfo.InvariantCulture), Q(a, "SELECT seq FROM sqlite_sequence WHERE name = 's'"));
+    }
+}

@@ -161,7 +161,7 @@ internal sealed class ConcReplayer
                     return s;
                 }
 
-                if ((_serializable || e.Required) && TraceHash.Mix(c.LandingHash(), (ulong)CmpClass(cmp)) != e.Hash)
+                if ((_serializable || e.Required) && c.SeekHash(cmp, e.Existed == 1) != e.Hash)
                 {
                     ok = Fail($"a row of table (root page {e.Tree!.Root}) near rowid {e.Arg} changed");
                 }
@@ -178,7 +178,7 @@ internal sealed class ConcReplayer
                     return s;
                 }
 
-                if ((_serializable || e.Required) && TraceHash.Mix(c.LandingHash(), (ulong)CmpClass(cmp)) != e.Hash)
+                if ((_serializable || e.Required) && c.SeekHash(cmp, e.Existed == 1) != e.Hash)
                 {
                     ok = Fail($"an index (root page {e.Tree!.Root}) changed near a key this transaction looked up");
                 }
