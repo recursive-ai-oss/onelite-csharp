@@ -472,7 +472,8 @@ internal sealed partial class Machine
         IBtPageSource src = db == 0 ? _conn.Source! : _conn.ContextOf(db).Source;
         Pager pager = _conn.PagerOf(db);
         int off = name switch { "freelist_count" => 36, "schema_version" => 40, "default_cache_size" => 48, _ => 68 };
-        if (pager.PageCount == 0)
+        // An empty database has no header to read, but setting application_id or default_cache_size creates it, as user_version does.
+        if (pager.PageCount == 0 && !(arg is not null && name is "application_id" or "default_cache_size"))
         {
             return SetPragmaInt(d, name == "default_cache_size" ? -2000 : 0);
         }
