@@ -332,10 +332,11 @@ def http_range_tests(a, ctx, base, res):
             want, _, _ = sh(a.sqlite3, Host.range_files["r.db"][0], q)
             got = cmd(page, where, "http.q", f"{name}|{q}")
             res.add(group, q, got.split(" ## ")[0] == want.strip(), f"got {got!r}, want {want.strip()!r}")
+        before = int(cmd(page, where, "http.q", f"{name}|select 1").split("requests=")[1])
         got = cmd(page, where, "http.q", f"{name}|select b from t where a = 2999")
-        req = int(got.split("requests=")[1])
+        req = int(got.split("requests=")[1]) - before
         res.add(group, "requests stay few for point lookups", req < 60, f"{req} requests for a {size}-byte file with 4096-byte blocks")
-        # The file changes: the next read of a block that is no longer cached fails with the typed error.
+        # The file changes (the page cache is 8 pages, so the next scan must fetch): the next read of a block that is no longer cached fails with the typed error.
         Host.range_version += 1
         got = cmd(page, where, "http.q", f"{name}|select sum(length(b)), sum(length(c)) from t")
         res.add(group, "a changed file fails the read", got.startswith("ERR 266") and "changed" in got, got[:200])

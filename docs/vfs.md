@@ -79,6 +79,7 @@ Async-only with `BlockingOk` outside the browser, so `Database.OpenReadOnly` and
 * **One version per open.** The first request records the size, `ETag` and `Last-Modified`. Every later request sends `If-Match` (strong ETag) or `If-Unmodified-Since`, and the response's
   validators and `Content-Range` size are compared with the recorded ones. A difference fails the read with `RemoteFileChangedException` (SQLITE_IOERR_READ; the typed exception is the
   error's `InnerException`). A server that sends neither header is refused at open (CANTOPEN) unless `AllowNoValidator` is set.
+* **Cached pages keep their snapshot.** A reader whose pager cache already holds every page it needs makes no request, so it keeps a consistent view of the version it opened and does not notice a change; the error appears at the first read that has to fetch.
 * **Servers.** Must answer `Range` with 206. A server that ignores it is accepted only for a file of at most one block (the 200 body is the file). Empty files (416 `bytes */0`) open as empty.
 * **Journals and logs.** Opening the main file for the engine HEADs `-journal` (and `-wal` when the header says WAL): a non-empty one makes the open fail with CANTOPEN, because a hot journal
   cannot be played back and a log may hold commits the file lacks. Empty ones are leftovers. The result is cached per file version (the validators catch any later change), so a read transaction

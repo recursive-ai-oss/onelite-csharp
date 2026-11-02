@@ -23,7 +23,7 @@ internal static class HttpReader
             case "http.open":
             {
                 var vfs = new HttpRangeVfs(new HttpClient(), new HttpRangeOptions { BlockSize = int.Parse(a[2], CultureInfo.InvariantCulture), CachedBlocks = 2 });
-                Database db = await Database.OpenReadOnlyAsync(a[1], new DatabaseOptions { Vfs = vfs }).ConfigureAwait(false);
+                Database db = await Database.OpenReadOnlyAsync(a[1], new DatabaseOptions { Vfs = vfs, CacheSize = 8 }).ConfigureAwait(false);
                 Connection c = await db.ConnectAsync().ConfigureAwait(false);
                 s_open[a[0]] = (db, c, vfs);
                 return "ok";
