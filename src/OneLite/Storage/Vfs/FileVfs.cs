@@ -181,7 +181,9 @@ public sealed class FileVfs : VfsBase
         bool write = (effective & (VfsOpenOptions.ReadWrite | VfsOpenOptions.Create)) != 0;
         FileMode mode = (effective & VfsOpenOptions.Create) == 0 ? FileMode.Open
             : (effective & VfsOpenOptions.Exclusive) != 0 ? FileMode.CreateNew : FileMode.OpenOrCreate;
-        FileOptions options = FileOptions.Asynchronous | ((flags & VfsOpenOptions.DeleteOnClose) != 0 ? FileOptions.DeleteOnClose : 0);
+        // On Windows a synchronous read or write on an overlapped (Asynchronous) handle allocates per call in the runtime, and local disk gains nothing
+        // from overlapped I/O; the files there are opened synchronously and the async methods run inline (FileVfsFile checks Handle.IsAsync).
+        FileOptions options = (OperatingSystem.IsWindows() ? FileOptions.None : FileOptions.Asynchronous) | ((flags & VfsOpenOptions.DeleteOnClose) != 0 ? FileOptions.DeleteOnClose : 0);
         try
         {
             // FileShare.ReadWrite|Delete keeps the runtime's own advisory locking from blocking another process (sqlite.org lockingv3 covers all sharing).

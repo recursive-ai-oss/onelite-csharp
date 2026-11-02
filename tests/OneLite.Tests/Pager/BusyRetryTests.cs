@@ -7,6 +7,15 @@ namespace RecursiveAI.OneLite.Tests.Pager;
 
 public sealed class BusyRetryTests
 {
+    // File.ReadAllBytes shares for reading only, which Windows refuses while the pagers hold the file open for writing.
+    private static byte[] ReadWhileOpen(string file)
+    {
+        using var fs = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+        byte[] data = new byte[fs.Length];
+        fs.ReadExactly(data);
+        return data;
+    }
+
     [Theory]
     [InlineData(JournalMode.Delete)]
     [InlineData(JournalMode.Persist)]
@@ -38,7 +47,7 @@ public sealed class BusyRetryTests
             a.CommitSync();
             a.EndReadSync();
             Assert.Equal(11u, a.PageCount);
-            uint c1 = System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(File.ReadAllBytes(file).AsSpan(24));
+            uint c1 = System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(ReadWhileOpen(file).AsSpan(24));
 
             b.BeginReadSync();
             a.BeginReadSync();
@@ -71,7 +80,7 @@ public sealed class BusyRetryTests
             a.CommitSync();
             a.EndReadSync();
             Assert.Equal(16L * 1024, new FileInfo(file).Length);
-            byte[] raw = File.ReadAllBytes(file);
+            byte[] raw = ReadWhileOpen(file);
             Assert.Equal(c1 + 1, System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(raw.AsSpan(24)));
             Assert.Equal(16u, System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(raw.AsSpan(28)));
             using PagerClass c = PagerClass.Open(vfs, file, o);

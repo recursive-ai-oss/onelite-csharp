@@ -311,6 +311,13 @@ public class EncryptionReviewTests
             {
                 foreach (string file in Directory.GetFiles(dir))
                 {
+                    // Windows locks byte ranges of the -shm file mandatorily, so it cannot be read while a connection holds it; the wal-index
+                    // holds page numbers, checksums and lock slots, never page content, so skipping it there loses nothing.
+                    if (OperatingSystem.IsWindows() && file.EndsWith("-shm", StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+
                     // Read through the VFS's main-file open: a FileStream takes the runtime's advisory flock, which on macOS is the same
                     // mechanism as the record locks the open connection holds, so it fails while the database is in use.
                     byte[] data;
