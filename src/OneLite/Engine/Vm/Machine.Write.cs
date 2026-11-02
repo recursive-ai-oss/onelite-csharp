@@ -14,7 +14,23 @@ namespace RecursiveAI.OneLite.Vm;
 internal sealed partial class Machine
 {
     // changes(), total_changes() and last_insert_rowid() read the connection of the statement that is running (c3ref changes).
-    private bool _writing;
+    private bool _fwReloading, _fwReloaded;
+
+    private bool _writingFlag;
+
+    // Keeps the connection's count of statements that have begun writing and not finished: while one is running, SAVEPOINT and COMMIT are refused.
+    private bool _writing
+    {
+        get => _writingFlag;
+        set
+        {
+            if (_writingFlag != value)
+            {
+                _writingFlag = value;
+                _conn.ActiveWriters += value ? 1 : -1;
+            }
+        }
+    }
     private bool _dml;
     private bool _ddl;
     private int _stmtLevel;
@@ -80,19 +96,104 @@ internal sealed partial class Machine
         return new OneLiteException(ext, message);
     }
 
-    /// <summary>Called when a ROLLBACK elsewhere on the connection rewrites pages this statement's cursors point into.</summary>
-    internal void Abort()
+    /// <summary>
+    /// Called when a ROLLBACK elsewhere on the connection rewrites the pages this statement's cursors point into. With <paramref name="keepReads"/> a
+    /// statement that only reads goes on afterwards, as it does in the reference: its cursors turn into saved keys now and find their place again
+    /// when the statement next runs (lang_transaction; a pending read survives a ROLLBACK). Otherwise, and for a statement that has written, it ends
+    /// with SQLITE_ABORT_ROLLBACK the next time it runs.
+    /// </summary>
+    internal void Abort(bool keepReads = false)
     {
+        bool save = keepReads && !_writing && !_aborted && SavePossible();
+        foreach (Machine? sm in _subs)
+        {
+            sm?.Abort(keepReads);
+        }
+
         foreach (VmCursor c in _cur)
         {
-            c.Bt?.Reset();
+            if (c.Bt is null)
+            {
+                continue;
+            }
+
+            if (save && _pc > 0 && !_finished)
+            {
+                c.Bt.Save();
+                _savedCursors |= c.Bt.State == CursorState.Saved;
+            }
+            else
+            {
+                c.Bt.Reset();
+            }
+
             c.RecordReady = false;
         }
 
-        if (_pc > 0 && !_finished)
+        if (!save && _pc > 0 && !_finished)
         {
             _aborted = true;
         }
+    }
+
+    // A cursor on an index entry whose key has overflow pages cannot be saved without reading them.
+    private bool SavePossible()
+    {
+        foreach (VmCursor c in _cur)
+        {
+            if (c.Bt is { NeedsPayloadForSave: true })
+            {
+                return false;
+            }
+        }
+
+        foreach (Machine? sm in _subs)
+        {
+            if (sm is not null && !sm.SavePossible())
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private bool _savedCursors;
+
+    // Puts back the cursors Abort(keepReads) saved. Resumable: a seek that misses the cache returns Pending and is repeated.
+    private RunResult RestoreSavedCursors()
+    {
+        foreach (Machine? sm in _subs)
+        {
+            if (sm is not null && sm._savedCursors)
+            {
+                RunResult r = sm.RestoreSavedCursors();
+                if (r != RunResult.Done)
+                {
+                    return r;
+                }
+            }
+        }
+
+        foreach (VmCursor c in _cur)
+        {
+            if (c.Bt is { State: CursorState.Saved })
+            {
+                BtStatus s = c.Bt.Restore();
+                if (s == BtStatus.Pending)
+                {
+                    return RunResult.Pending;
+                }
+
+                if (s == BtStatus.Error)
+                {
+                    return BtFail(c.Bt);
+                }
+            }
+        }
+
+        _savedCursors = false;
+        return RunResult.Done;
     }
 
     // ------------------------------------------------------------------ the dispatcher
@@ -340,6 +441,12 @@ internal sealed partial class Machine
 
     // ------------------------------------------------------------------ transactions
 
+    /// <summary>The statement failed with SQLITE_BUSY asking for the write lock: it stays active in the reference until reset (see <see cref="Connection.BlockedStatements"/>).</summary>
+    internal bool BlockedByBusy { get; private set; }
+
+    /// <summary>The statement failed with SQLITE_BUSY asking for the read lock. It also stays active, but a checkpoint or a journal-mode change does not count it.</summary>
+    internal bool BlockedAtRead { get; private set; }
+
     private bool _ownKnown;
     private bool _beginsTransaction;
     private bool _connWasWriting;
@@ -381,6 +488,7 @@ internal sealed partial class Machine
                 }
 
                 Error = _conn.PagerError;
+                BlockedByBusy = _conn.PagerError is OneLiteException { Code: ResultCode.Busy };
                 return RunResult.Error;
             }
 
@@ -509,7 +617,7 @@ internal sealed partial class Machine
                 case 1:
                     if (_fwWhole)
                     {
-                        _conn.ReleaseCursorsOf(_owner);
+                        _conn.ReleaseCursorsOf(_owner, true);
                         PagerStatus s = pg.Rollback();
                         if (s == PagerStatus.Pending)
                         {
@@ -560,10 +668,45 @@ internal sealed partial class Machine
 
                         _conn.ReleaseAttachedSavepoints(_stmtAttLevels);
 
-                        _fw = _conn.AutoCommit ? 3 : 8;
+                        _fw = _ddl && _conn.ReloadAfterDdl ? 7 : _conn.AutoCommit ? 3 : 8;
                     }
 
                     break;
+                case 7:
+                {
+                    // The statement changed the schema. The connection keeps the schema it just built, as the reference does, so its next statement
+                    // needs no read lock: load it now, while this transaction holds the file and sees its own pages.
+                    if (!_fwReloading)
+                    {
+                        _fwReloading = true;
+                        // The reload's own read nests inside this write transaction: hold one reader count so it never ends the pager's transaction.
+                        _conn.ReaderStarted();
+                        _conn.BeginSchemaRefresh();
+                    }
+
+                    RunResult rr;
+                    try
+                    {
+                        rr = _conn.ReloadSchemaStep();
+                    }
+                    catch (OneLiteException)
+                    {
+                        // The schema is read again the next time a statement needs it.
+                        _conn.InvalidateSchema();
+                        rr = RunResult.Done;
+                    }
+
+                    if (rr == RunResult.Pending)
+                    {
+                        return rr;
+                    }
+
+                    _fwReloading = false;
+                    _conn.ReaderDone();
+                    _fwReloaded = true;
+                    _fw = _conn.AutoCommit ? 3 : 8;
+                    break;
+                }
                 case 3:
                 {
                     Exception? multiError = null;
@@ -642,7 +785,11 @@ internal sealed partial class Machine
                 case 8:
                     if (_ddl)
                     {
-                        _conn.InvalidateSchema();
+                        if (!_fwReloaded)
+                        {
+                            _conn.InvalidateSchema();
+                        }
+
                         _conn.SchemaDirty = !_conn.AutoCommit;
                     }
 
@@ -735,13 +882,18 @@ internal sealed partial class Machine
                             // that only read leaves them running, as the reference does.
                             if (pg.InWriteTransaction || _conn.AttachedWriting || _conn.Temp != null)
                             {
-                                _conn.ReleaseCursorsOf(_owner);
+                                _conn.ReleaseCursorsOf(_owner, true);
                             }
 
                             _wstep = 20;
                             break;
                         case 3:
                         {
+                            if (_conn.ActiveWriters > 0 || _conn.BlockedStatements > 0 || _conn.BlockedReadStatements > 0)
+                            {
+                                throw new OneLiteException(ResultCode.Busy, "cannot open savepoint - SQL statements in progress");
+                            }
+
                             bool first = _conn.AutoCommit;
                             var e = new SavepointEntry { Name = name!, FkDeferred = _conn.FkDeferred };
                             _conn.Savepoints.Add(e);
@@ -778,6 +930,11 @@ internal sealed partial class Machine
                             }
 
                             _tmpRowid = i;
+                            if (_conn.HasWritableBlob || _conn.BlockedStatements > 0 || _conn.BlockedReadStatements > 0 || _conn.ActiveWriters > 0)
+                            {
+                                throw new OneLiteException(ResultCode.Busy, "cannot release savepoint - SQL statements in progress");
+                            }
+
                             if (i == 0 && !_conn.ExplicitTx)
                             {
                                 CheckDeferredForeignKeys();
@@ -833,7 +990,7 @@ internal sealed partial class Machine
                 case 10:
                 {
                     // COMMIT
-                    if (_conn.HasWritableBlob)
+                    if (_conn.HasWritableBlob || _conn.BlockedStatements > 0 || _conn.BlockedReadStatements > 0 || _conn.ActiveWriters > 0)
                     {
                         throw new OneLiteException(ResultCode.Busy, "cannot commit transaction - SQL statements in progress");
                     }
@@ -2430,17 +2587,23 @@ internal sealed partial class Machine
                         case "truncate": target = JournalMode.Truncate; break;
                         case "persist": target = JournalMode.Persist; break;
                         case "memory": target = JournalMode.Memory; break;
-                        case "off": break; // the shell runs in defensive mode, which refuses journal_mode=off
+                        case "off": target = JournalMode.Off; break; // the library accepts it (the shell refuses it only in its defensive mode)
                         case "wal": target = JournalMode.Wal; break;
                         default: break;
                     }
 
-                    if (_wstep != 5 && pg.InWriteTransaction && pg.HasChanges)
+                    // Pages already changed in this transaction: the mode stays, silently (observed on the reference). Before that, moving between
+                    // the rollback-journal modes is allowed anywhere; only WAL needs the file to be idle.
+                    bool wasWal = pg.JournalMode == JournalMode.Wal;
+                    if (_wstep != 5 && pg.InWriteTransaction && pg.HasPageChanges)
                     {
-                        // Pages already changed in this transaction: the mode stays, silently (observed on the reference).
                         target = pg.JournalMode;
                     }
-                    else if (_wstep != 5 && (!_conn.AutoCommit || pg.InWriteTransaction))
+                    else if (_wstep != 5 && (target == JournalMode.Wal) == wasWal)
+                    {
+                        // same kind of mode: nothing to refuse
+                    }
+                    else if (_wstep != 5 && (!_conn.AutoCommit || pg.InWriteTransaction || _conn.ReadsBeyondThisStatement))
                     {
                         if (target == JournalMode.Wal && pg.JournalMode != JournalMode.Wal)
                         {
@@ -2571,6 +2734,12 @@ internal sealed partial class Machine
 
                 if (!pg.IsWal)
                 {
+                    // rescode SQLITE_LOCKED: a checkpoint with another statement running on the connection is refused, WAL or not.
+                    if (_holdsRead ? _conn.ReadsBeyondThisStatement : _conn.ActiveReaders > 0 || _conn.TxHeld || _conn.BlockedCountsForCheckpoint(_holdsRead ? 1 : 0))
+                    {
+                        throw new OneLiteException(ResultCode.Locked, "database table is locked");
+                    }
+
                     // A database that is not in WAL mode has nothing to checkpoint: busy 0, log -1, checkpointed -1.
                     Values.SetInt(ref R[d], 0);
                     Values.SetInt(ref R[d + 1], -1);
@@ -2582,7 +2751,7 @@ internal sealed partial class Machine
                 {
                     // A checkpoint cannot run inside a read transaction: give ours up first. A transaction that has not touched the database yet
                     // (BEGIN or SAVEPOINT alone) does not count: only a read held by the transaction or by another statement does.
-                    if (_conn.ReadsBeyondThisStatement)
+                    if (_conn.ReadsHeldBesidesThisStatement || _conn.BlockedCountsForCheckpoint(_holdsRead ? 1 : 0))
                     {
                         throw new OneLiteException(ResultCode.Locked, "database table is locked", "a checkpoint cannot run inside a transaction");
                     }

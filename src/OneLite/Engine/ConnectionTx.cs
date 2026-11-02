@@ -147,7 +147,57 @@ public sealed partial class Connection
     internal bool HoldsNoRead => _readers == 0 && !TxHeld;
 
     /// <summary>True when a read transaction is held by an open transaction or by another running statement, not only by the caller's own statement.</summary>
-    internal bool ReadsBeyondThisStatement => _readers > 1 || TxHeld;
+    internal bool ReadsBeyondThisStatement => ReadsHeldBesidesThisStatement || BlockedStatements > 0;
+
+    /// <summary>Like <see cref="ReadsBeyondThisStatement"/> without the statements refused with SQLITE_BUSY: those hold no read, so a WAL checkpoint is not blocked by them.</summary>
+    internal bool ReadsHeldBesidesThisStatement => _readers > 1 || TxHeld;
+
+    /// <summary>
+    /// Write statements that returned SQLITE_BUSY while asking for the write lock. In the reference such a statement stays active until it is reset or
+    /// stepped again (c3ref/step): it holds no lock, but a checkpoint, a change of journal mode or a COMMIT still counts it as running.
+    /// </summary>
+    internal int BlockedStatements;
+
+    /// <summary>True when the read transaction was kept open for the sake of a statement refused with SQLITE_BUSY.</summary>
+    internal bool BlockedHold;
+
+    /// <summary>
+    /// Called when the last running statement is about to end its read transaction. If a refused statement is still active the transaction stays
+    /// open (the reference ends it only when no statement is active); returns true then.
+    /// </summary>
+    internal bool HoldReadForBlocked(Vm.Machine m)
+    {
+        if (_readers != 1 || TxHeld)
+        {
+            return false;
+        }
+
+        if (!BlockedHold && (m.BlockedByBusy || m.BlockedAtRead || BlockedStatements + BlockedReadStatements == 0))
+        {
+            return false;
+        }
+
+        BlockedHold = true;
+        return true;
+    }
+
+    /// <summary>Ends the read transaction kept for refused statements once the last of them is reset.</summary>
+    internal void ReleaseBlockedHold()
+    {
+        if (BlockedHold && BlockedStatements + BlockedReadStatements == 0 && _readers == 0 && !TxHeld)
+        {
+            BlockedHold = false;
+            AbortRead();
+        }
+    }
+
+    internal bool BlockedCountsForCheckpoint(int ownReads) => BlockedHold;
+
+    /// <summary>Statements refused with SQLITE_BUSY asking for the read lock; they block COMMIT, RELEASE and SAVEPOINT until reset.</summary>
+    internal int BlockedReadStatements;
+
+    /// <summary>Statements that have begun writing and not finished (a RETURNING statement not read to its end, or one in the middle of a step).</summary>
+    internal int ActiveWriters;
 
     internal PagerStatus EndTxHoldStep()
     {
@@ -205,14 +255,14 @@ public sealed partial class Connection
         return -1;
     }
 
-    /// <summary>Cursors of statements other than <paramref name="except"/> point into pages a rollback is about to rewrite; let go of them.</summary>
-    internal void ReleaseCursorsOf(Statement? except)
+    /// <summary>Cursors of statements other than <paramref name="except"/> point into pages a rollback is about to rewrite; let go of them (pending reads survive when <paramref name="keepReads"/>).</summary>
+    internal void ReleaseCursorsOf(Statement? except, bool keepReads = false)
     {
         foreach (Statement s in _statements)
         {
             if (!ReferenceEquals(s, except))
             {
-                s.AbortForRollback();
+                s.AbortForRollback(keepReads);
             }
         }
     }

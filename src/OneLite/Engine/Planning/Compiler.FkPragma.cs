@@ -80,7 +80,7 @@ internal sealed partial class Compiler
             tables = [.. _cat.Tables.Values.Where(x => x.Unsupported is null && x.ForeignKeys.Count > 0)];
         }
 
-        Emit(Op.Transaction, 0, 0, 0, null, 4); // as the other pragmas: no schema cookie to check
+        EmitPragmaTransaction(ReadFlags);
         int b = NewRegs(cols.Length);
         foreach (TableInfo t in tables)
         {

@@ -374,8 +374,9 @@ public sealed partial class Pager
                 for (int i = 0; i < WalIndex.ReadSlots; i++)
                 {
                     uint m = i == 0 ? 0 : index.ReadMark(i);
-                    if (m >= safe)
+                    if (m >= safe || (i == 0 && index.NBackfill >= safe))
                     {
+                        // A reader on read lock 0 reads the database file only; it matters just when this checkpoint has frames to write into it.
                         continue;
                     }
 
@@ -663,20 +664,22 @@ public sealed partial class Pager
         Guard();
         if (_wjmStep == 0)
         {
-            if (_state != TxState.Read)
-            {
-                throw new OneLiteException(ResultCode.Misuse, Msg(ResultCode.Misuse), "changing the journal mode needs a read transaction and no write transaction");
-            }
-
             if (target == JournalMode)
             {
                 return PagerStatus.Ok;
             }
 
+            // lockingv3 / pragma journal_mode: moving between the rollback-journal modes only changes how this connection writes its next
+            // transaction, so it needs no lock and no read transaction; only entering or leaving WAL touches the file.
             if (target != JournalMode.Wal && _wal == null)
             {
                 _journalMode = target;
                 return PagerStatus.Ok;
+            }
+
+            if (_state != TxState.Read)
+            {
+                throw new OneLiteException(ResultCode.Misuse, Msg(ResultCode.Misuse), "changing the journal mode needs a read transaction and no write transaction");
             }
 
             _jmTarget = target;
@@ -799,8 +802,9 @@ public sealed partial class Pager
                     PagerStatus s = TakeLock(LockLevel.Exclusive);
                     if (s == PagerStatus.Error)
                     {
+                        // lockingv3: a refused EXCLUSIVE leaves this connection holding PENDING, which keeps new readers out; give it back.
                         _jmSaved = _error;
-                        _wjmStep = 90;
+                        _wjmStep = 91;
                         break;
                     }
 

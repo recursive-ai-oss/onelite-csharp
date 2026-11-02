@@ -684,7 +684,8 @@ public sealed partial class Pager
                     _rjStep = 1;
                     break;
                 case 1:
-                    if (_jfile == null)
+                    // A PERSIST journal measures its old size after it opens, which can suspend: the file is set but the writer is not done.
+                    if (_jfile == null || _ajOpenOnly)
                     {
                         _ajOpenOnly = true;
                         PagerStatus s = AppendJournalRecord(null!);
