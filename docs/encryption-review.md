@@ -1,6 +1,6 @@
 # Encryption review
 
-An independent review of OneLite's SQLCipher-compatible encryption: `Storage/Crypto/*`, `Storage/Pager/Pager.Crypto.cs` and the places where the pager encodes
+The project's own review (not an external audit) of OneLite's SQLCipher-compatible encryption: `Storage/Crypto/*`, `Storage/Pager/Pager.Crypto.cs` and the places where the pager encodes
 and decodes pages (cache reads, spills, commits, journal records, WAL frames, playback, checkpoint). The reviewer had not written any of it.
 Format description: [encryption.md](encryption.md).
 

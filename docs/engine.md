@@ -1,7 +1,7 @@
-# The engine: read-only queries
+# The engine
 
-The first slice of the engine layer. It opens an existing database read-only and runs `SELECT` statements. Writes, joins,
-subqueries, grouping and the other SQL families are added to this code, not beside it. Results, result codes and message text
+The engine layer: `Database`, `Connection`, `Statement`, the sync and async drivers, and the SQL surface (queries, writes, DDL, transactions).
+This page began with the first, read-only slice; the sections below describe the engine as it now is, family by family. Results, result codes and message text
 follow the pinned SQLite release (`datatype3`, `lang_select`, `lang_expr`, `lang_corefunc`, `rescode`); plans and bytecode are
 OneLite's own.
 

@@ -20,7 +20,9 @@ hole is one value (number, string, blob, `Guid`, date, null...); it cannot be a 
 
 `Database.OpenAsync(path)` / `Database.OpenDefault(path)` open (creating) a database with write-ahead logging, `foreign_keys=ON` and a 5 s busy timeout, and
 return when the connection is ready. Pass `DatabaseOptions` to choose otherwise (they are used as given); `":memory:"` is a private in-memory database.
-`Database.Open` is unchanged and keeps the reference defaults. One `Database` serializes its calls on one connection; open more connections with `Connect()` for
+**WAL is persistent:** opening an existing rollback-journal file with `OpenAsync`/`OpenDefault` switches that file to WAL for good (it is a property of the
+file, as `PRAGMA journal_mode=WAL` is in SQLite), so other programs that open it, `sqlite3` included, see a WAL database and need write access to the
+directory for the `-wal` and `-shm` files; pass `DatabaseOptions` to keep the file's journal mode. `Database.Open` is unchanged and keeps the reference defaults. One `Database` serializes its calls on one connection; open more connections with `Connect()` for
 parallel readers.
 
 ## Queries
