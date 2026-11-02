@@ -1455,7 +1455,7 @@ internal sealed partial class Machine
                 }
             }
 
-            if ((ins.P5 & 1) == 0)
+            if ((ins.P5 & 1) == 0 && (ins.P5 & 32) == 0)
             {
                 _conn.HoldForTransaction();
             }
@@ -1499,6 +1499,7 @@ internal sealed partial class Machine
             return RunResult.Done;
         }
 
+        _beginsTransaction = (ins.P5 & 4) != 0;
         RunResult w = DoTransactionWrite((ins.P5 & 16) != 0);
         if (w == RunResult.Done && _txStep >= 20)
         {

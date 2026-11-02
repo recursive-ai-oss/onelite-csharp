@@ -146,6 +146,9 @@ public sealed partial class Connection
     /// <summary>True when no statement or open transaction of this connection holds a read transaction.</summary>
     internal bool HoldsNoRead => _readers == 0 && !TxHeld;
 
+    /// <summary>True when a read transaction is held by an open transaction or by another running statement, not only by the caller's own statement.</summary>
+    internal bool ReadsBeyondThisStatement => _readers > 1 || TxHeld;
+
     internal PagerStatus EndTxHoldStep()
     {
         if (!TxHeld)

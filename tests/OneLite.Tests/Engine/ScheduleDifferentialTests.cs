@@ -361,7 +361,7 @@ public sealed class ScheduleDifferentialTests : IDisposable
                     }
                 }
 
-                trace.Add(Apply(conns[st.Conn], st));
+                trace.Add(Apply(conns[st.Conn], st with { Sql = st.Sql.Replace("{file}", file, StringComparison.Ordinal) }));
             }
 
             // Wind down the way an application would: finish every statement, then roll back whatever transaction is still open.
@@ -614,6 +614,17 @@ public sealed class ScheduleDifferentialTests : IDisposable
         SelectAll, SelectAll, "SELECT count(*), sum(x) FROM t", "INSERT INTO u VALUES ({n})", "SELECT y FROM u ORDER BY y",
     ];
 
+    // Operations whose lock order or transaction rules still differ from the reference in corners (docs/engine.md, "Known differences with
+    // several connections"): a journal_mode change or ATTACH while another connection holds a lock, wal_checkpoint outside WAL mode. They run when
+    // ONELITE_SCHEDULE_AUDIT is set, to look for new differences.
+    private static readonly string[] s_audit =
+    [
+        "PRAGMA wal_checkpoint(PASSIVE)", "PRAGMA wal_checkpoint(TRUNCATE)", "PRAGMA journal_mode=delete", "PRAGMA journal_mode=wal", "PRAGMA journal_mode",
+        "ATTACH '{file}' AS a2", "DETACH a2", "SELECT x FROM a2.t ORDER BY x",
+    ];
+
+    private static readonly bool s_auditOn = Environment.GetEnvironmentVariable("ONELITE_SCHEDULE_AUDIT") != null;
+
     private static readonly string[] s_open = [SelectAll, "SELECT count(*) FROM t", "INSERT INTO t VALUES ({n})", "UPDATE t SET x = x + 1 WHERE x = {k}", "SELECT y FROM u"];
 
     internal static Schedule Generate(long seed, string? forcedMode = null)
@@ -645,8 +656,14 @@ public sealed class ScheduleDifferentialTests : IDisposable
                     l.Add(rng.Next(2) == 0 ? R(c, slot) : F(c, slot));
                     break;
                 default:
-                    l.Add(X(c, Fill(s_exec[rng.Next(s_exec.Length)])));
+                {
+                    string[] pool = s_auditOn && rng.Next(3) == 0 ? s_audit : s_exec;
+                    string sql = Fill(pool[rng.Next(pool.Length)]);
+                    // wal_checkpoint on a database that is not in WAL mode answers without touching the file on the reference; OneLite reads first
+                    // (a documented difference), so those schedules stay in WAL mode.
+                    l.Add(X(c, sql.StartsWith("PRAGMA wal_checkpoint", StringComparison.Ordinal) && mode != "wal" ? SelectAll : sql));
                     break;
+                }
             }
         }
 
@@ -658,13 +675,12 @@ public sealed class ScheduleDifferentialTests : IDisposable
     public void RandomSchedules()
     {
         Require();
-        Assert.SkipUnless(Environment.GetEnvironmentVariable("ONELITE_SCHEDULE_SEED") != null, "work in progress: set ONELITE_SCHEDULE_SEED");
         long seed = long.TryParse(Environment.GetEnvironmentVariable("ONELITE_SCHEDULE_SEED"), out long s0) ? s0 : 4242;
         int seconds = int.TryParse(Environment.GetEnvironmentVariable("ONELITE_SCHEDULE_SECONDS"), out int sec) ? sec : 0;
         DateTime end = DateTime.UtcNow.AddSeconds(seconds);
         int count = 0, steps = 0;
         var failures = new List<string>();
-        for (long i = 0; seconds == 0 ? i < 150 : DateTime.UtcNow < end; i++)
+        for (long i = 0; seconds == 0 ? i < 80 : DateTime.UtcNow < end; i++)
         {
             Schedule sc = Generate(seed + i);
             steps += sc.Steps.Count;

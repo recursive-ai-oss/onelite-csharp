@@ -332,6 +332,8 @@ internal sealed partial class Machine
     // ------------------------------------------------------------------ transactions
 
     private bool _ownKnown;
+    private bool _beginsTransaction;
+    private bool _connWasWriting;
     private bool _ownRead;
     private int _busyTry;
     private int _busySleepMs;
@@ -349,6 +351,7 @@ internal sealed partial class Machine
             // c3ref busy_handler: a writer that cannot get the RESERVED lock must not wait while it holds a SHARED lock it took only for this
             // statement, because the process that holds RESERVED may be waiting for exactly that lock to go (both would wait out the whole timeout).
             // It lets go of the read transaction, waits, and starts over. A connection that was already reading gets BUSY at once.
+            _connWasWriting = _txStep == 2 && _conn.Pager.InWriteTransaction;
             PagerStatus s = _conn.BeginWriteStep(exclusive, noWait: !_conn.IsWal);
             if (s == PagerStatus.Pending)
             {
@@ -374,14 +377,32 @@ internal sealed partial class Machine
 
             _busyTry = 0;
             _txStep = 3;
-            if (_conn.Attached.Count > 0 && _prog.AttachedWriteMask != 0)
+            int attachedWrites = _prog.AttachedWriteMask;
+            if (_beginsTransaction)
+            {
+                // BEGIN IMMEDIATE and EXCLUSIVE take the write lock of every attached database too (lang_transaction).
+                foreach (AttachedDb ad in _conn.Attached)
+                {
+                    attachedWrites |= 1 << ad.Slot;
+                }
+            }
+
+            if (_conn.Attached.Count > 0 && attachedWrites != 0)
             {
                 try
                 {
-                    _conn.BeginAttached(0, _prog.AttachedWriteMask);
+                    _conn.BeginAttached(0, attachedWrites);
                 }
                 catch (OneLiteException e)
                 {
+                    // An attached database refused its write lock (it can be the same file as main, which this connection already holds):
+                    // the write this statement began on main and on the others goes with it, so nothing is left half-begun.
+                    if (!_connWasWriting)
+                    {
+                        _conn.RollbackAttached();
+                        _conn.Pager.RollbackSync();
+                    }
+
                     Error = e;
                     return RunResult.Error;
                 }
@@ -2183,8 +2204,9 @@ internal sealed partial class Machine
                             "wal" when a.Path.Length > 0 => JournalMode.Wal,
                             _ => target,
                         };
-                        if (want != target)
+                        if (want != target && !(pg.InWriteTransaction && pg.HasChanges))
                         {
+                            // (A transaction that has already changed pages leaves the mode alone without an error: observed on the reference.)
                             if (!_conn.AutoCommit || pg.InWriteTransaction)
                             {
                                 if (want == JournalMode.Wal)
@@ -2207,7 +2229,13 @@ internal sealed partial class Machine
 
                                 if (ps == PagerStatus.Error)
                                 {
-                                    throw pg.Error!;
+                                    OneLiteException failure = pg.Error!;
+                                    if (pg.InWriteTransaction)
+                                    {
+                                        pg.RollbackSync();
+                                    }
+
+                                    throw failure;
                                 }
                             }
                         }
@@ -2396,7 +2424,12 @@ internal sealed partial class Machine
                         default: break;
                     }
 
-                    if (_wstep != 5 && (!_conn.AutoCommit || pg.InWriteTransaction))
+                    if (_wstep != 5 && pg.InWriteTransaction && pg.HasChanges)
+                    {
+                        // Pages already changed in this transaction: the mode stays, silently (observed on the reference).
+                        target = pg.JournalMode;
+                    }
+                    else if (_wstep != 5 && (!_conn.AutoCommit || pg.InWriteTransaction))
                     {
                         if (target == JournalMode.Wal && pg.JournalMode != JournalMode.Wal)
                         {
@@ -2425,6 +2458,11 @@ internal sealed partial class Machine
                         if (s == PagerStatus.Error)
                         {
                             Error = pg.Error;
+                            if (pg.InWriteTransaction)
+                            {
+                                pg.RollbackSync();
+                            }
+
                             return RunResult.Error;
                         }
                     }
@@ -2531,8 +2569,9 @@ internal sealed partial class Machine
 
                 if (_holdsRead)
                 {
-                    // A checkpoint cannot run inside a read transaction: give ours up first.
-                    if (!_conn.AutoCommit)
+                    // A checkpoint cannot run inside a read transaction: give ours up first. A transaction that has not touched the database yet
+                    // (BEGIN or SAVEPOINT alone) does not count: only a read held by the transaction or by another statement does.
+                    if (_conn.ReadsBeyondThisStatement)
                     {
                         throw new OneLiteException(ResultCode.Locked, "database table is locked", "a checkpoint cannot run inside a transaction");
                     }

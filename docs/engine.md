@@ -395,6 +395,17 @@ readers; each read must show one committed state, and the states must never go b
   (`NEW.a` of a view column that was renamed) is not caught.
 - Subquery/expression nesting limits (`SQLITE_MAX_EXPR_DEPTH`) are those of the parser.
 
+## Known differences with several connections on one file
+
+Several connections to one file (one `Database`, several, or other processes) are checked step by step against the native library with the schedule differential (`ScheduleDifferentialTests`: named schedules, plus random ones over DELETE, TRUNCATE, PERSIST, WAL and MEMORY). Lock failures are `SQLITE_BUSY` with the reference's text, and a refused statement leaves the transaction as the reference does. What still differs, each outside the default schedules:
+
+- A write statement that returned `SQLITE_BUSY` stays "in progress" on the reference until it is reset: a later `COMMIT` then fails with "cannot commit transaction - SQL statements in progress", and an autocommit statement after it does not commit. OneLite ends such a statement at the error. Reset a statement after an error, as the `sqlite3_step` documentation asks.
+- A `ROLLBACK` that undoes writes aborts the connection's pending queries with `SQLITE_ABORT_ROLLBACK`; the reference lets read queries go on.
+- After its own DDL a connection reads the schema again at the next prepare, which needs a read lock; the reference keeps the schema it updated.
+- A statement that compiles against a stale schema and is a no-op after re-preparing (`CREATE TABLE IF NOT EXISTS` of a table another connection made) does not take the write lock first.
+- Writing through a second name of the same file (`ATTACH` of the main file, then `UPDATE alias.t`) fails with `SQLITE_MISUSE` where the reference succeeds.
+- `PRAGMA journal_mode` changes and `ATTACH` while another connection holds a lock, and `PRAGMA wal_checkpoint` outside WAL mode, can fail with `SQLITE_BUSY` where the reference answers without touching the file, or the other way round. `journal_mode=off` is refused as in the shell; the library accepts it.
+
 ## JSON and JSONB
 
 The code is in `Engine/Vm/Json/`; the behaviour is that of the reference's json1 documentation, settled where the documents are silent by

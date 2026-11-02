@@ -4,9 +4,19 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.2.0-preview.2]
+
+### Fixed
+
+- **Data loss: a write that could not get the EXCLUSIVE lock at commit reported success.** In a rollback-journal mode, an `INSERT`, `UPDATE` or `DELETE` in autocommit mode returned with no error and 0 changes while another connection (a second `Connection`, a second `Database`, an open `DbDataReader`, or another process such as `sqlite3`) held a read, and nothing was stored. It now fails with `SQLITE_BUSY` ("database is locked") after the busy timeout, in the engine, `RecursiveAI.OneLite.Data` and the happy path. An explicit `COMMIT` keeps its transaction open and can be retried. 0.2.0-preview.1 is affected.
+- Locking and transaction state after a refused write now follow SQLite: a refused write gives back the read lock it took for itself; `BEGIN IMMEDIATE`/`EXCLUSIVE` take the lock before entering the transaction and a refused one leaves the connection in autocommit mode; a write transaction that changed nothing still needs EXCLUSIVE to commit; `BEGIN` and `SAVEPOINT` keep the read transaction of a statement that is still running; a refused `RELEASE` of the outermost savepoint keeps the transaction; rolling back a transaction that only read no longer aborts pending queries; the loaded schema is kept after a refused write; a statement that names a table another connection has since created reloads the schema; `wal_checkpoint(TRUNCATE|RESTART|FULL)` still copies frames when another connection holds the write lock; `BEGIN IMMEDIATE` also locks attached databases.
+- A new differential test runs random and named schedules of several connections against the native library step by step (result codes, messages, rows, final content), in every journal mode.
+
 ## [0.2.0-preview.1]
 
 ### Known issues
+
+Fixed in 0.2.0-preview.2.
 
 - **Data loss: a write outside an explicit transaction can be silently dropped in rollback-journal mode.** It happens when all of these hold: the database is in a rollback-journal mode (`journal_mode` DELETE, TRUNCATE or PERSIST), which is the default for `Database.Open` and for `RecursiveAI.OneLite.Data`'s `OneLiteConnection`; another connection holds a read (a `SELECT` that has stepped but not finished or been reset, an open `DbDataReader`, or an open read transaction), in the same process or in another process such as `sqlite3`; and an `INSERT`, `UPDATE` or `DELETE` runs in autocommit mode (no `BEGIN`/`BeginTransaction`) on a different connection. The statement then completes without an error, reports 0 changes (`ExecuteNonQuery` returns 0), and nothing is stored; SQLite returns `SQLITE_BUSY`. Inside an explicit transaction the write is not lost: `COMMIT` fails with "database is locked" and can be retried, as in SQLite. WAL mode is not affected. **Workaround:** use WAL (`PRAGMA journal_mode=WAL` once on the file; the default of `Database.OpenAsync` and `Database.OpenDefault`), or wrap writes in an explicit transaction and handle "database is locked", or make sure no other connection holds a read while you write; check that a write reports the expected number of changes. A fix is coming in 0.2.0-preview.2.
 

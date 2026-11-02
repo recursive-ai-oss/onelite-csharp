@@ -259,6 +259,7 @@ public sealed partial class Pager
         int ps = _pageSize;
         bool busy = false;
         bool holdWrite = false;
+        bool writeBusy = false;
         uint mxFrame = 0;
         uint safe = 0;
         bool restarted = false;
@@ -328,7 +329,13 @@ public sealed partial class Pager
             }
 
             holdWrite = _wGot;
-            busy = !_wGot;
+            if (!_wGot)
+            {
+                // A writer holds the write lock: copy what a passive checkpoint can, and report BUSY for the part that needed the lock
+                // (observed on the reference: the log size and the frames copied are still reported).
+                writeBusy = true;
+                mode = CheckpointMode.Passive;
+            }
         }
 
         WalIndexHeader h = default;
@@ -568,7 +575,7 @@ public sealed partial class Pager
             yield return r;
         }
 
-        LastCheckpoint = mode == CheckpointMode.Truncate && restarted ? new CheckpointResult(false, 0, 0) : new CheckpointResult(busy, (int)mxFrame, (int)safe);
+        LastCheckpoint = mode == CheckpointMode.Truncate && restarted ? new CheckpointResult(false, 0, 0) : new CheckpointResult(busy || writeBusy, (int)mxFrame, (int)safe);
     }
 
     // ---- closing ------------------------------------------------------------------------------------------------------------------------
