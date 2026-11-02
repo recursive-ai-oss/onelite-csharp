@@ -559,9 +559,11 @@ internal static class Fts5Aux
             return null;
         }
 
-        if (c.Config.Unindexed[bestCol])
+        // nothing is tokenized in an unindexed column: the whole text. With less detail than full the matches are found in the text
+        // instead; the reference marks them in a text that fits the window and fails with SQLITE_CORRUPT on a longer one (documented)
+        if (c.Config.Unindexed[bestCol] && (c.Config.Detail == DetailMode.Full || Inst(c, bestCol).Count == 0))
         {
-            return Encoding.UTF8.GetString(text); // nothing is tokenized there: the whole text
+            return Encoding.UTF8.GetString(text);
         }
 
         var toks = new Toks();

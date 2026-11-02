@@ -321,6 +321,24 @@ public sealed class Fts5Tests : IDisposable
     }
 
     [Fact]
+    public void SnippetOfAnUnindexedColumnMatchesTheShell()
+    {
+        NeedOracle();
+        var qs = new List<string>();
+        var setup = new StringBuilder();
+        foreach (string detail in new[] { "full", "column", "none" })
+        {
+            string t = "u" + detail;
+            setup.Append($"CREATE VIRTUAL TABLE {t} USING fts5(a, b UNINDEXED, detail={detail});");
+            setup.Append($"INSERT INTO {t} VALUES('hit x', 'hit'),('hit y', 'w0 w1 w2 w3 w4 w5 w6 w7 w8 w9 w10 w11 w12 w13');");
+            qs.Add($"SELECT rowid, snippet({t}, 1, '[', ']', '~', 12) FROM {t} WHERE {t} MATCH 'hit' ORDER BY rowid");
+        }
+
+        (string ours, string shell) = Both(setup.ToString(), [.. qs]);
+        Assert.Equal(shell, ours);
+    }
+
+    [Fact]
     public void ErrorsMatchTheShell()
     {
         NeedOracle();
