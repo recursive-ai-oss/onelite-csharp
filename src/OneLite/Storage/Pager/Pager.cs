@@ -430,9 +430,9 @@ public sealed partial class Pager : IDisposable, IAsyncDisposable
         }
     }
 
-    private PagerStatus Fail(int extended, string detail)
+    private PagerStatus Fail(int extended, string detail, Exception? inner = null)
     {
-        _error = new OneLiteException(extended, Msg(extended), detail);
+        _error = new OneLiteException(extended, Msg(extended), detail, inner);
         _pending = false;
         _hasComp = false;
         ClearProgress();
@@ -449,7 +449,16 @@ public sealed partial class Pager : IDisposable, IAsyncDisposable
         return PagerStatus.Error;
     }
 
-    private PagerStatus FailIo(int status, string what) => Fail(status == 0 ? ResultCode.IoErr : status, what);
+    // The backend's exception for the request that just failed, kept so the error the caller sees carries it as its inner exception (a remote file that
+    // changed, say, is a typed exception); the result code and message are the same either way.
+    private VfsException? _ioFailure;
+
+    private PagerStatus FailIo(int status, string what)
+    {
+        VfsException? cause = _ioFailure;
+        _ioFailure = null;
+        return cause is null ? Fail(status == 0 ? ResultCode.IoErr : status, what) : Fail(status == 0 ? ResultCode.IoErr : status, what + ": " + cause.Message, cause);
+    }
 
     private PagerStatus FailCorrupt(string detail) => Fail(ResultCode.Corrupt, detail);
 
@@ -482,6 +491,7 @@ public sealed partial class Pager : IDisposable, IAsyncDisposable
 
         IoRequest r = _req;
         IoCompletion c = default;
+        _ioFailure = null;
         try
         {
             switch (r.Kind)
@@ -546,6 +556,7 @@ public sealed partial class Pager : IDisposable, IAsyncDisposable
         catch (VfsException e)
         {
             c.Status = e.ExtendedCode == 0 ? ResultCode.IoErr : e.ExtendedCode;
+            _ioFailure = e;
         }
 
         Complete(c);
@@ -563,6 +574,7 @@ public sealed partial class Pager : IDisposable, IAsyncDisposable
 
         IoRequest r = _req;
         IoCompletion c = default;
+        _ioFailure = null;
         CancellationToken t = r.Cancellable ? ct : CancellationToken.None;
         try
         {
@@ -629,6 +641,7 @@ public sealed partial class Pager : IDisposable, IAsyncDisposable
         catch (VfsException e)
         {
             c.Status = e.ExtendedCode == 0 ? ResultCode.IoErr : e.ExtendedCode;
+            _ioFailure = e;
         }
 
         Complete(c);
