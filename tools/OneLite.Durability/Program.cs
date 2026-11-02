@@ -11,6 +11,8 @@ using RecursiveAI.OneLite.Oracle;
 //   writer DB LEDGER MODE SYNC        (internal) the built-in writer
 //   engine-writer DB LEDGER MODE SYNC [ps=N] [av=0|1|2] [cache=N] [enc=E]   the same workload as SQL on OneLite's engine, with savepoints and statement rollbacks
 //   engine-coexist [--commits N] [--journal delete|wal] [--sync full|normal] [--ps N]   OneLite SQL and sqlite3 processes write one file at once while readers check it
+//   conc-kill [--kills N] [--writers W] [--seed S] [--max-delay-ms MS] [--sync full|normal] [--work DIR]   kill several BEGIN CONCURRENT writer processes at once, again and again; judged by the shell
+//   conc-coexist [--commits N] [--writers W] [--sync full|normal]   BEGIN CONCURRENT writers and a sqlite3 process with plain BEGIN write one file at once
 //   coexist [--commits N] [--journal M] [--ps N] [--av N]   OneLite and a sqlite3 process alternate commits on one file
 //   cipher-kill [--kills N] [--seed S] [--episode K] [--max-delay-ms MS] [--json F] name=value...   kill an encrypted writer, judged by the SQLCipher
 //        shell named in ONELITE_SQLCIPHER (settings: key= compat= ps= iter= kdf= hmac= mode= sync= cache= av=)
@@ -29,6 +31,9 @@ try
         case "writer": return Writer.Run(args[1..]);
         case "btree-writer": return BTreeWriter.Run(args[1..]);
         case "engine-writer": return EngineWriter.Run(args[1..]);
+        case "conc-kill": return ConcKill.Run(args[1..]);
+        case "conc-coexist": return ConcKill.Coexist(args[1..]);
+        case "conc-writer": return ConcKill.Writer(args[1..]);
         case "coexist": return Coexist.Run(args[1..]);
         case "engine-coexist": return EngineCoexist.Run(args[1..]);
         case "cipher-writer": return CipherWriters.Run(args[1..]);

@@ -497,9 +497,13 @@ internal sealed partial class Machine
 
             if (s == PagerStatus.Error)
             {
-                if (_ownRead && !_conn.IsWal && _conn.PagerError is OneLiteException { Code: ResultCode.Busy })
+                // In WAL mode a statement that began its own read and finds a commit between that read and the write lock starts over on the
+                // new snapshot; only a transaction that already read (BEGIN, then SELECT, then a write) has to be told (wal, "BUSY_SNAPSHOT").
+                bool restart = _ownRead && _conn.IsWal && _busyTry < 1000 && _conn.PagerError is OneLiteException { ExtendedCode: ResultCode.BusySnapshot };
+                if (_ownRead && (restart || (!_conn.IsWal && _conn.PagerError is OneLiteException { Code: ResultCode.Busy })))
                 {
-                    int ms = _conn.Busy?.Next(_busyTry++) ?? -1;
+                    int ms = restart ? 0 : _conn.Busy?.Next(_busyTry++) ?? -1;
+                    _busyTry += restart ? 1 : 0;
                     if (ms >= 0)
                     {
                         _busySleepMs = ms;

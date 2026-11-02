@@ -18,9 +18,9 @@ internal static class ConcurrentRowids
 
     private static readonly ConcurrentDictionary<string, Dictionary<uint, Hint>> s_files = new(StringComparer.Ordinal);
 
-    private static Hint Get(string file, uint root, out Dictionary<uint, Hint> table)
+    // The caller holds the lock on the returned table.
+    private static Hint Get(Dictionary<uint, Hint> table, uint root)
     {
-        table = s_files.GetOrAdd(file, _ => []);
         if (!table.TryGetValue(root, out Hint? h))
         {
             h = new Hint();
@@ -53,11 +53,12 @@ internal static class ConcurrentRowids
             return id;
         }
 
-        Hint h = Get(file, root, out Dictionary<uint, Hint> table);
+        Dictionary<uint, Hint> table = s_files.GetOrAdd(file, _ => []);
         int size = b.Size == 0 ? 1 : Math.Min(b.Size * 2, 64);
         long start;
         lock (table)
         {
+            Hint h = Get(table, root);
             start = Math.Max(h.Next, treeMax + 1);
             h.Next = start + size;
         }
@@ -74,9 +75,10 @@ internal static class ConcurrentRowids
             return;
         }
 
-        Hint h = Get(file, c.Root, out Dictionary<uint, Hint> table);
+        Dictionary<uint, Hint> table = s_files.GetOrAdd(file, _ => []);
         lock (table)
         {
+            Hint h = Get(table, c.Root);
             long jump = Random.Shared.NextInt64(0, 1L << Math.Min(4 + h.Streak, 20));
             h.Next = Math.Max(h.Next, c.Rowid + 1) + jump;
             h.Streak++;
