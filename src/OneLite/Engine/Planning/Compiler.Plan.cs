@@ -224,6 +224,13 @@ internal sealed partial class Compiler
                 }
             }
 
+            // pragma optimize: a table counts as queried once the WHERE clause constrains a column that one of its (non-primary-key) indexes holds,
+            // because the planner then weighs that index with its statistics (observed with the pinned shell, skip-scan candidates included).
+            if (table.Db == 0 && terms.Count > 0 && table.Indexes.Any(i => !i.IsPrimaryKey && terms.Any(x => Array.IndexOf(i.Columns, x.Column) >= 0)))
+            {
+                _cat.Owner?.StatsUsed.Add(table.Name);
+            }
+
             if (best is not null && best.Equal.Count > 0)
             {
                 return best;

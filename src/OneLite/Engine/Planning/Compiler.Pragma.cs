@@ -71,6 +71,11 @@ internal sealed partial class Compiler
             return new VmProgram { Code = Finish(), RegisterCount = _nReg + 1, ColumnNames = [], ParameterNames = [], Encoding = _enc };
         }
 
+        if (name == "optimize")
+        {
+            return CompileOptimize(ps);
+        }
+
         if (name == "incremental_vacuum")
         {
             return CompileIncrementalVacuum(ps);

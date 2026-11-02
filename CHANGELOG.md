@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Added
 
+- `PRAGMA incremental_vacuum[(N)]` now returns free pages to the file in an `auto_vacuum=INCREMENTAL` database, one empty row per page freed, as SQLite does; the page and free-page counts match it and the file passes `integrity_check` in both directions. Before, the pragma did nothing.
+- `PRAGMA optimize[(MASK)]` now analyses the tables SQLite's documented rule picks (an index without statistics, or a queried or all-tables check with about a tenfold change in row count), including the debug mask that lists the `ANALYZE` commands. `ANALYZE <index>` now analyses only that index, and `ANALYZE main` the whole schema. `PRAGMA analysis_limit` is stored but `ANALYZE` still counts every entry.
 - A database on a storage backend with only asynchronous calls (the browser's OPFS on the main thread, HTTP range reads) can now be opened, prepared, stepped and closed without blocking: `PrepareAsync`, `OpenReadOnlyAsync`, `ResetAsync` and `DisposeAsync`. `RecursiveAI.OneLite.Data` and the happy path use them. Cancelling a read that waits on storage releases its lock.
 - `HttpRangeVfs`, a read-only backend over HTTP range requests, with a block cache; a file that changes on the server (ETag or Last-Modified) is reported as an I/O error, and journals and write-ahead logs are refused.
 - An I/O error from the pager keeps the backend's exception as its inner exception.
