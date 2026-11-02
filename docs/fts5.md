@@ -34,22 +34,32 @@ modified by both engines. Tokenizers (`unicode61`, `ascii`, `porter`, `trigram`)
   an unterminated string is `unterminated string`, `* a` is `unknown special query: a`, `NEAR` is a word unless a `(` follows.
 - **Contentless tables**: the `'delete'` command also drops the `t_docsize` row; without `t_docsize` (`columnsize=0`) a scan is
   `t: table does not support scanning` and `bm25` runs with a column size of -1.
-- **snippet** (window of `n` tokens, `n` clamped to 1..64): the best anchor is the instance whose window holds the most instances; the window
-  starts at `anchor - (n - span)/2` clamped to the text, except that it starts at the latest *sentence start* before the first match that
-  still reaches it, and at the text start when the first match lies in the first `n` tokens. A sentence start is a token whose preceding
-  gap ends in `.` or `:` followed by white space (`. `, `: `, ` . `; not `.` alone, `?`, `!`, `;`). A phrase that began before the window is
-  not marked. A snippet that reaches the end of the text keeps the text after its last token; one starting at token 0 starts at the text
-  start. Unindexed columns are returned whole. For `snippet(t, -1, ...)` the column is the one whose best anchor scores most, where an
-  instance with no more than `n` tokens after it to the end of its text scores 0; ties keep the first column.
+- **snippet** (window of `n` tokens, `n` clamped to 1..64). Found by running the shell on texts of filler tokens; every rule below has a
+  regression case in `Fts5Tests`.
+  - *Candidates.* Every instance of a phrase proposes up to two windows. Instances are listed by first token, then phrase number; "the next
+    instance" is the next one that starts after this one.
+    - The *plain* window is placed around the instance: it starts at `anchor - (n - span)/2` clamped to the text, where the span runs from
+      the instance to the end of the last instance listed that starts within `n` tokens of it (a phrase that starts inside the window counts
+      with its whole length). It scores like the window that starts at the instance.
+    - The *sentence* window starts at the latest sentence start at or before the instance (the text start is one), when that start is within
+      `n` tokens of the instance. A sentence start is a token whose preceding gap ends in `.` or `:` followed by white space (`. `, `: `,
+      ` . `; not `.` alone, `?`, `!`, `;`). A start *at* the instance is not used when it is the last instance, nor when another sentence
+      starts between the instance and the next one (the next instance's own token included).
+  - *Score.* 1000 per distinct phrase with an instance starting in the `n` tokens of the window, plus 1 per such instance; a sentence window
+    adds a bonus larger than the instances an `n`-token window can hold (100 here), and the window at the text start adds more (200; at
+    least 6 more in a window of 8). The best score wins and the first candidate wins ties. A column whose whole text fits in `n` tokens is
+    its own window and gets no bonus.
+  - *Output.* A phrase that began before the window is not marked. A snippet that reaches the end of the text keeps the text after its last
+    token; one starting at token 0 starts at the text start. Unindexed columns are returned whole; with a `detail` below full their matches are found by tokenizing the text and marked in the
+    whole text, and such a column takes part in the choice for `snippet(t, -1, ...)`, where the column with the best score wins and ties keep
+    the first column.
 
 ## Known differences (open)
 
-- `snippet` when several matches lie near sentence starts and the span of the first match equals the window (a few percent of random
-  differential cases), and the window around trigram phrases of different lengths.
-- `snippet()` of an UNINDEXED column in a `detail=column` or `detail=none` table: for some rows the reference shell fails with "database disk image is malformed" (SQLITE_CORRUPT) on files that pass its own integrity check; we return the snippet text. Seen twice in 1,450 random cases (seed 21).
-- `bm25`/`highlight`/`snippet` quirks that are matched on purpose: when the left side of a NOT matches no row at all, the right side keeps its first row's instances (they show in that row if it matches another way); a segment recorded with first and last page 0 and no page 0 is empty; a combining mark continues a token but never starts one; a contentless table without size records reads each indexed column's size as -1.
-- The NOT quirk below is matched when the left side is empty because its terms are absent, or because the phrase never occurs; in one of 373 random cases (seed 41, a prefix on the right of the NOT, a two-token phrase on the left) the reference does not keep the right side's instances, and `highlight` and `bm25` differ by one marked token or 1e-6.
-- Where the NOT quirk above applies, `highlight` and `snippet` show the kept instances but `bm25` does not count them (two of 647 random cases, seed 61); in one of 1,450 (seed 21, a phrase that also occurs in an `AND` branch) the reference does count them.
+- `snippet()` of an UNINDEXED column in a `detail=column` or `detail=none` table, when that column's own text contains a token the query matches (found by tokenizing the text): for many such texts (every one seen has its first match after the first token) the reference shell fails with "database disk image is malformed" (SQLITE_CORRUPT) on files that pass its own integrity check; for the others it marks the matches in the whole text, which is what we do in every case. Seen in 1 to 4 of every 130 random cases per seed.
+- `snippet(t, -1, ...)` in a `detail=column` or `detail=none` table with an UNINDEXED column that holds a match: in about 1 of 1,500 random cases (seed 61, cases 1981 and 3962 with `fts_diff.py --seed 61 --from N --cases 1`) the reference picks another column than the scoring above does (here a short unindexed column with two matches loses to an indexed column with one). The rule for how an unindexed column's matches count in that choice is not found; cases where it wins on its first token agree.
+- `bm25` rounded to 8 decimals can differ in the last digit on arm64 (1 of 4,488 random cases, seed 61 case 3309; scores of the size 1e-6 from a very common term).
+- `bm25`/`highlight`/`snippet` quirks that are matched on purpose: when the left side of a NOT has no row in which its terms even meet (a term or prefix that is absent, a phrase or `NEAR` whose terms never share a row), the right side stays on its first row, and the instances of that row's phrases still show in `highlight` and `snippet`, and count in `bm25`, if the row matches another way (a branch of an `OR`, or the top of the query). It does not happen when the NOT is a direct child of an `AND` (below an `OR` that is below an `AND` it does), nor when the left terms share a row but never form the phrase. A segment recorded with first and last page 0 and no page 0 is empty; a combining mark continues a token but never starts one; a contentless table without size records reads each indexed column's size as -1.
 - Query nesting: the reference parser stack holds 100 entries and reports "fts5: parser stack overflow". Ours counts one entry for a bare parenthesis and three for one that follows an operator or a column filter, and agrees on plain, `AND`/`OR`/`NOT` and column-filter chains; the exact limit differs by a level or so in chains that mix several pending operators.
 - `contentless_delete`, `tokendata`, `locale` and `fts5_locale()` are not implemented. UTF-8 and UTF-16 databases both work.
 - `bm25(t)` inside an aggregate such as `sum(bm25(t))` reports "unable to use function bm25 in the requested context".

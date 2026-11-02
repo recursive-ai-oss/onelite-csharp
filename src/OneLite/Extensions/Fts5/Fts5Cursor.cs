@@ -173,10 +173,10 @@ internal sealed class Fts5Cursor : VCursor
         _t.ApplyPersisted(_store.Config());
         Structure st = _idx.ReadStructure();
         _avg = _idx.ReadAverages();
-        (QNode? root, List<QPhrase> phrases) = QueryParser.Parse(_cfg, _query ?? string.Empty, _queryCol);
+        (QNode? root, List<QPhrase> phrases, List<QNode> leaks) = QueryParser.Parse(_cfg, _query ?? string.Empty, _queryCol);
         _phrases = phrases;
         var ev = new QueryEval(_cfg, _idx, st, phrases.Count);
-        List<DocMatch> docs = root is null ? [] : ev.EvalRoot(root);
+        List<DocMatch> docs = root is null ? [] : ev.EvalRoot(root, leaks);
         if (_lo != long.MinValue || _hi != long.MaxValue)
         {
             docs = docs.Where(d => d.Rowid >= _lo && d.Rowid <= _hi).ToList();

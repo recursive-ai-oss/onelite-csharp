@@ -174,7 +174,9 @@ internal static class Fts5Aux
             }
 
             double tf = 0;
-            if (p < d.Inst.Length && d.Inst[p] is { } inst)
+            long[]? inst = p < d.Inst.Length ? d.Inst[p] : null;
+            inst ??= d.Leak is { } lk && p < lk.Length ? lk[p] : null; // kept from a NOT whose left side is empty: counted (observed)
+            if (inst is not null)
             {
                 foreach (long pos in inst)
                 {
@@ -275,7 +277,7 @@ internal static class Fts5Aux
     /// <summary>Instances in one column as token ranges (first, last, phrase), sorted.</summary>
     private static List<(int A, int B, int P)> Inst(Fts5Cursor c, int col)
     {
-        var r = new List<(int, int, int)>();
+        var r = new List<(int A, int B, int P)>();
         DocMatch d = c.Current!;
         // positions read from a damaged index can lie beyond the column's tokens; they describe nothing in this text
         int limit = c.Config.Unindexed[col] ? int.MaxValue : TokenCount(c, col);
@@ -303,7 +305,8 @@ internal static class Fts5Aux
             }
         }
 
-        r.Sort();
+        // the order the reference lists instances in: by first token, then by phrase
+        r.Sort((x, y) => x.A != y.A ? x.A.CompareTo(y.A) : x.P != y.P ? x.P.CompareTo(y.P) : x.B.CompareTo(y.B));
         return r;
     }
 
@@ -321,39 +324,6 @@ internal static class Fts5Aux
     }
 
     private static List<(int A, int B)> Ranges(Fts5Cursor c, int col) => Inst(c, col).Select(i => (i.A, i.B)).ToList();
-
-    /// <summary>The best anchor instance of a column: the one whose n-token window holds the most different phrases (first wins ties).</summary>
-    private static (int Score, int Anchor) BestAnchor(List<(int A, int B, int P)> inst, int n, int m)
-    {
-        int best = -1;
-        int anchor = 0;
-        foreach ((int a, _, _) in inst)
-        {
-            int score = 0;
-            foreach ((int x, int y, int p) in inst)
-            {
-                if (x >= a && y <= a + n - 1)
-                {
-                    score++;
-                }
-            }
-
-            // observed (choosing among columns): an instance without more than n tokens from it to the end of its text scores nothing,
-            // so a column whose matches all sit at its end loses to one with a match that has room
-            if (m >= 0 && a + n >= m)
-            {
-                score = 0;
-            }
-
-            if (score > best)
-            {
-                best = score;
-                anchor = a;
-            }
-        }
-
-        return (best, anchor); // -1: no instance at all
-    }
 
     private static List<(int A, int B)> Union(List<(int A, int B)> r)
     {
@@ -413,6 +383,139 @@ internal static class Fts5Aux
         return sb.ToString();
     }
 
+    /// <summary>A window that starts at a sentence start beats any window without one that holds the same phrases (observed: more than the 7 extra instances an n=8 window can hold, less than one more distinct phrase).</summary>
+    private const int SentenceBonus = 100;
+
+    /// <summary>The text start counts for more than any other sentence start (observed: by at least the 6 instances that separate the two in a window of 8).</summary>
+    private const int TextStartBonus = 200;
+
+    /// <summary>1000 per distinct phrase and 1 per instance that starts inside the n tokens from <paramref name="start"/>.</summary>
+    private static int WindowScore(List<(int A, int B, int P)> inst, int start, int n)
+    {
+        int score = 0;
+        ulong seen = 0;
+        foreach ((int x, _, int p) in inst)
+        {
+            if (x >= start && x <= start + n - 1)
+            {
+                score++;
+                if ((seen & (1UL << (p & 63))) == 0)
+                {
+                    seen |= 1UL << (p & 63);
+                    score += 1000;
+                }
+            }
+        }
+
+        return score;
+    }
+
+    /// <summary>The window start proposed by the instance at token <paramref name="anchor"/>, and the sentence start (or text start) that could begin the window instead, or -1.</summary>
+    private static (int Start, int Sentence) Place(byte[] text, List<(int Start, int End)> toks, List<(int A, int B, int P)> inst, int anchor, int n, int m)
+    {
+        int last = anchor;
+        foreach ((int x, int y, _) in inst)
+        {
+            if (x >= anchor && x <= anchor + n - 1)
+            {
+                last = y; // the end of the last instance in listing order, not the furthest end
+            }
+        }
+
+        int span = last - anchor + 1;
+        int ws = Math.Clamp(anchor - ((n - span) / 2), 0, m - n);
+
+        // the next instance that starts after this one; none for the last
+        int next = -1;
+        foreach ((int x, _, _) in inst)
+        {
+            if (x > anchor)
+            {
+                next = x;
+                break;
+            }
+        }
+
+        // tokens that overlap (trigram) have no gap between them: the characters before the token are looked at instead
+        bool Starts(int t) => t == 0 || SentenceStart(text, toks[t - 1].End <= toks[t].Start ? toks[t - 1].End : 0, toks[t].Start);
+
+        // observed: a window may start at the latest sentence start at or before the match when that start reaches the match (the
+        // text start is a sentence start). A start at the match itself is not used for the last instance, and for any other instance
+        // it is not used when another sentence starts between the match and the next instance, the next instance included
+        int top = Math.Min(anchor, m - 1);
+        for (int t = top; t >= 0; t--)
+        {
+            if (!Starts(t))
+            {
+                continue;
+            }
+
+            bool ok = t + n > anchor;
+            if (ok && t == anchor && next < 0)
+            {
+                ok = false;
+            }
+
+            if (ok && next >= 0)
+            {
+                // a start between the match and the next instance spoils a window that starts at the match itself
+                if (t == anchor)
+                {
+                    for (int u = anchor + 1; u <= next && ok; u++)
+                    {
+                        ok = !Starts(u);
+                    }
+                }
+            }
+
+            return (ws, ok ? t : -1);
+        }
+
+        return (ws, -1);
+    }
+
+    /// <summary>The window start the instances in one column make the best case for, and its score (-1 when there are no instances).</summary>
+    private static (int Start, int Score) BestWindow(byte[] text, List<(int Start, int End)> toks, List<(int A, int B, int P)> inst, int n)
+    {
+        int m = toks.Count;
+        if (inst.Count == 0)
+        {
+            return (0, -1);
+        }
+
+        if (m <= n)
+        {
+            return (0, WindowScore(inst, 0, n)); // the whole text is the window and no sentence start is looked for
+        }
+
+        // every instance proposes a window that starts at a sentence start and one that is placed around it; the proposal with the
+        // best score wins and the first wins ties
+        int ws = 0;
+        int bestScore = -1;
+        foreach ((int anchor, _, _) in inst)
+        {
+            (int w, int t) = Place(text, toks, inst, anchor, n, m);
+            if (t >= 0)
+            {
+                int sc = WindowScore(inst, t, n) + (t == 0 ? TextStartBonus : SentenceBonus);
+                if (sc > bestScore)
+                {
+                    bestScore = sc;
+                    ws = t;
+                }
+            }
+
+            int plain = WindowScore(inst, anchor, n);
+            if (plain > bestScore)
+            {
+                bestScore = plain;
+                ws = w;
+            }
+        }
+
+        return (ws, bestScore);
+    }
+
     private static string? Snippet(Fts5Cursor c, int col, string open, string close, string ellipsis, int n)
     {
         int ncol = c.Config.ColumnCount;
@@ -428,12 +531,15 @@ internal static class Fts5Aux
             bestCol = 0;
             for (int i = 0; i < ncol; i++)
             {
-                if (c.Config.Unindexed[i])
+                byte[]? colText = c.ColumnText(i);
+                if (colText is null)
                 {
                     continue;
                 }
 
-                (int sc, _) = BestAnchor(Inst(c, i), n, TokenCount(c, i));
+                var colToks = new Toks();
+                c.Config.Tokenizer.Tokenize(colText, TokenizeReason.Aux, colToks);
+                (_, int sc) = BestWindow(colText, colToks.L, Inst(c, i), n);
                 if (sc > best)
                 {
                     best = sc; // equal scores keep the first column
@@ -448,9 +554,13 @@ internal static class Fts5Aux
             return null;
         }
 
+        // nothing is tokenized in an unindexed column: the whole text. With less detail than full the matches are found in the text
+        // instead and marked in the whole text; the reference fails with SQLITE_CORRUPT for many such texts (documented)
         if (c.Config.Unindexed[bestCol])
         {
-            return Encoding.UTF8.GetString(text); // nothing is tokenized there: the whole text
+            return c.Config.Detail == DetailMode.Full || Inst(c, bestCol).Count == 0
+                ? Encoding.UTF8.GetString(text)
+                : Highlight(c, bestCol, open, close);
         }
 
         var toks = new Toks();
@@ -462,44 +572,7 @@ internal static class Fts5Aux
         }
 
         List<(int A, int B, int P)> inst = Inst(c, bestCol);
-        int ws = 0;
-        if (m > n && inst.Count > 0)
-        {
-            int anchor = BestAnchor(inst, n, m).Anchor;
-            int last = anchor;
-            foreach ((int x, int y, _) in inst)
-            {
-                if (x >= anchor && (y <= anchor + n - 1 || x == anchor))
-                {
-                    last = Math.Max(last, y);
-                }
-            }
-
-            int span = last - anchor + 1;
-            ws = Math.Clamp(anchor - ((n - span) / 2), 0, m - n);
-            // observed: the window starts at the latest sentence start before the first match that still reaches it; the text start is
-            // a sentence start, so a first match within the first n tokens gives a window at the text start
-            int pick = -1;
-            bool anchorStartsSentence = anchor > 0 && SentenceStart(text, toks.L[anchor - 1].End, toks.L[anchor].Start);
-            // a sentence start at the first match itself counts when more than one token is covered (observed)
-            for (int t = Math.Min(span > 1 ? anchor : anchor - 1, m - 1); t >= 0 && pick < 0; t--)
-            {
-                if (t + n > anchor && ((t == 0 && !anchorStartsSentence) || (t > 0 && SentenceStart(text, toks.L[t - 1].End, toks.L[t].Start))))
-                {
-                    pick = t;
-                }
-            }
-
-            if (pick < 0 && anchor == 0 && !anchorStartsSentence)
-            {
-                pick = 0;
-            }
-
-            if (pick >= 0)
-            {
-                ws = pick;
-            }
-        }
+        (int ws, _) = BestWindow(text, toks.L, inst, n);
 
         int we = Math.Min(m, ws + n) - 1;
         var sb = new StringBuilder();
