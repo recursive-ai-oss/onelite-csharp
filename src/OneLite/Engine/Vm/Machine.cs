@@ -122,6 +122,7 @@ internal sealed partial class Machine
         _busyTry = 0;
         _finished = false;
         _failed = false;
+        BlockedByBusy = false;
         _cleanupFailed = false;
         Error = null;
         DropTransient();
@@ -132,6 +133,8 @@ internal sealed partial class Machine
         _retPos = 0;
         _changes = 0;
         _fw = 0;
+        _fwReloading = false;
+        _fwReloaded = false;
         _wstep = 0;
         _errAction = ErrorAction.Abort;
         _fwWhole = false;
@@ -275,6 +278,7 @@ internal sealed partial class Machine
     /// <summary>Releases everything the run holds; used by Reset and Dispose. Runs any I/O inline.</summary>
     internal void Close()
     {
+        _writing = false;
         DropTransient();
         foreach (VmCursor c in _cur)
         {
@@ -342,6 +346,21 @@ internal sealed partial class Machine
 
         try
         {
+            if (_savedCursors)
+            {
+                RunResult back = RestoreSavedCursors();
+                if (back == RunResult.Error)
+                {
+                    _failed = true;
+                    return FinishCleanup(true);
+                }
+
+                if (back == RunResult.Pending)
+                {
+                    return back;
+                }
+            }
+
             RunResult r = Loop();
             if (r == RunResult.Error)
             {
@@ -1408,9 +1427,53 @@ internal sealed partial class Machine
         }
     }
 
+    // A pragma that reads only the connection's settings runs without a read transaction, as in the reference, where another connection's lock does not
+    // stop it. The few that look at the file (a journal mode that would change, a checkpoint of a WAL database, anything about an attached database, or
+    // a connection that has not read the header yet) take the lock as every statement does.
+    private bool PragmaNeedsFile(in Instr next)
+    {
+        switch (next.Op)
+        {
+            case Op.PragmaVar:
+                return next.P4 is PragmaCall { Db: >= 2 };
+            case Op.PragmaOp:
+            {
+                if (next.P5 >= 2)
+                {
+                    return true;
+                }
+
+                if (next.P5 == 1)
+                {
+                    return false;
+                }
+
+                string? arg = next.P4 as string;
+                return next.P1 switch
+                {
+                    1 => arg is not null && (_conn.Pager.IsWal || string.Equals(arg, "wal", StringComparison.OrdinalIgnoreCase)),
+                    5 => arg is not null && _conn.Pager.PageCount == 0 || _conn.Context is null,
+                    8 => arg is not null || _conn.Context is null,
+                    7 => _conn.Pager.IsWal || _conn.Context is null,
+                    9 => _conn.Context is null,
+                    2 or 3 or 4 or 6 or 11 => false,
+                    _ => true,
+                };
+            }
+
+            default:
+                return false;
+        }
+    }
+
     private RunResult DoTransaction(ref Instr ins)
     {
         if (Nested)
+        {
+            return RunResult.Done;
+        }
+
+        if ((ins.P5 & 64) != 0 && _txStep == 0 && !PragmaNeedsFile(_code[_pc + 1]))
         {
             return RunResult.Done;
         }
@@ -1497,6 +1560,7 @@ internal sealed partial class Machine
 
             if (cookie != _prog.SchemaCookie && (ins.P5 & 4) == 0)
             {
+                _conn.FileCookie = cookie;
                 return RunResult.Stale;
             }
 

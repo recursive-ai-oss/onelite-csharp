@@ -63,13 +63,6 @@ public sealed class ScheduleDifferentialTests : IDisposable
         l.Add(X(0, "CREATE TABLE t(x INTEGER)"));
         l.Add(X(0, "INSERT INTO t VALUES (1),(2),(3)"));
         l.Add(X(0, "CREATE TABLE u(y)"));
-        // Every connection reads the schema now. OneLite drops its cached schema after its own DDL and reads it again at the next prepare, which
-        // needs a read lock where the reference needs none; the schedules start with that already done (a documented difference).
-        for (int c = 0; c < connections; c++)
-        {
-            l.Add(X(c, "SELECT count(*) FROM u"));
-        }
-
         return l;
     }
 
@@ -302,23 +295,10 @@ public sealed class ScheduleDifferentialTests : IDisposable
     {
         'x' => c.Exec(st.Sql),
         'p' => c.Open(st.Slot, st.Sql),
-        's' => AfterStep(c, st.Slot, c.StepSlot(st.Slot)),
+        's' => c.StepSlot(st.Slot),
         'r' => Do(() => c.ResetSlot(st.Slot)),
         _ => Do(() => c.FinalSlot(st.Slot)),
     };
-
-    // A statement that failed is reset at once, as the documentation for sqlite3_step tells an application to do. The reference keeps a write
-    // statement that returned SQLITE_BUSY "in progress" until it is reset (a later COMMIT then says "SQL statements in progress", and a later
-    // autocommit statement does not commit); OneLite ends such a statement at the error. That difference is documented, not scheduled.
-    private static string AfterStep(IEngineConn c, int slot, string result)
-    {
-        if (result.StartsWith("ERR", StringComparison.Ordinal))
-        {
-            c.ResetSlot(slot);
-        }
-
-        return result;
-    }
 
     private static string Do(Action a)
     {
@@ -351,16 +331,6 @@ public sealed class ScheduleDifferentialTests : IDisposable
 
             foreach (Step st in sc.Steps)
             {
-                if (st.Op == 'x' && st.Sql == "ROLLBACK")
-                {
-                    // The reference lets a pending read go on after ROLLBACK; OneLite cuts it off with SQLITE_ABORT_ROLLBACK when the rollback
-                    // undid writes (a documented difference). Scheduled rollbacks end the connection's statements first.
-                    for (int slot = 0; slot < Slots; slot++)
-                    {
-                        conns[st.Conn].ResetSlot(slot);
-                    }
-                }
-
                 trace.Add(Apply(conns[st.Conn], st with { Sql = st.Sql.Replace("{file}", file, StringComparison.Ordinal) }));
             }
 
@@ -422,7 +392,7 @@ public sealed class ScheduleDifferentialTests : IDisposable
     // Drops steps one at a time while the two engines still disagree, so a failing random schedule reads as a short story.
     private string Minimize(Schedule sc, string tag)
     {
-        int keep = 2 * sc.Connections + 3; // the journal_mode pragmas, the three setup statements and the schema reads
+        int keep = sc.Connections + 3; // the journal_mode pragmas and the three setup statements
         List<Step> steps = [.. sc.Steps];
         string? last = null;
         for (int chunk = Math.Max(1, (steps.Count - keep) / 2); chunk >= 1; chunk /= 2)
@@ -604,6 +574,125 @@ public sealed class ScheduleDifferentialTests : IDisposable
         AssertSame(sc, "q-" + mode + shared);
     }
 
+    /// <summary>A write statement that returned BUSY stays in progress until it is reset: a COMMIT or an autocommit statement meanwhile is affected.</summary>
+    [Theory]
+    [MemberData(nameof(JournalModes))]
+    public void BusyWriteStaysInProgressUntilReset(string mode, bool shared)
+    {
+        Require();
+        Schedule sc = Named(mode, shared, 2,
+            P(0, 0, SelectAll), S(0, 0),
+            P(1, 0, "INSERT INTO t VALUES (60)"), S(1, 0),
+            X(1, "INSERT INTO t VALUES (61)"), X(1, SelectAll),
+            X(1, "BEGIN"), X(1, "INSERT INTO t VALUES (62)"), X(1, "COMMIT"), X(1, "ROLLBACK"),
+            F(0, 0), S(1, 0), X(1, "INSERT INTO t VALUES (63)"),
+            R(1, 0), X(1, "INSERT INTO t VALUES (64)"), X(0, SelectAll));
+        AssertSame(sc, "bs-" + mode + shared);
+    }
+
+    /// <summary>The same inside an explicit transaction: the statement that was refused, the COMMIT after it, the retry after reset.</summary>
+    [Theory]
+    [MemberData(nameof(JournalModes))]
+    public void BusyWriteInATransactionThenCommit(string mode, bool shared)
+    {
+        Require();
+        Schedule sc = Named(mode, shared, 2,
+            X(1, "BEGIN"), P(1, 0, "INSERT INTO t VALUES (65)"), S(1, 0),
+            P(0, 0, SelectAll), S(0, 0),
+            P(1, 1, "INSERT INTO t VALUES (66)"), S(1, 1),
+            X(1, "COMMIT"), R(1, 0), R(1, 1), X(1, "COMMIT"), F(0, 0), X(1, "COMMIT"), X(0, SelectAll));
+        AssertSame(sc, "bt-" + mode + shared);
+    }
+
+    /// <summary>ROLLBACK that undoes writes: pending reads of the same connection continue or stop where the reference says.</summary>
+    [Theory]
+    [MemberData(nameof(JournalModes))]
+    public void RollbackThatUndidWritesAndPendingReads(string mode, bool shared)
+    {
+        Require();
+        Schedule sc = Named(mode, shared, 2,
+            P(0, 0, SelectAll), S(0, 0), P(0, 1, "SELECT count(*) FROM t"), S(0, 1),
+            X(0, "BEGIN"), X(0, "INSERT INTO t VALUES (70)"), S(0, 0),
+            X(0, "ROLLBACK"), S(0, 0), S(0, 1), S(0, 0), S(0, 0), X(1, "INSERT INTO t VALUES (71)"),
+            X(0, "BEGIN"), X(0, "UPDATE t SET x = x + 1"), P(0, 2, SelectAll), S(0, 2), X(0, "ROLLBACK"), S(0, 2), S(0, 2), S(0, 2), S(0, 2),
+            X(0, "BEGIN"), X(0, "CREATE TABLE z(a)"), P(0, 0, SelectAll), S(0, 0), X(0, "ROLLBACK"), S(0, 0), S(0, 0), X(0, SelectAll));
+        AssertSame(sc, "rb-" + mode + shared);
+    }
+
+    /// <summary>A connection keeps the schema it just changed: its next statement needs no read lock, while another connection holds a write lock.</summary>
+    [Theory]
+    [MemberData(nameof(JournalModes))]
+    public void SchemaAfterOwnDdlNeedsNoReadLock(string mode, bool shared)
+    {
+        Require();
+        Schedule sc = Named(mode, shared, 2,
+            X(0, "CREATE TABLE v(a)"), X(1, "BEGIN IMMEDIATE"), X(0, "SELECT count(*) FROM v"), X(0, "SELECT count(*) FROM v"),
+            X(1, "COMMIT"), X(0, "CREATE INDEX vi ON v(a)"), X(1, "BEGIN EXCLUSIVE"), X(0, "SELECT count(*) FROM v"), X(0, "SELECT 1"),
+            X(1, "ROLLBACK"), X(0, "DROP TABLE u"), X(1, "BEGIN IMMEDIATE"), X(0, "SELECT count(*) FROM v"), X(0, "SELECT count(*) FROM u"),
+            X(1, "ROLLBACK"), X(0, SelectAll));
+        AssertSame(sc, "sd-" + mode + shared);
+    }
+
+    /// <summary>A statement that compiled against a stale schema and turns out to be a no-op (IF NOT EXISTS of a table another connection made).</summary>
+    [Theory]
+    [MemberData(nameof(JournalModes))]
+    public void StaleSchemaNoOpLocks(string mode, bool shared)
+    {
+        Require();
+        Schedule sc = Named(mode, shared, 3,
+            X(0, "CREATE TABLE w(a)"), P(1, 0, SelectAll), S(1, 0),
+            X(2, "CREATE TABLE IF NOT EXISTS w(a)"), X(2, "CREATE TABLE IF NOT EXISTS w(a)"), X(2, "CREATE INDEX IF NOT EXISTS wi ON w(a)"),
+            X(0, "CREATE TABLE w2(a)"), X(2, "CREATE TABLE IF NOT EXISTS w2(a)"), X(1, "CREATE TABLE IF NOT EXISTS w2(a)"),
+            F(1, 0), X(1, "CREATE TABLE IF NOT EXISTS w2(a)"), X(1, "DROP TABLE IF EXISTS w3"), X(2, "DROP TABLE IF EXISTS w2"), X(0, "DROP TABLE IF EXISTS w2"),
+            X(0, SelectAll));
+        AssertSame(sc, "sn-" + mode + shared);
+    }
+
+    /// <summary>Writes through a second name of the same file.</summary>
+    [Theory]
+    [MemberData(nameof(JournalModes))]
+    public void WritesThroughAnAttachOfTheSameFile(string mode, bool shared)
+    {
+        Require();
+        Schedule sc = Named(mode, shared, 2,
+            X(0, "ATTACH '{file}' AS a2"), X(0, "INSERT INTO a2.t VALUES (80)"), X(0, "UPDATE a2.t SET x = x + 1 WHERE x = 1"),
+            X(0, "DELETE FROM a2.t WHERE x = 3"), X(0, "SELECT x FROM a2.t ORDER BY x"), X(1, SelectAll),
+            X(0, "BEGIN"), X(0, "INSERT INTO t VALUES (81)"), X(0, "INSERT INTO a2.t VALUES (82)"), X(0, "SELECT x FROM a2.t ORDER BY x"),
+            P(1, 0, SelectAll), S(1, 0), X(0, "COMMIT"), F(1, 0), X(0, "COMMIT"), X(0, SelectAll), X(1, SelectAll),
+            X(0, "BEGIN"), X(0, "INSERT INTO a2.t VALUES (83)"), X(0, "ROLLBACK"), X(0, SelectAll),
+            P(0, 0, "SELECT x FROM a2.t ORDER BY x"), S(0, 0), X(1, "INSERT INTO t VALUES (84)"), X(0, "DETACH a2"), S(0, 0), R(0, 0), X(0, "DETACH a2"));
+        AssertSame(sc, "at-" + mode + shared);
+    }
+
+    /// <summary>journal_mode changes, ATTACH and wal_checkpoint while another connection holds each kind of lock.</summary>
+    [Theory]
+    [MemberData(nameof(JournalModes))]
+    public void PragmasAndAttachUnderAnotherConnectionsLock(string mode, bool shared)
+    {
+        Require();
+        var steps = new List<Step>();
+        foreach (string hold in new[] { "", "BEGIN;SELECT x FROM t", "BEGIN IMMEDIATE", "BEGIN EXCLUSIVE" })
+        {
+            foreach (string op in new[]
+            {
+                "PRAGMA wal_checkpoint", "PRAGMA wal_checkpoint(TRUNCATE)", "PRAGMA journal_mode=wal", "PRAGMA journal_mode=delete", "PRAGMA journal_mode=truncate",
+                "PRAGMA journal_mode=off", "PRAGMA journal_mode=memory", "PRAGMA journal_mode", "ATTACH '{file}' AS a3", "DETACH a3", "SELECT count(*) FROM t",
+            })
+            {
+                foreach (string h in hold.Split(';', StringSplitOptions.RemoveEmptyEntries))
+                {
+                    steps.Add(X(0, h));
+                }
+
+                steps.Add(X(1, op));
+                steps.Add(X(0, "ROLLBACK"));
+                steps.Add(X(1, "PRAGMA journal_mode=" + mode));
+            }
+        }
+
+        AssertSame(Named(mode, shared, 2, [.. steps]), "pa-" + mode + shared);
+    }
+
     // ---------------------------------------------------------------- generated schedules
 
     private static readonly string[] s_exec =
@@ -614,14 +703,23 @@ public sealed class ScheduleDifferentialTests : IDisposable
         SelectAll, SelectAll, "SELECT count(*), sum(x) FROM t", "INSERT INTO u VALUES ({n})", "SELECT y FROM u ORDER BY y",
     ];
 
-    // Operations whose lock order or transaction rules still differ from the reference in corners (docs/engine.md, "Known differences with
-    // several connections"): a journal_mode change or ATTACH while another connection holds a lock, wal_checkpoint outside WAL mode. They run when
-    // ONELITE_SCHEDULE_AUDIT is set, to look for new differences.
+    // Operations that take locks in corners: a journal_mode change among the rollback modes, wal_checkpoint in any mode. They run when
+    // ONELITE_SCHEDULE_AUDIT is set. Entering or leaving WAL, journal_mode=off and ATTACH of the same file are exercised by the named schedules; in
+    // random schedules they still differ from the reference in a few corners (docs/engine.md, "Known differences with several connections"), so they
+    // run only with ONELITE_SCHEDULE_ATTACH / ONELITE_SCHEDULE_WALSWITCH set.
     private static readonly string[] s_audit =
     [
-        "PRAGMA wal_checkpoint(PASSIVE)", "PRAGMA wal_checkpoint(TRUNCATE)", "PRAGMA journal_mode=delete", "PRAGMA journal_mode=wal", "PRAGMA journal_mode",
-        "ATTACH '{file}' AS a2", "DETACH a2", "SELECT x FROM a2.t ORDER BY x",
+        "PRAGMA wal_checkpoint(PASSIVE)", "PRAGMA wal_checkpoint(TRUNCATE)", "PRAGMA journal_mode", "PRAGMA journal_mode=truncate", "PRAGMA journal_mode=persist",
+        "PRAGMA journal_mode=memory", "PRAGMA journal_mode=delete", "PRAGMA synchronous=1", "PRAGMA cache_size", "PRAGMA busy_timeout",
     ];
+
+    private static readonly string[] s_walSwitch = ["PRAGMA journal_mode=wal", "PRAGMA journal_mode=delete", "PRAGMA journal_mode=off"];
+
+    private static readonly string[] s_attach = ["ATTACH '{file}' AS a2", "DETACH a2", "SELECT x FROM a2.t ORDER BY x"];
+
+    private static readonly bool s_walSwitchOn = Environment.GetEnvironmentVariable("ONELITE_SCHEDULE_WALSWITCH") != null;
+
+    private static readonly bool s_attachOn = Environment.GetEnvironmentVariable("ONELITE_SCHEDULE_ATTACH") != null;
 
     private static readonly bool s_auditOn = Environment.GetEnvironmentVariable("ONELITE_SCHEDULE_AUDIT") != null;
 
@@ -657,11 +755,15 @@ public sealed class ScheduleDifferentialTests : IDisposable
                     break;
                 default:
                 {
-                    string[] pool = s_auditOn && rng.Next(3) == 0 ? s_audit : s_exec;
+                    string[] pool = s_auditOn && rng.Next(3) == 0 ? (s_attachOn && rng.Next(3) == 0 ? s_attach : s_walSwitchOn && rng.Next(3) == 0 ? s_walSwitch : s_audit) : s_exec;
                     string sql = Fill(pool[rng.Next(pool.Length)]);
-                    // wal_checkpoint on a database that is not in WAL mode answers without touching the file on the reference; OneLite reads first
-                    // (a documented difference), so those schedules stay in WAL mode.
-                    l.Add(X(c, sql.StartsWith("PRAGMA wal_checkpoint", StringComparison.Ordinal) && mode != "wal" ? SelectAll : sql));
+                    if (sql.StartsWith("PRAGMA journal_mode=", StringComparison.Ordinal) && mode == "wal" && !s_walSwitchOn)
+                    {
+                        // a rollback mode named in a WAL database leaves WAL
+                        sql = "PRAGMA journal_mode";
+                    }
+
+                    l.Add(X(c, sql));
                     break;
                 }
             }

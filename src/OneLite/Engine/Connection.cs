@@ -514,7 +514,7 @@ public sealed partial class Connection : IDisposable
             }
 
             VmProgram pp = new Compiler(_catalog ?? new Catalog(), sql, _ctx?.Encoding ?? TextEncoding.Utf8) { DatabaseFile = _pager.FullPath, TempOpen = PragmaSettings.TempOpen || _temp != null, Encrypted = _pager.IsEncrypted }.CompilePragma(pr);
-            pp.SchemaCookie = 0;
+            pp.SchemaCookie = _catalog?.Cookie ?? 0;
             if (pr.Schema is { } psch && string.Equals(psch.Text, "temp", StringComparison.OrdinalIgnoreCase))
             {
                 PragmaSettings.TempOpen = true;
@@ -859,6 +859,19 @@ public sealed partial class Connection : IDisposable
             _loader = null;
             throw Machine.Translate(e);
         }
+    }
+
+    /// <summary>The schema cookie the last stale check saw in the file; a catalog with this cookie is current and need not be read again.</summary>
+    internal uint FileCookie;
+
+    /// <summary>True when a statement that changed the schema should rebuild the catalog itself (only for a plain main database with nothing temporary or attached in the way).</summary>
+    internal bool ReloadAfterDdl => _catalog is not null && _temp is null && Attached.Count == 0;
+
+    /// <summary>Drops the old catalog's virtual-table connections before a reload that replaces it.</summary>
+    internal void BeginSchemaRefresh()
+    {
+        DisconnectVirtuals(_catalog);
+        _catalog = null;
     }
 
     internal void InvalidateSchema()

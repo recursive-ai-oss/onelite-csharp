@@ -7,6 +7,29 @@ namespace RecursiveAI.OneLite.Planning;
 // wal_checkpoint, user_version (the application's own counter, header offset 60), and the read-only page_size, auto_vacuum and encoding.
 internal sealed partial class Compiler
 {
+
+    // Pragmas that read nothing from the file (they answer from the connection's settings or constant tables): in the reference they run without taking a
+    // lock, so another connection's EXCLUSIVE lock does not stop them. The Transaction instruction carries flag 64 and decides at run time (journal_mode,
+    // wal_checkpoint, page_size and encoding sometimes do need the file; see Machine.PragmaNeedsFile).
+    private static readonly HashSet<string> s_noFilePragmas = new(StringComparer.Ordinal)
+    {
+        "automatic_index", "cell_size_check", "checkpoint_fullfsync", "count_changes", "defer_foreign_keys", "empty_result_callbacks", "full_column_names",
+        "fullfsync", "ignore_check_constraints", "legacy_alter_table", "query_only", "read_uncommitted", "recursive_triggers", "reverse_unordered_selects",
+        "short_column_names", "trusted_schema", "writable_schema", "cache_size", "cache_spill", "temp_store", "analysis_limit", "mmap_size", "threads",
+        "soft_heap_limit", "hard_heap_limit", "journal_size_limit", "locking_mode", "secure_delete", "case_sensitive_like", "journal_mode", "synchronous",
+        "foreign_keys", "busy_timeout", "page_size", "wal_autocheckpoint", "wal_checkpoint", "auto_vacuum", "encoding", "collation_list", "compile_options",
+        "database_list", "pragma_list", "module_list",
+    };
+
+    private int _lazyTx;
+
+    // A pragma that reads the file checks the schema cookie like any statement, so a catalog that another connection has changed is reloaded and the
+    // statement compiled again (table_info of a table made meanwhile, integrity_check against the current schema). A pragma that only reads settings
+    // skips the check (flag 4).
+    private int ReadFlags => _lazyTx != 0 ? 4 : 0;
+
+    private void EmitPragmaTransaction(int flags) => Emit(Op.Transaction, 0, 0, 0, null, flags | _lazyTx);
+
     private int SlotOfSchema(Name? schema) => schema is null ? 0 : Math.Max(_cat.SlotOf(schema.Text), 0);
 
     internal VmProgram CompilePragma(PragmaStatement ps)
@@ -30,6 +53,7 @@ internal sealed partial class Compiler
     private VmProgram CompilePragmaCore(PragmaStatement ps)
     {
         string name = ps.Name.Text.ToLowerInvariant();
+        _lazyTx = s_noFilePragmas.Contains(name) ? 64 : 0;
         if (ps.Schema is { } sch && _cat.SlotOf(sch.Text) < 0)
         {
             throw Err("unknown database " + sch.Text);
@@ -60,7 +84,7 @@ internal sealed partial class Compiler
                 throw Err("no such table: " + av.Text);
             }
 
-            Emit(Op.Transaction, 0, 0, 0, null, 4);
+            EmitPragmaTransaction(ReadFlags);
             int ib = NewReg();
             int again = NewLabel(), fin = NewLabel();
             Mark(again);
@@ -109,7 +133,7 @@ internal sealed partial class Compiler
         // Flag 32: these pragmas read the connection's settings, not the file, so inside a transaction they do not start the read transaction
         // that the transaction would otherwise keep (observed on the reference: another connection can still write).
         int noHold = id is 1 or 2 or 3 or 4 or 5 or 6 or 7 or 9 ? 32 : 0;
-        Emit(Op.Transaction, 0, 0, 0, null, (id == 10 && ps.Value is not null ? 1 | 4 : 4) | noHold);
+        EmitPragmaTransaction((id == 10 && ps.Value is not null ? 1 | 4 : ReadFlags) | noHold);
         int b = NewRegs(cols.Length);
         Emit(Op.PragmaOp, id, b, cols.Length, arg, SlotOfSchema(ps.Schema));
         bool returns = arg is null || id is 1 or 4 or 6 or 7;
@@ -199,7 +223,7 @@ internal sealed partial class Compiler
         }
         else if (!cipher)
         {
-            Emit(Op.Transaction, 0, 0, 0, null, writes ? 1 | 4 : 4);
+            EmitPragmaTransaction(writes ? 1 | 4 : ReadFlags);
         }
 
         int b = NewReg();

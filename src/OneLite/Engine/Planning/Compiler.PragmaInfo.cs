@@ -71,7 +71,7 @@ internal sealed partial class Compiler
             return null!;
         }
 
-        Emit(Op.Transaction, 0, 0, 0, null, 4); // as the other pragmas: no schema cookie to check
+        EmitPragmaTransaction(ReadFlags);
         int b = NewRegs(cols.Length);
         foreach (object?[] row in rows)
         {

@@ -18,6 +18,9 @@ public sealed partial class Pager
     /// <summary>True if the write transaction has anything to commit (a modified page or a database file already written to).</summary>
     public bool HasChanges => _dirty.Count != 0 || _dbModified || _jfile != null;
 
+    /// <summary>True if the write transaction has changed a page (a PERSIST journal that is merely open from an earlier transaction does not count).</summary>
+    public bool HasPageChanges => _dirty.Count != 0 || _dbModified;
+
     /// <summary>
     /// Commits the write transaction (atomiccommit §3). Order, as observed on the reference (docs/durability.md): stamp page 1; make the
     /// journal durable; take EXCLUSIVE; write the dirty pages ascending; truncate if the file shrank; sync the database; retire the journal

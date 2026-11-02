@@ -147,7 +147,16 @@ public sealed partial class Connection
     internal bool HoldsNoRead => _readers == 0 && !TxHeld;
 
     /// <summary>True when a read transaction is held by an open transaction or by another running statement, not only by the caller's own statement.</summary>
-    internal bool ReadsBeyondThisStatement => _readers > 1 || TxHeld;
+    internal bool ReadsBeyondThisStatement => _readers > 1 || TxHeld || BlockedStatements > 0;
+
+    /// <summary>
+    /// Write statements that returned SQLITE_BUSY while asking for the write lock. In the reference such a statement stays active until it is reset or
+    /// stepped again (c3ref/step): it holds no lock, but a checkpoint, a change of journal mode or a COMMIT still counts it as running.
+    /// </summary>
+    internal int BlockedStatements;
+
+    /// <summary>Statements that have begun writing and not finished (a RETURNING statement not read to its end, or one in the middle of a step).</summary>
+    internal int ActiveWriters;
 
     internal PagerStatus EndTxHoldStep()
     {
@@ -205,14 +214,14 @@ public sealed partial class Connection
         return -1;
     }
 
-    /// <summary>Cursors of statements other than <paramref name="except"/> point into pages a rollback is about to rewrite; let go of them.</summary>
-    internal void ReleaseCursorsOf(Statement? except)
+    /// <summary>Cursors of statements other than <paramref name="except"/> point into pages a rollback is about to rewrite; let go of them (pending reads survive when <paramref name="keepReads"/>).</summary>
+    internal void ReleaseCursorsOf(Statement? except, bool keepReads = false)
     {
         foreach (Statement s in _statements)
         {
             if (!ReferenceEquals(s, except))
             {
-                s.AbortForRollback();
+                s.AbortForRollback(keepReads);
             }
         }
     }

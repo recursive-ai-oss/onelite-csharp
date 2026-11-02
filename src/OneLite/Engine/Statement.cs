@@ -200,11 +200,10 @@ public sealed class Statement : IDisposable
     /// Runs the statement until it has a row, finishes, fails, or needs a page that is not cached. Never blocks and never awaits.
     /// When it returns <see cref="StepStatus.Pending"/> the instruction that needed the page has not been consumed and no output has changed:
     /// run <see cref="PendingIo"/>, pass the result to <see cref="Complete"/>, and call this method again.
-    /// After <see cref="StepStatus.Done"/> the next call starts the statement again from the beginning (as sqlite3_step does).
+    /// After <see cref="StepStatus.Done"/> or <see cref="StepStatus.Error"/> the next call starts the statement again from the beginning (as sqlite3_step does).
     /// </summary>
     /// <returns>Row, Done, Pending or Error.</returns>
     /// <exception cref="ObjectDisposedException">The statement was disposed.</exception>
-    /// <exception cref="OneLiteException">SQLITE_MISUSE: called while a failed run has not been reset.</exception>
     public StepStatus Advance()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -213,7 +212,14 @@ public sealed class Statement : IDisposable
             switch (_phase)
             {
                 case Phase.Failed:
-                    return StepStatus.Error;
+                    // c3ref/step: since 3.6.23.1 a step after an error resets the statement first and runs it again, so a statement refused
+                    // with SQLITE_BUSY can simply be stepped once the other connection is done.
+                    ReleaseBlocked();
+                    _machine.ReleaseForReset();
+                    _machine.Rewind();
+                    _error = null;
+                    _phase = Phase.Ready;
+                    continue;
                 case Phase.Done:
                     _machine.Rewind();
                     _phase = Phase.Ready;
@@ -223,7 +229,7 @@ public sealed class Statement : IDisposable
                     RunResult rr;
                     try
                     {
-                        rr = _conn.ReloadSchemaStep();
+                        rr = _conn.Catalog is null ? _conn.ReloadSchemaStep() : RunResult.Done;
                     }
                     catch (OneLiteException e)
                     {
@@ -271,14 +277,38 @@ public sealed class Statement : IDisposable
                             return StepStatus.Pending;
                         case RunResult.Stale:
                             _machine.ReleaseForReset();
-                            _conn.InvalidateSchema();
+                            if (_conn.Catalog is null || _conn.Catalog.Cookie != _conn.FileCookie)
+                            {
+                                _conn.InvalidateSchema();
+                            }
+
                             _phase = Phase.Reprepare;
                             continue;
                         default:
-                            return Fail(Diagnostics.ErrorDiagnostics.Enrich(Wrap(_machine.Error!), _sql, _conn.Catalog));
+                        {
+                            StepStatus failed = Fail(Diagnostics.ErrorDiagnostics.Enrich(Wrap(_machine.Error!), _sql, _conn.Catalog));
+                            if (_machine.BlockedByBusy && !_blocked)
+                            {
+                                _blocked = true;
+                                _conn.BlockedStatements++;
+                            }
+
+                            return failed;
+                        }
                     }
                 }
             }
+        }
+    }
+
+    private bool _blocked;
+
+    private void ReleaseBlocked()
+    {
+        if (_blocked)
+        {
+            _blocked = false;
+            _conn.BlockedStatements--;
         }
     }
 
@@ -403,6 +433,7 @@ public sealed class Statement : IDisposable
             _pending = false;
         }
 
+        ReleaseBlocked();
         if (_machine.Writing)
         {
             _machine.FinishWriteSync();
@@ -421,7 +452,7 @@ public sealed class Statement : IDisposable
         _machine = new Machine(_conn, p, _vars) { _owner = this };
     }
 
-    internal void AbortForRollback() => _machine.Abort();
+    internal void AbortForRollback(bool keepReads = false) => _machine.Abort(keepReads);
 
     /// <summary>Finalizes the statement.</summary>
     public void Dispose()
@@ -431,6 +462,7 @@ public sealed class Statement : IDisposable
             return;
         }
 
+        ReleaseBlocked();
         _machine.Close();
         _disposed = true;
         _conn.Forget(this);
