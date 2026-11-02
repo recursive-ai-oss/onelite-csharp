@@ -214,7 +214,7 @@ public sealed class Statement : IDisposable
                 case Phase.Failed:
                     // c3ref/step: since 3.6.23.1 a step after an error resets the statement first and runs it again, so a statement refused
                     // with SQLITE_BUSY can simply be stepped once the other connection is done.
-                    ReleaseBlocked();
+                    ReleaseBlocked(keepHold: true);
                     _machine.ReleaseForReset();
                     _machine.Rewind();
                     _error = null;
@@ -309,20 +309,26 @@ public sealed class Statement : IDisposable
 
     private bool _blocked, _blockedRead;
 
-    private void ReleaseBlocked()
+    private void ReleaseBlocked(bool keepHold = false)
     {
         if (_blocked)
         {
             _blocked = false;
             _conn.BlockedStatements--;
-            _conn.ReleaseBlockedHold();
+            if (!keepHold)
+            {
+                _conn.ReleaseBlockedHold();
+            }
         }
 
         if (_blockedRead)
         {
             _blockedRead = false;
             _conn.BlockedReadStatements--;
-            _conn.ReleaseBlockedHold();
+            if (!keepHold)
+            {
+                _conn.ReleaseBlockedHold();
+            }
         }
     }
 

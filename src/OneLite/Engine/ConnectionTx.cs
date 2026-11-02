@@ -167,7 +167,12 @@ public sealed partial class Connection
     /// </summary>
     internal bool HoldReadForBlocked(Vm.Machine m)
     {
-        if (_readers != 1 || TxHeld || m.BlockedByBusy || m.BlockedAtRead || BlockedStatements + BlockedReadStatements == 0)
+        if (_readers != 1 || TxHeld)
+        {
+            return false;
+        }
+
+        if (!BlockedHold && (m.BlockedByBusy || m.BlockedAtRead || BlockedStatements + BlockedReadStatements == 0))
         {
             return false;
         }

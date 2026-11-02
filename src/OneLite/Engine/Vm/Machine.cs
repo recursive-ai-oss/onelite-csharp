@@ -269,6 +269,7 @@ internal sealed partial class Machine
 
             _holdsRead = false;
             _conn.ReaderDone();
+            _conn.BlockedHold = false;
             if (s == PagerStatus.Error && !error)
             {
                 Error = _conn.PagerError;
