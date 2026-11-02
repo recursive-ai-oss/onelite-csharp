@@ -501,6 +501,7 @@ public sealed class Statement : IDisposable, IAsyncDisposable
             _pending = false;
         }
 
+        ReleaseBlocked();
         if (_machine.Writing)
         {
             await _machine.FinishWriteAsync().ConfigureAwait(false);
@@ -532,6 +533,7 @@ public sealed class Statement : IDisposable, IAsyncDisposable
             _pending = false;
         }
 
+        ReleaseBlocked();
         await _conn.WithAsyncAbort(_machine.Close).ConfigureAwait(false);
         _disposed = true;
         _conn.Forget(this);
