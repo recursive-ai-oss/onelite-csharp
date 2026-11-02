@@ -1506,10 +1506,11 @@ internal sealed partial class Machine
             if (s == PagerStatus.Error)
             {
                 Error = _conn.PagerError;
-                BlockedAtRead = Error is OneLiteException { Code: ResultCode.Busy };
+                BlockedAtRead = (ins.P5 & 1) != 0 && Error is OneLiteException { Code: ResultCode.Busy };
                 return RunResult.Error;
             }
 
+            _conn.ReadBegins++;
             if (!_holdsRead)
             {
                 _holdsRead = true;

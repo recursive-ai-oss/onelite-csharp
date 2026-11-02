@@ -158,6 +158,15 @@ public sealed partial class Connection
     /// </summary>
     internal int BlockedStatements;
 
+    /// <summary>
+    /// Reads begun by statements so far. Observed on the reference: a checkpoint counts a statement refused with SQLITE_BUSY as running only once
+    /// something has read the file since the refusal; straight after it does not.
+    /// </summary>
+    internal int ReadBegins, BlockedAtReadBegins;
+
+    /// <summary>True when the refused statement counts for a checkpoint; <paramref name="ownReads"/> is the read the checkpoint statement began itself.</summary>
+    internal bool BlockedCountsForCheckpoint(int ownReads) => BlockedStatements > 0 && ReadBegins - BlockedAtReadBegins > ownReads;
+
     /// <summary>Statements refused with SQLITE_BUSY asking for the read lock; they block COMMIT, RELEASE and SAVEPOINT until reset.</summary>
     internal int BlockedReadStatements;
 

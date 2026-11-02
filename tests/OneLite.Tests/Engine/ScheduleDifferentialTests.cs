@@ -734,6 +734,12 @@ public sealed class ScheduleDifferentialTests : IDisposable
         var rng = new Random(unchecked((int)(seed * 2654435761L ^ (seed >> 32))));
         // journal_mode=off is left out: the pinned shell refuses it (defensive mode) while the library accepts it, and OneLite follows the shell.
         string[] modes = ["delete", "truncate", "persist", "wal", "delete", "wal", "memory"];
+        if (Environment.GetEnvironmentVariable("ONELITE_SCHEDULE_MODES") is { Length: > 0 } only)
+        {
+            // a campaign can leave a mode out (WAL, where a refused write keeps its snapshot on the reference, is a known difference)
+            modes = only.Split(',');
+        }
+
         string mode = forcedMode ?? modes[rng.Next(modes.Length)];
         int conns = rng.Next(4) == 0 ? 3 : 2;
         var l = Prelude(mode, conns);
@@ -795,7 +801,7 @@ public sealed class ScheduleDifferentialTests : IDisposable
             {
                 failures.Add($"seed {seed + i}: {diff}");
                 File.WriteAllText(Path.Combine(Path.GetTempPath(), $"onelite-schedule-seed{seed + i}.txt"), diff);
-                if (failures.Count >= 3)
+                if (failures.Count >= (seconds == 0 ? 3 : 40))
                 {
                     break;
                 }

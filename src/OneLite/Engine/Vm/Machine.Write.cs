@@ -2724,7 +2724,7 @@ internal sealed partial class Machine
                 if (!pg.IsWal)
                 {
                     // rescode SQLITE_LOCKED: a checkpoint with another statement running on the connection is refused, WAL or not.
-                    if (_holdsRead ? _conn.ReadsBeyondThisStatement : _conn.ActiveReaders > 0 || _conn.TxHeld || _conn.BlockedStatements > 0)
+                    if (_holdsRead ? _conn.ReadsBeyondThisStatement : _conn.ActiveReaders > 0 || _conn.TxHeld || _conn.BlockedCountsForCheckpoint(_holdsRead ? 1 : 0))
                     {
                         throw new OneLiteException(ResultCode.Locked, "database table is locked");
                     }
@@ -2740,7 +2740,7 @@ internal sealed partial class Machine
                 {
                     // A checkpoint cannot run inside a read transaction: give ours up first. A transaction that has not touched the database yet
                     // (BEGIN or SAVEPOINT alone) does not count: only a read held by the transaction or by another statement does.
-                    if (_conn.ReadsHeldBesidesThisStatement)
+                    if (_conn.ReadsHeldBesidesThisStatement || _conn.BlockedCountsForCheckpoint(_holdsRead ? 1 : 0))
                     {
                         throw new OneLiteException(ResultCode.Locked, "database table is locked", "a checkpoint cannot run inside a transaction");
                     }
