@@ -24,7 +24,7 @@ internal static class Program
     private static int Main()
     {
         Console.WriteLine($"{LibraryInfo.Name} {DataLibraryInfo.Name}");
-        return VfsSmoke() && PagerSmoke() && WalSmoke() && BTreeSmoke() && SqlSmoke() && EngineSmoke() && ForensicSmoke() && CipherSmoke() && PagerBTreeSmoke() && EncryptedPagerSmoke() && RTreeSmoke() && VecSmoke() && Fts5Smoke() && Fts3Smoke() && DataSmoke.Run() ? 0 : 1;
+        return VfsSmoke() && PagerSmoke() && WalSmoke() && BTreeSmoke() && SqlSmoke() && EngineSmoke() && HttpRangeSmoke() && ForensicSmoke() && CipherSmoke() && PagerBTreeSmoke() && EncryptedPagerSmoke() && RTreeSmoke() && VecSmoke() && Fts5Smoke() && Fts3Smoke() && DataSmoke.Run() ? 0 : 1;
     }
 
     /// <summary>
@@ -260,6 +260,36 @@ internal static class Program
     /// <summary>
     /// Opens a hand-built two-page database read-only and runs queries through the engine (parser, planner, VM, B-tree, pager).
     /// </summary>
+    /// <summary>A fake HTTP server (a message handler) serving a database in 206 range answers; the engine reads it over <see cref="HttpRangeVfs"/>.</summary>
+    private sealed class RangeHandler(byte[] data) : System.Net.Http.HttpMessageHandler
+    {
+        protected override System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage> SendAsync(System.Net.Http.HttpRequestMessage request, System.Threading.CancellationToken cancellationToken)
+        {
+            if (!request.RequestUri!.AbsolutePath.EndsWith(".db", StringComparison.Ordinal))
+            {
+                return System.Threading.Tasks.Task.FromResult(new System.Net.Http.HttpResponseMessage(System.Net.HttpStatusCode.NotFound));
+            }
+
+            System.Net.Http.Headers.RangeItemHeaderValue? r = request.Headers.Range?.Ranges.FirstOrDefault();
+            long from = r?.From ?? 0, to = Math.Min(r?.To ?? data.Length - 1, data.Length - 1);
+            var resp = new System.Net.Http.HttpResponseMessage(r is null ? System.Net.HttpStatusCode.OK : System.Net.HttpStatusCode.PartialContent);
+            resp.Content = new System.Net.Http.ByteArrayContent(data, (int)from, (int)(to - from + 1));
+            resp.Content.Headers.ContentRange = new System.Net.Http.Headers.ContentRangeHeaderValue(from, to, data.Length);
+            resp.Headers.ETag = new System.Net.Http.Headers.EntityTagHeaderValue("\"v1\"");
+            return System.Threading.Tasks.Task.FromResult(resp);
+        }
+    }
+
+    private static bool HttpRangeSmoke()
+    {
+        using var client = new System.Net.Http.HttpClient(new RangeHandler(BuildTinyDatabase()));
+        var vfs = new HttpRangeVfs(client, new HttpRangeOptions { BlockSize = 4096 });
+        using var db = Database.OpenReadOnlyAsync("http://example.invalid/e.db", new DatabaseOptions { Vfs = vfs }).AsTask().GetAwaiter().GetResult();
+        using Connection conn = db.ConnectAsync().AsTask().GetAwaiter().GetResult();
+        using Statement st = conn.PrepareAsync("SELECT b FROM t WHERE a = 3").AsTask().GetAwaiter().GetResult();
+        return st.StepAsync().AsTask().GetAwaiter().GetResult() && st.GetString(0) == "three" && vfs.RequestCount > 0;
+    }
+
     private static bool EngineSmoke()
     {
         string dir = Path.Combine(Path.GetTempPath(), "onelite-aot-engine-" + Guid.NewGuid().ToString("N"));
