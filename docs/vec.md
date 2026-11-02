@@ -1,5 +1,7 @@
 # The `vec0` table and the distance kernels
 
+> **Not interchangeable with sqlite-vec.** `vec0` follows sqlite-vec's documented SQL API, but stores vectors in OneLite's own shadow-table layout. A `vec0` table written by OneLite can't be used by sqlite-vec, and one written by sqlite-vec can't be used by OneLite. Without OneLite, `sqlite3` reports "no such module: vec0" for the table and reads every other table normally.
+
 `vec0` is an opt-in virtual table for exact k-nearest-neighbour search. Its SQL surface follows sqlite-vec's documented API (`vec0`, `vec_*` functions, `vec_each`); its storage is OneLite's own. A database that holds a `vec0` table is a standard SQLite file. A `sqlite3` without the module passes `PRAGMA integrity_check`, uses every other table, and fails on the vec table itself with `no such module: vec0` and nothing else.
 
 ## SQL surface

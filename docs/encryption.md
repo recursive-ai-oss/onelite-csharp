@@ -1,8 +1,9 @@
 # Encryption: the SQLCipher-compatible page codec
 
 Status: the page codec, key derivation and a whole-file transform are verified against files written by SQLCipher, and the pager uses them: a database opened with
-a key is encrypted in the database file, the rollback journal and the WAL, and can be rekeyed online (see [In the pager](#in-the-pager)). The SQL surface
-(`PRAGMA key`, `rekey`, `cipher_*`, `Password=`) is not built yet; keys are given through `PagerOptions` / `DatabaseOptions`.
+a key is encrypted in the database file, the rollback journal and the WAL, and can be rekeyed online (see [In the pager](#in-the-pager)). Keys can be given
+through `DatabaseOptions` / `PagerOptions`, through SQL (`PRAGMA key`, `hexkey`, `rekey`, `hexrekey` and the `cipher_*` compatibility pragmas), or through
+`Password=` in `RecursiveAI.OneLite.Data`'s connection string.
 
 The format is SQLCipher's, from Zetetic's published design and API documentation (the "SQLCipher Design" and "SQLCipher API" pages). The pages leave several
 byte-level facts unsaid; those were settled by writing databases with the reference shell (community editions 4.5.6 and 4.20.0) and inspecting the bytes, and
@@ -160,7 +161,7 @@ whose page size equals the setting; build one with `.filectrl reserve_bytes 80` 
 - `tools/scripts/cipher_interop.sh`: read interop (SQLCipher creates, we decrypt, `integrity_check` ok, `.dump` equal to `sqlcipher_export`) and write interop (we encrypt, SQLCipher opens, `integrity_check` ok, dump equal to the source), against both oracles.
 - `fuzz/OneLite.Fuzz/CipherFuzz.cs`: `OneLite.Fuzz cipher SECONDS [SEED]`; `CipherPagerFuzz.cs`: `OneLite.Fuzz cipher-pager SECONDS [SEED]` mutates encrypted file sets (database, hot journal, WAL, cut-off rekey) and opens them with the key: only typed errors allowed.
 
-See [encryption-review.md](encryption-review.md) for the independent review of this path (findings, evidence and residual risks).
+See [encryption-review.md](encryption-review.md) for the project's own review (not an external audit) of this path (findings, evidence and residual risks).
 `EncryptionReviewTests` (IV freshness, plaintext and passphrase scans over crash images and real files, MAC-first, key wiping) and `EncryptionKnownAnswerTests` (pages built with OpenSSL and Python by `tools/scripts/gen_cipher_kat.py`) add to the checks above.
 
 Files that touch crypto: `src/OneLite/Storage/Crypto/{CipherSettings,CipherKey,PageCodec,CipherFile}.cs` and `src/OneLite/Storage/Pager/Pager.Crypto.cs`. No unsafe code, no native calls.

@@ -8,7 +8,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Known issues
 
-- **Data loss: a write can be silently dropped in rollback-journal mode.** When a database is in a rollback-journal mode (`journal_mode` DELETE, TRUNCATE or PERSIST; this is the default for `Database.Open`) and another connection holds a read (a `SELECT` that has stepped but not finished or been reset, or an open read transaction), whether in the same process or another process such as `sqlite3`, an `INSERT`, `UPDATE` or `DELETE` on a different connection completes without an error, reports 0 changes, and is not stored. SQLite returns `SQLITE_BUSY` in that case. WAL mode is not affected. **Workaround:** use WAL (`PRAGMA journal_mode=WAL`, the default of `Database.OpenAsync` and `Database.OpenDefault`), or make sure no other connection holds a read while you write (finish or reset statements first), and check that a write reports the expected number of changes. A fix is coming in 0.2.0-preview.2.
+- **Data loss: a write outside an explicit transaction can be silently dropped in rollback-journal mode.** It happens when all of these hold: the database is in a rollback-journal mode (`journal_mode` DELETE, TRUNCATE or PERSIST), which is the default for `Database.Open` and for `RecursiveAI.OneLite.Data`'s `OneLiteConnection`; another connection holds a read (a `SELECT` that has stepped but not finished or been reset, an open `DbDataReader`, or an open read transaction), in the same process or in another process such as `sqlite3`; and an `INSERT`, `UPDATE` or `DELETE` runs in autocommit mode (no `BEGIN`/`BeginTransaction`) on a different connection. The statement then completes without an error, reports 0 changes (`ExecuteNonQuery` returns 0), and nothing is stored; SQLite returns `SQLITE_BUSY`. Inside an explicit transaction the write is not lost: `COMMIT` fails with "database is locked" and can be retried, as in SQLite. WAL mode is not affected. **Workaround:** use WAL (`PRAGMA journal_mode=WAL` once on the file; the default of `Database.OpenAsync` and `Database.OpenDefault`), or wrap writes in an explicit transaction and handle "database is locked", or make sure no other connection holds a read while you write; check that a write reports the expected number of changes. A fix is coming in 0.2.0-preview.2.
 
 The SQL engine: reads and writes through SQL, ADO.NET, the happy-path API and the first extensions. Measured compatibility is in [docs/compatibility.md](docs/compatibility.md).
 
@@ -26,7 +26,7 @@ The SQL engine: reads and writes through SQL, ADO.NET, the happy-path API and th
 
 ### Changed
 
-- The encryption path (SQLCipher-4-compatible) has passed its review against the published SQLCipher design and test vectors. Encrypted databases sort in memory only, so no plaintext reaches temporary files.
+- The encryption path (SQLCipher-4-compatible) has passed the project's own review (not an external audit) against the published SQLCipher design and test vectors. Encrypted databases sort in memory only, so no plaintext reaches temporary files.
 
 ### Notes
 
@@ -49,4 +49,4 @@ First preview: the storage layer and a read-only SQL engine. Files are the stand
 ### Notes
 
 - The `RecursiveAI.OneLite.Data`, `.SQLitePCLRaw` and `.Cli` packages are placeholders in this preview.
-- The encryption code has not had its independent review yet; don't rely on it for protecting data.
+- The encryption code has not had its review yet; don't rely on it for protecting data.
