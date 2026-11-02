@@ -74,4 +74,19 @@ CORPUS="$HOME/onelite/corpus/realworld" tools/scripts/browser_tests.sh [--only S
 3. each corpus database imported through each backend, exported (bytes must equal the source) and walked through the B-tree (digest must equal a walk of the source image);
 4. databases the browser wrote, exported to the host and checked with the pinned `sqlite3`: `PRAGMA integrity_check` and a `.dump` equal to the dump of the same content built by `sqlite3`.
 
-Results go to `results.json` and a per-group table. To run a kill-the-tab campaign later, drive the same page with `page.close()` between `ol.call(...)` steps; the commands (`db.build`, `db.verify`, `lock.*`) are written to be called that way.
+Results go to `results.json` and a per-group table. Kill-the-tab runs are described below.
+
+## Reading over HTTP in the browser
+
+`HttpRangeVfs` (docs/vfs.md) works in the browser through `HttpClient` (fetch): async-only, no `BlockingOk`. Use `Database.OpenReadOnlyAsync` and the async API. Cross-origin servers must allow the `Range` and
+`If-Match` request headers (CORS preflight) and expose `ETag`, `Last-Modified`, `Content-Range` and `Content-Length`; the test host serves same-origin.
+
+## Kill-the-tab runs
+
+`tools/scripts/browser_tests.py --kill N` (`browser_tests.sh --kill N --kill-only`) kills a writer page N times for each of four combinations: the main-thread backend and the worker backend, each in
+rollback-journal and in WAL mode. Per kill: a fresh page recovers the file left by the previous kill (opening it rolls back a hot journal or reads the log), exports it to the host, and the host checks with the
+pinned `sqlite3` that `PRAGMA integrity_check` is `ok`, every row up to the last one the driver saw acknowledged is present, rows are contiguous from the first one this writer added, and every transaction
+(one to three rows, marked in a column) is whole. Then that page opens the database through the engine (`Database.OpenAsync`, `WriteAsync`), starts a writer loop, polls how many transactions were acknowledged
+(a transaction counts when `WriteAsync` has returned), and kills the page at a random moment: half the kills close the page, half crash its renderer through the DevTools protocol (`Page.crash`). The worker
+backend's writer runs in the page's dedicated worker, which goes with the page. The check is conservative: a row acknowledged after the last poll but before the kill need not be present.
+

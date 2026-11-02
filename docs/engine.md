@@ -48,6 +48,10 @@ is the sync driver: it loops `Advance`, satisfying each `Pending` with `Pager.Ex
   (`GC.GetAllocatedBytesForCurrentThread`, tested in Release and Checked). Beginning and ending a read transaction takes file locks
   in the pager and is not part of that claim.
 - A stale schema cookie, or a changed page size or encoding, makes the statement re-prepare itself (resumably) and restart.
+- `Connection.PrepareAsync` is the async twin of `Prepare`: it loads the schema through the same resumable steps while awaiting the VFS (`Prepare` loads it synchronously, which a backend with only
+  asynchronous calls cannot serve from a cold cache). `Statement.ResetAsync`/`DisposeAsync`, `Connection.DisposeAsync` and `Pager.DisposeAsync` end a read transaction and release the lock by awaiting
+  the backend. Operations that run to completion inside one instruction (integrity check, `VACUUM`, a journal-mode change, `wal_checkpoint`, `dbstat`) need a backend that can answer a synchronous call;
+  on one that cannot they fail at once with SQLITE_MISUSE and "backend requires the async driver" (docs/vfs.md).
 
 ## Pipeline
 
@@ -449,6 +453,9 @@ column names, every value's type and bytes, row order where `ORDER BY` fixes it 
 text. `fuzz --rel` generates joins, subqueries, CTEs, compound selects and grouping (`RelGen`) over databases built by
 `tools/scripts/relational_corpus.sh` and the real-world corpus; a query that runs for 15 s is named on stderr while it runs.
 text. `crash` and `live` are described above; `ONELITE_QD_YIELD=N` forces a suspend point at every N-th page access and
-`ONELITE_QD_ASYNC=1` steps with `StepAsync`, for any command. `scan` compares `SELECT *` over every table of a set of databases; `fuzz --seed S --count N` runs a seeded generator over
+`ONELITE_QD_ASYNC=1` steps with `StepAsync`, for any command. `ONELITE_QD_ASYNC=cold` (the differential tool) runs the engine over a backend with only asynchronous calls
+that suspends on every call and refuses every synchronous one (`ColdAsyncVfs` over the local files), with a six-page cache, a forced suspend point every third page access (`ONELITE_QD_YIELD` overrides),
+`PrepareAsync`/`StepAsync`/`DisposeAsync`, and, with `--setup onelite`, the setup statements run the same way (writes included). A statement that needs a synchronous call (see docs/vfs.md, "What works on which
+backend") is rerun on the sync driver and counted (`syncFallbacks` in the summary). `scan` compares `SELECT *` over every table of a set of databases; `fuzz --seed S --count N` runs a seeded generator over
 the subset (including hostile forms: blobs in arithmetic, huge integers, `COLLATE` everywhere, constant `ORDER BY` terms).
 Known harness limits: the shell prints a text value only up to its first NUL, and prints negative zero as `0.0`.
