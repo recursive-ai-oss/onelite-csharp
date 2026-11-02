@@ -19,7 +19,9 @@ hole is one value (number, string, blob, `Guid`, date, null...); it cannot be a 
 ## Opening
 
 `Database.OpenAsync(path)` / `Database.OpenDefault(path)` open (creating) a database with write-ahead logging, `foreign_keys=ON` and a 5 s busy timeout, and
-return when the connection is ready. Pass `DatabaseOptions` to choose otherwise (they are used as given); `":memory:"` is a private in-memory database.
+return when the connection is ready. WAL is the default because readers and the writer don't block each other (readers see the last committed
+snapshot while a write is in progress) and a commit needs fewer syncs (sqlite.org `wal`). Pass `DatabaseOptions` to choose otherwise (they are used as given);
+`":memory:"` is a private in-memory database.
 **WAL is persistent:** opening an existing rollback-journal file with `OpenAsync`/`OpenDefault` switches that file to WAL for good (it is a property of the
 file, as `PRAGMA journal_mode=WAL` is in SQLite), so other programs that open it, `sqlite3` included, see a WAL database and need write access to the
 directory for the `-wal` and `-shm` files; pass `DatabaseOptions` to keep the file's journal mode. `Database.Open` is unchanged and keeps the reference defaults. One `Database` serializes its calls on one connection; open more connections with `Connect()` for
@@ -93,7 +95,7 @@ FTS5 tokenizes the words as the index does, so a word made only of punctuation m
 **Filter.** The `$"..."` overload adds a condition on the content table's columns. It is applied inside both lists, so you get the best `k` rows that satisfy it, not the best rows with some removed afterwards.
 
 **Also** on `WriteTransaction` (it sees the transaction's own writes) and as blocking `Search<T>`. Errors keep SQLite's code and message (a missing index table, a vector of the wrong dimension).
-It runs on `StepAsync`, so it suspends on cache misses of a slow backend. An async-only backend still needs a warm schema, because `Prepare` is synchronous.
+It runs on `PrepareAsync` and `StepAsync`, so it suspends on cache misses of a slow backend, including a backend with only asynchronous calls.
 
 ## Migrations
 

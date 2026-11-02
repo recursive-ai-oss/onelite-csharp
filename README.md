@@ -19,7 +19,7 @@ Preview (`0.2.0-preview.2`). The storage layer, the SQL engine, `RecursiveAI.One
 
 **0.2.0-preview.1 can silently drop a write (data loss); upgrade to 0.2.0-preview.2.** In a rollback-journal mode (`journal_mode` DELETE, TRUNCATE or PERSIST, the default for `Database.Open` and `OneLiteConnection`), an `INSERT`, `UPDATE` or `DELETE` in autocommit mode returned success with no change while another connection held a read, in the same process or another one. It now fails with `SQLITE_BUSY` ("database is locked") as SQLite does; WAL mode was never affected. Remaining differences between several connections on one file are listed in [docs/engine.md](docs/engine.md#known-differences-with-several-connections-on-one-file).
 
-**0.2.0-preview.1 could silently lose a key change; upgrade to 0.2.0-preview.2.** A key change could be silently lost: `PRAGMA rekey` or `PRAGMA hexrekey` run through a call that reads one row and stops (`ExecuteScalar`, a reader closed early, `Statement.Step` once, the happy-path scalar and query methods) answered `ok` but kept the old key.** `ExecuteNonQuery` and running the statement to completion were not affected. Upgrade to 0.2.0-preview.2, or after a rekey in preview.1 reopen the file with the new key to confirm it.
+**0.2.0-preview.1 could silently lose a key change; upgrade to 0.2.0-preview.2.** `PRAGMA rekey` or `PRAGMA hexrekey` run through a call that reads one row and stops (`ExecuteScalar`, a reader closed early, `Statement.Step` once, the happy-path scalar and query methods) answered `ok` but kept the old key. `ExecuteNonQuery` and running the statement to completion were not affected. Upgrade to 0.2.0-preview.2, or after a rekey in preview.1 reopen the file with the new key to confirm it.
 
 ## How it is built
 
