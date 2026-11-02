@@ -122,6 +122,7 @@ internal sealed partial class Machine
         _busyTry = 0;
         _finished = false;
         _failed = false;
+        _cleanupFailed = false;
         Error = null;
         DropTransient();
         _rowSet?.Clear();
@@ -212,8 +213,13 @@ internal sealed partial class Machine
         return BtStatus.Ok;
     }
 
+    // Whether this cleanup has already seen a failure. The cleanup can suspend after the write side has failed (while the read transaction
+    // ends), and the re-entry arrives with error=false; without this memory a failed commit (SQLITE_BUSY at the EXCLUSIVE lock) came back as success.
+    private bool _cleanupFailed;
+
     private RunResult FinishCleanup(bool error)
     {
+        error |= _cleanupFailed;
         // Pins first, then the read transaction (pager rule: all pages released before EndRead).
         foreach (VmCursor c in _cur)
         {
@@ -238,6 +244,7 @@ internal sealed partial class Machine
             }
 
             error |= fw == RunResult.Error;
+            _cleanupFailed = error;
         }
 
         DropTransient();
@@ -255,11 +262,13 @@ internal sealed partial class Machine
             {
                 Error = _conn.PagerError;
                 _finished = true;
+                _cleanupFailed = false;
                 return RunResult.Error;
             }
         }
 
         _finished = true;
+        _cleanupFailed = false;
         return error ? RunResult.Error : RunResult.Done;
     }
 

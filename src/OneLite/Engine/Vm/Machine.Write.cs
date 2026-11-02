@@ -670,6 +670,12 @@ internal sealed partial class Machine
                             }
 
                             _conn.ExplicitTx = true;
+                            if (_holdsRead)
+                            {
+                                // BEGIN IMMEDIATE/EXCLUSIVE has already started the read transaction; it outlives the statement.
+                                _conn.HoldForTransaction();
+                            }
+
                             _wstep = 99;
                             break;
                         case 1:
