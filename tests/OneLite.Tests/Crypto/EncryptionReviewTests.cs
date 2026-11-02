@@ -284,7 +284,7 @@ public class EncryptionReviewTests
         try
         {
             string path = Path.Combine(dir, "rv.db");
-            IVfs vfs = FileVfs.Instance;
+            FileVfs vfs = FileVfs.Instance;
             using (PagerClass c = PagerClass.Open(vfs, path, Opts(Pass, JournalMode.Delete, 6)))
             {
                 c.BeginReadSync();
@@ -311,11 +311,13 @@ public class EncryptionReviewTests
             {
                 foreach (string file in Directory.GetFiles(dir))
                 {
+                    // Read through the VFS's main-file open: a FileStream takes the runtime's advisory flock, which on macOS is the same
+                    // mechanism as the record locks the open connection holds, so it fails while the database is in use.
                     byte[] data;
-                    using (var fs = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
+                    using (IVfsFile f = vfs.Open(file, VfsOpenOptions.ReadOnly | VfsOpenOptions.MainDb))
                     {
-                        data = new byte[fs.Length];
-                        fs.ReadExactly(data);
+                        data = new byte[f.FileSize()];
+                        Assert.Equal(data.Length, f.Read(0, data));
                     }
 
                     scanned++;

@@ -295,7 +295,13 @@ internal static partial class NativeFile
         }
     }
 
-    private static Overlapped Range(long position) => new() { Offset = (uint)position, OffsetHigh = (uint)(position >> 32) };
+    // The files are opened FileOptions.Asynchronous, so their handles are bound to the runtime's I/O completion port. A lock call given an
+    // OVERLAPPED with no event would queue a completion packet for memory the runtime does not own, and the thread pool's completion poller
+    // would crash on it. A set low-order bit in hEvent suppresses the packet (GetQueuedCompletionStatus documentation); the lock calls here
+    // use LOCKFILE_FAIL_IMMEDIATELY and finish before returning, so nothing waits on the event.
+    private const nint NoCompletionPacket = 1;
+
+    private static Overlapped Range(long position) => new() { Offset = (uint)position, OffsetHigh = (uint)(position >> 32), Event = NoCompletionPacket };
 }
 
 /// <summary>Record locks through <c>fcntl</c> on a file descriptor (Linux and macOS). One lock owner per process: see <see cref="FileLockState"/>.</summary>

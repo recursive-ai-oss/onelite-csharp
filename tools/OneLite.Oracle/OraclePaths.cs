@@ -23,13 +23,15 @@ public static class OraclePaths
     /// <summary>The <c>sqlite3</c> command-line shell (override with <c>$ONELITE_SQLITE3</c>).</summary>
     public static string Cli
         => Environment.GetEnvironmentVariable("ONELITE_SQLITE3") is { Length: > 0 } e
-            ? e : Path.Combine(Root, "oracles", "sqlite-" + PinnedVersion, "sqlite3");
+            ? e : Path.Combine(Root, "oracles", "sqlite-" + PinnedVersion,
+                RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "sqlite3.exe" : "sqlite3");
 
     /// <summary>The native library of the same release (override with <c>$ONELITE_NATIVE_SQLITE</c>).</summary>
     public static string NativeLibrary
         => Environment.GetEnvironmentVariable("ONELITE_NATIVE_SQLITE") is { Length: > 0 } e
             ? e : Path.Combine(Root, "oracles", "native-" + PinnedVersion,
-                RuntimeInformation.IsOSPlatform(OSPlatform.OSX) ? "libe_sqlite3.dylib" : "libe_sqlite3.so");
+                RuntimeInformation.IsOSPlatform(OSPlatform.OSX) ? "libe_sqlite3.dylib"
+                : RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "e_sqlite3.dll" : "libe_sqlite3.so");
 
     /// <summary>Where generated and fetched corpora live.</summary>
     public static string CorpusRoot => Path.Combine(Root, "corpus");

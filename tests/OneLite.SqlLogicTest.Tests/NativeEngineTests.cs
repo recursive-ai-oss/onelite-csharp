@@ -118,6 +118,7 @@ public class NativeEngineTests
     [Fact]
     public void OneLiteEngineRunsQueriesOnItselfAndSetupOnTheNativeLibrary()
     {
+        Assert.SkipUnless(File.Exists(OraclePaths.NativeLibrary), "the pinned native library is not installed");
         string dir = Path.Combine(Path.GetTempPath(), "slt-ol-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(dir);
         try

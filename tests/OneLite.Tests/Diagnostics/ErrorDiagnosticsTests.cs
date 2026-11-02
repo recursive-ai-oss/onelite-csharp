@@ -420,6 +420,7 @@ public sealed class ErrorDiagnosticsTests : IDisposable
     [Fact]
     public void MangledStatementsNeverBreakTheDiagnostics()
     {
+        Assert.SkipUnless(File.Exists(OraclePaths.NativeLibrary), "the pinned SQLite library is not installed");
         (Connection c, Database db, SqliteDb theirs) = Open();
         using (c)
         using (db)
