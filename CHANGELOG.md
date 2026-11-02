@@ -4,6 +4,12 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.2.0-preview.2]
+
+### Fixed
+
+- **`PRAGMA rekey` / `PRAGMA hexrekey` read through `ExecuteScalar`, `ExecuteReader` (one row or none), `Statement.Step` once, or the happy-path scalar and query methods answered `ok` but did not change the key.** The new key took effect only when the statement ran to completion. The statement now commits the rekey before it returns its row, so every way of running it changes the key or fails.
+
 ## [0.2.0-preview.1]
 
 ### Known issues

@@ -202,7 +202,13 @@ internal sealed partial class Compiler
         int b = NewReg();
         Emit(Op.PragmaVar, 0, b, 0, new PragmaCall(name, arg, SlotOfSchema(ps.Schema)));
         bool returns = set ? pv.SetRow : pv.GetRow;
-        if (returns)
+        bool answerAfterCommit = returns && name is "rekey" or "hexrekey";
+        if (answerAfterCommit)
+        {
+            Emit(Op.Halt, 1); // commits the new key before the row is handed out
+            Emit(Op.ResultRow, b, 1);
+        }
+        else if (returns)
         {
             if (name == "temp_store_directory" || (cipher && !set))
             {

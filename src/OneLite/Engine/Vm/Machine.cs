@@ -372,6 +372,15 @@ internal sealed partial class Machine
                 case Op.Halt:
                 {
                     RunResult h = FinishCleanup(false);
+                    if (h == RunResult.Done && ins.P1 == 1)
+                    {
+                        // Commit first, answer after: a caller that reads the one row and stops must still have the statement's effect
+                        // (PRAGMA rekey changes the key only when its transaction commits).
+                        _finished = false;
+                        _pc++;
+                        continue;
+                    }
+
                     return h;
                 }
 
