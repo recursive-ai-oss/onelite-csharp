@@ -174,7 +174,9 @@ internal static class Fts5Aux
             }
 
             double tf = 0;
-            if (p < d.Inst.Length && d.Inst[p] is { } inst)
+            long[]? inst = p < d.Inst.Length ? d.Inst[p] : null;
+            inst ??= d.Leak is { } lk && p < lk.Length ? lk[p] : null; // kept from a NOT whose left side is empty: counted (observed)
+            if (inst is not null)
             {
                 foreach (long pos in inst)
                 {
