@@ -30,7 +30,7 @@ internal static class KillWriter
             {
                 s_backend = await Backend.Create(a[0]).ConfigureAwait(false);
                 s_db = await Database.OpenAsync(a[1], new DatabaseOptions { Vfs = s_backend.Vfs, JournalMode = JournalMode.Delete, Synchronous = SynchronousMode.Full }).ConfigureAwait(false);
-                long start = await s_db.ScalarAsync<long>($"select coalesce(max(a), {Base}) from t").ConfigureAwait(false);
+                long start = await s_db.ScalarAsync<long>($"select coalesce(max(a), {Base}) from t where a >= {Base}").ConfigureAwait(false);
                 s_acked = start;
                 s_loop = Loop(start, int.Parse(a[2], CultureInfo.InvariantCulture));
                 return "started " + start.ToString(CultureInfo.InvariantCulture);

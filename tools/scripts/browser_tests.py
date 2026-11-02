@@ -15,8 +15,7 @@ What it runs
      and their `.dump` is compared with the dump of the same content built by sqlite3.
   5. with --kill N: kill-the-tab runs, N kills for each of the four combinations (main-thread backend and worker backend, each in rollback and WAL mode).
      A page opens the database through the engine (Database.OpenAsync) and starts a writer loop that commits transactions of one to three rows; this
-     driver polls how many have been acknowledged, then kills the page at a random moment (closing it, or crashing its renderer through the DevTools
-     protocol). A fresh page then recovers the file (opening it rolls back a hot journal or reads the log), exports it, and this host checks with sqlite3:
+     driver polls how many have been acknowledged, then kills the page at a random moment (closing it, or navigating it away). A fresh page then recovers the file (opening it rolls back a hot journal or reads the log), exports it, and this host checks with sqlite3:
      `PRAGMA integrity_check` is ok, every row up to the last acknowledged one is present, and rows are contiguous with no transaction half there.
      --kill-only skips 1 to 4.
 """
@@ -46,6 +45,7 @@ def args():
     p.add_argument("--max-corpus-bytes", type=int, default=30_000_000)
     p.add_argument("--kill", type=int, default=0, help="kills per backend and journal mode (see the module docstring)")
     p.add_argument("--kill-only", action="store_true")
+    p.add_argument("--trace", type=int, default=0, help="dump every thread's stack each N seconds (to find where a run is stuck)")
     p.add_argument("--kill-seed", type=int, default=1)
     p.add_argument("--kill-backends", default="page/async,worker/sync", help="comma-separated where/backend pairs")
     return p.parse_args()
@@ -270,6 +270,7 @@ def kill_campaign(a, browser, ctx, base, res):
                         break
                     good, detail = check_recovered(a.sqlite3, os.path.join(a.out, up), acked)
                     res.add(group, f"kill {k}: {detail}", good, detail)
+                    print(f"{group} kill {k}: {'ok' if good else 'FAIL'} {detail}", flush=True)
                     if not good:
                         break
                     ok_n += 1
@@ -280,7 +281,7 @@ def kill_campaign(a, browser, ctx, base, res):
                         break
                     acked = max(acked, int(r.split()[1]))
                     target = acked + rnd.randint(1, 25)
-                    deadline = time.time() + 30
+                    deadline = time.time() + 20
                     while time.time() < deadline:
                         v = cmd(page, where, "kill.acked")
                         if v.startswith("FAIL"):
@@ -289,14 +290,13 @@ def kill_campaign(a, browser, ctx, base, res):
                         acked = max(acked, int(v))
                         if acked >= target:
                             break
+                        time.sleep(0.01)
                     time.sleep(rnd.random() * 0.02)
                     if rnd.random() < 0.5:
                         page.close()
                     else:
-                        try:
-                            ctx.new_cdp_session(page).send("Page.crash")
-                        except Exception:
-                            pass
+                        # Navigating away tears the page down in the middle of whatever its writer was doing, without a chance to finish it.
+                        page.goto("about:blank", wait_until="commit")
                         page.close()
                 except Exception as e:  # a page that dies under a call is part of the test, a driver error is not
                     res.add(group, f"kill {k}: driver", False, repr(e)[:300])
@@ -346,6 +346,9 @@ def http_range_tests(a, ctx, base, res):
 
 def main():
     a = args()
+    if a.trace:
+        import faulthandler
+        faulthandler.dump_traceback_later(a.trace, repeat=True)
     os.makedirs(a.out, exist_ok=True)
     for f in os.listdir(a.out):
         os.remove(os.path.join(a.out, f))

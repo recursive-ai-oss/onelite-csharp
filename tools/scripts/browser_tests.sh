@@ -15,8 +15,11 @@ sqlite3=${SQLITE3:-$HOME/onelite/oracles/sqlite-3.53.4/sqlite3}
 mkdir -p "$out"
 [ -x "$home/chrome-linux64/chrome" ] || "$root/tools/scripts/fetch_browser.sh"
 
+# SKIP_PUBLISH=1 reuses the site a previous run published (when only the driver script changed).
+if [ -z "${SKIP_PUBLISH:-}" ]; then
 rm -rf "$out/site"
 ONELITE_ARTIFACTS="$out/artifacts" dotnet publish "$root/tests/OneLite.BrowserTests" -c "${CONFIG:-Release}" -o "$out/site" -v quiet -clp:NoSummary
+fi
 
 corpus=()
 for d in ${CORPUS:-}; do corpus+=(--corpus "$d"); done

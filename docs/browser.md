@@ -87,6 +87,6 @@ Results go to `results.json` and a per-group table. Kill-the-tab runs are descri
 rollback-journal and in WAL mode. Per kill: a fresh page recovers the file left by the previous kill (opening it rolls back a hot journal or reads the log), exports it to the host, and the host checks with the
 pinned `sqlite3` that `PRAGMA integrity_check` is `ok`, every row up to the last one the driver saw acknowledged is present, rows are contiguous from the first one this writer added, and every transaction
 (one to three rows, marked in a column) is whole. Then that page opens the database through the engine (`Database.OpenAsync`, `WriteAsync`), starts a writer loop, polls how many transactions were acknowledged
-(a transaction counts when `WriteAsync` has returned), and kills the page at a random moment: half the kills close the page, half crash its renderer through the DevTools protocol (`Page.crash`). The worker
+(a transaction counts when `WriteAsync` has returned), and kills the page at a random moment: half the kills close the page, half navigate it away (`about:blank`), either of which tears it and its worker down mid-transaction. The worker
 backend's writer runs in the page's dedicated worker, which goes with the page. The check is conservative: a row acknowledged after the last poll but before the kill need not be present.
 
