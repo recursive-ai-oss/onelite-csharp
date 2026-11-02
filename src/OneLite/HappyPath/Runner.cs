@@ -3,9 +3,13 @@ namespace RecursiveAI.OneLite;
 /// <summary>Runs queries on one connection, for both the database's own connection and a write transaction. The caller holds whatever lock protects the connection.</summary>
 internal static class Runner
 {
-    private static Statement Prepare(Connection c, in Query q)
+    private static Statement Prepare(Connection c, in Query q) => Setup(c.Prepare(q.Sql), q);
+
+    private static async ValueTask<Statement> PrepareAsync(Connection c, Query q, CancellationToken ct)
+        => Setup(await c.PrepareAsync(q.Sql, ct).ConfigureAwait(false), q);
+
+    private static Statement Setup(Statement st, in Query q)
     {
-        Statement st = c.Prepare(q.Sql);
         try
         {
             if (!string.IsNullOrWhiteSpace(st.Tail.Replace(';', ' ')))
@@ -30,7 +34,7 @@ internal static class Runner
 
     internal static async ValueTask<List<T>> QueryAsync<T>(Connection c, Query q, CancellationToken ct)
     {
-        using Statement st = Prepare(c, q);
+        await using Statement st = await PrepareAsync(c, q, ct).ConfigureAwait(false);
         var list = new List<T>();
         Func<Statement, T>? read = null;
         while (await st.StepAsync(ct).ConfigureAwait(false))
@@ -59,7 +63,7 @@ internal static class Runner
 
     internal static async ValueTask<List<TRow>> QueryRowsAsync<TRow>(Connection c, Query q, Func<Statement, TRow> read, CancellationToken ct)
     {
-        using Statement st = Prepare(c, q);
+        await using Statement st = await PrepareAsync(c, q, ct).ConfigureAwait(false);
         var list = new List<TRow>();
         while (await st.StepAsync(ct).ConfigureAwait(false))
         {
@@ -84,7 +88,7 @@ internal static class Runner
     /// <summary>Reads rows whose first column is the rowid and whose other columns map to T, into a dictionary keyed by rowid.</summary>
     internal static async ValueTask FetchAsync<T>(Connection c, Query q, Dictionary<long, T> into, CancellationToken ct)
     {
-        using Statement st = Prepare(c, q);
+        await using Statement st = await PrepareAsync(c, q, ct).ConfigureAwait(false);
         Func<Statement, T>? read = null;
         while (await st.StepAsync(ct).ConfigureAwait(false))
         {
@@ -106,7 +110,7 @@ internal static class Runner
 
     internal static async ValueTask<(long Changes, long LastRowId)> ExecuteAsync(Connection c, Query q, CancellationToken ct)
     {
-        using Statement st = Prepare(c, q);
+        await using Statement st = await PrepareAsync(c, q, ct).ConfigureAwait(false);
         while (await st.StepAsync(ct).ConfigureAwait(false))
         {
         }
@@ -126,7 +130,7 @@ internal static class Runner
 
     internal static async ValueTask<T?> ScalarAsync<T>(Connection c, Query q, CancellationToken ct)
     {
-        using Statement st = Prepare(c, q);
+        await using Statement st = await PrepareAsync(c, q, ct).ConfigureAwait(false);
         return await st.StepAsync(ct).ConfigureAwait(false) ? st.GetFieldValue<T>(0) : default;
     }
 
@@ -141,7 +145,7 @@ internal static class Runner
         string rest = sql;
         while (!string.IsNullOrWhiteSpace(rest))
         {
-            using Statement st = c.Prepare(rest);
+            await using Statement st = await c.PrepareAsync(rest, ct).ConfigureAwait(false);
             rest = st.Tail;
             while (await st.StepAsync(ct).ConfigureAwait(false))
             {

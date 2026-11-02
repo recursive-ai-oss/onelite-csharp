@@ -9,7 +9,7 @@ namespace RecursiveAI.OneLite.Storage.Pager;
 /// <see cref="PendingIo"/> (<see cref="ExecuteSync"/> or <see cref="ExecuteAsync"/>) and call again with the same arguments.
 /// A pager is used by one thread at a time.
 /// </summary>
-public sealed partial class Pager : IDisposable
+public sealed partial class Pager : IDisposable, IAsyncDisposable
 {
     private enum TxState : byte
     {
@@ -266,6 +266,59 @@ public sealed partial class Pager : IDisposable
         DisposeCipher();
     }
 
+    /// <summary>
+    /// Fails with MISUSE unless this pager's backend can answer a synchronous call that has to wait: operations that run to completion inside one VM
+    /// instruction (the integrity check, VACUUM, changing the journal mode, checkpoints) cannot suspend, so on a backend with only asynchronous calls
+    /// they report "backend requires the async driver" instead of failing half way (docs/engine.md).
+    /// </summary>
+    /// <param name="what">The operation, for the message.</param>
+    /// <exception cref="OneLiteException">SQLITE_MISUSE on a backend with only asynchronous calls.</exception>
+    internal void RequireBlockingBackend(string what)
+    {
+        if ((_vfs.Caps & (VfsCaps.Sync | VfsCaps.BlockingOk)) == 0)
+        {
+            throw new OneLiteException(ResultCode.Misuse, Msg(ResultCode.Misuse), what + ": backend requires the async driver");
+        }
+    }
+
+    /// <summary>
+    /// Asynchronous twin of <see cref="Dispose"/>: releases the file lock by awaiting the backend, so a backend with only asynchronous calls (browser storage)
+    /// really drops its lock. A WAL connection on a backend without synchronous calls closes without the checkpoint <see cref="Dispose"/> would run
+    /// (the log stays in place and the next connection recovers it, wal "Checkpointing").
+    /// </summary>
+    /// <returns>A task that completes when the files are closed.</returns>
+    public async ValueTask DisposeAsync()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        if (_wal != null && (_vfs.Caps & VfsCaps.Sync) != 0)
+        {
+            WalCloseSync();
+        }
+
+        _disposed = true;
+        try
+        {
+            _jfile?.Dispose();
+            if (_dbFile != null)
+            {
+                await _dbFile.UnlockAsync(LockLevel.None, CancellationToken.None).ConfigureAwait(false);
+                _dbFile.Dispose();
+            }
+        }
+        catch (VfsException)
+        {
+            // Closing is best effort, as in Dispose.
+        }
+
+        _jfile = null;
+        _dbFile = null;
+        DisposeCipher();
+    }
+
     // ---- request plumbing ------------------------------------------------------------------------------------------------------
 
     /// <summary>
@@ -377,9 +430,9 @@ public sealed partial class Pager : IDisposable
         }
     }
 
-    private PagerStatus Fail(int extended, string detail)
+    private PagerStatus Fail(int extended, string detail, Exception? inner = null)
     {
-        _error = new OneLiteException(extended, Msg(extended), detail);
+        _error = new OneLiteException(extended, Msg(extended), detail, inner);
         _pending = false;
         _hasComp = false;
         ClearProgress();
@@ -396,7 +449,16 @@ public sealed partial class Pager : IDisposable
         return PagerStatus.Error;
     }
 
-    private PagerStatus FailIo(int status, string what) => Fail(status == 0 ? ResultCode.IoErr : status, what);
+    // The backend's exception for the request that just failed, kept so the error the caller sees carries it as its inner exception (a remote file that
+    // changed, say, is a typed exception); the result code and message are the same either way.
+    private VfsException? _ioFailure;
+
+    private PagerStatus FailIo(int status, string what)
+    {
+        VfsException? cause = _ioFailure;
+        _ioFailure = null;
+        return cause is null ? Fail(status == 0 ? ResultCode.IoErr : status, what) : Fail(status == 0 ? ResultCode.IoErr : status, what + ": " + cause.Message, cause);
+    }
 
     private PagerStatus FailCorrupt(string detail) => Fail(ResultCode.Corrupt, detail);
 
@@ -429,6 +491,7 @@ public sealed partial class Pager : IDisposable
 
         IoRequest r = _req;
         IoCompletion c = default;
+        _ioFailure = null;
         try
         {
             switch (r.Kind)
@@ -493,6 +556,7 @@ public sealed partial class Pager : IDisposable
         catch (VfsException e)
         {
             c.Status = e.ExtendedCode == 0 ? ResultCode.IoErr : e.ExtendedCode;
+            _ioFailure = e;
         }
 
         Complete(c);
@@ -510,6 +574,7 @@ public sealed partial class Pager : IDisposable
 
         IoRequest r = _req;
         IoCompletion c = default;
+        _ioFailure = null;
         CancellationToken t = r.Cancellable ? ct : CancellationToken.None;
         try
         {
@@ -576,6 +641,7 @@ public sealed partial class Pager : IDisposable
         catch (VfsException e)
         {
             c.Status = e.ExtendedCode == 0 ? ResultCode.IoErr : e.ExtendedCode;
+            _ioFailure = e;
         }
 
         Complete(c);

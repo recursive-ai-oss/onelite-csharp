@@ -150,7 +150,14 @@ public sealed partial class Database : ISession
                 }
             }
 
-            DisposePrimary();
+            if (!_closed)
+            {
+                _closed = true;
+                if (_primary is { } primary)
+                {
+                    await primary.DisposeAsync().ConfigureAwait(false);
+                }
+            }
         }
         finally
         {

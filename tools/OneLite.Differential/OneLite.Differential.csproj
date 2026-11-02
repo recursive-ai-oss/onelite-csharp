@@ -13,6 +13,7 @@
     <Compile Include="../OneLite.QueryDiff/Runners.cs" Link="Shared/Runners.cs" />
     <Compile Include="../OneLite.QueryDiff/GlobalUsings.cs" Link="Shared/GlobalUsings.cs" />
     <Compile Include="../OneLite.QueryDiff/Qd.cs" Link="Shared/Qd.cs" />
+    <Compile Include="../OneLite.QueryDiff/ColdAsyncVfs.cs" Link="Shared/ColdAsyncVfs.cs" />
   </ItemGroup>
 
   <ItemGroup>

@@ -51,6 +51,42 @@ Windows uses `LockFileEx` on the same byte ranges; since Windows cannot convert 
 
 A connection set up on a platform without `MultiProcessLocks` is arbitrated among the connections of one process only, and must not share the file with another process.
 
+### What works on which backend
+
+| | Memory, File | `OpfsSyncVfs` (worker) | `OpfsAsyncVfs` (main thread), any backend with only `Caps.Async` | `HttpRangeVfs` |
+|---|---|---|---|---|
+| Sync API (`Open`, `Prepare`, `Step`) | yes | yes | no: SQLITE_MISUSE "backend requires the async driver" once a call has to wait | yes where blocking is allowed (not in the browser) |
+| Async API (`OpenAsync`, `ConnectAsync`, `PrepareAsync`, `StepAsync`, `DisposeAsync`) | yes | yes | yes, no synchronous backend call at all (tested with a backend that refuses every one) | yes |
+| Reads and writes, transactions, commit, rollback, cancellation | yes | yes | yes | read-only |
+| Statements that run to completion inside one instruction and so cannot suspend: `PRAGMA integrity_check`, `VACUUM`, `VACUUM INTO`, `PRAGMA journal_mode=` (a change), `PRAGMA wal_checkpoint`, the `dbstat` table, full-text 3/4 tables (nested SQL) | yes | yes | **no**: SQLITE_MISUSE with "backend requires the async driver" naming the operation, raised before anything is touched | yes where blocking is allowed |
+| WAL mode | yes (shared memory: file, memory) | in-heap wal-index, one connection | in-heap wal-index, one connection; a database must already be in WAL mode (the switch cannot suspend) | a WAL-mode database without a log file; refused when a non-empty `-wal` exists |
+| Closing | `Dispose` checkpoints a WAL database | same | `DisposeAsync` releases the lock through the backend; it does not run the closing checkpoint, so the log stays and the next connection recovers it | n/a |
+
+`Connection.PrepareAsync` loads the schema by awaiting the VFS (the resumable `ReloadSchemaStep` the first step of a stale statement already used); `Prepare` still
+loads it synchronously. `Statement.DisposeAsync` and `ResetAsync`, and `Connection.DisposeAsync`, end an unfinished read transaction by awaiting the unlock.
+Cancelling an `await` while a read transaction is half begun (the lock taken, page 1 not read) also ends it, so no lock is left behind (tested at every
+suspension of a cold prepare and a cold step). The `Database.OpenAsync` happy path, `Database.OpenReadOnlyAsync`, `OneLiteConnection.OpenAsync`/`CloseAsync` and the readers' async
+methods use these, so a cold database opens, prepares, queries and writes over an async-only backend through the engine, `.Data` and the happy path.
+
+When a backend call fails, the engine's error carries the backend's exception as its `InnerException` (result codes and message text are unchanged).
+
+### `HttpRangeVfs`
+
+A read-only backend over HTTP range requests (RFC 9110 section 14): `new HttpRangeVfs(httpClient, new HttpRangeOptions { BlockSize, CachedBlocks, AllowNoValidator })`, paths are URLs.
+Async-only with `BlockingOk` outside the browser, so `Database.OpenReadOnly` and `ForensicDatabase.Open` work on a thread that may block.
+
+* **Blocks.** Reads are served from aligned blocks (default 64 KiB) kept in an LRU (default 128 blocks) per file version; concurrent readers of a block share one request.
+* **One version per open.** The first request records the size, `ETag` and `Last-Modified`. Every later request sends `If-Match` (strong ETag) or `If-Unmodified-Since`, and the response's
+  validators and `Content-Range` size are compared with the recorded ones. A difference fails the read with `RemoteFileChangedException` (SQLITE_IOERR_READ; the typed exception is the
+  error's `InnerException`). A server that sends neither header is refused at open (CANTOPEN) unless `AllowNoValidator` is set.
+* **Cached pages keep their snapshot.** A reader whose pager cache already holds every page it needs makes no request, so it keeps a consistent view of the version it opened and does not notice a change; the error appears at the first read that has to fetch.
+* **Servers.** Must answer `Range` with 206. A server that ignores it is accepted only for a file of at most one block (the 200 body is the file). Empty files (416 `bytes */0`) open as empty.
+* **Journals and logs.** Opening the main file for the engine HEADs `-journal` (and `-wal` when the header says WAL): a non-empty one makes the open fail with CANTOPEN, because a hot journal
+  cannot be played back and a log may hold commits the file lacks. Empty ones are leftovers. The result is cached per file version (the validators catch any later change), so a read transaction
+  costs no extra request. The forensic reader (bare read-only opens) can open `-journal`, `-wal` and `-shm` URLs as plain remote files.
+* **Writing** is refused (CANTOPEN on a read-write open, READONLY on a write). Locks: shared always granted, nothing above it. Device flag: immutable.
+* Query strings (signed URLs) are kept: auxiliary names are formed before the `?`.
+
 ## Observed sync sequence of the reference shell (Linux, one `INSERT` in rollback-journal mode)
 
 Seen by `strace` on the pinned `sqlite3` 3.53.4 (4096-byte pages, `synchronous` at its default), `journal_mode=DELETE`, `BEGIN IMMEDIATE; INSERT; COMMIT`. This is an observation for the pager unit, which settles the full sequences.

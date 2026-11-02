@@ -13,11 +13,21 @@ internal static class Executor
         var seen = new Lookup();
         Database? ours = null;
         Connection? conn = null;
+        Database? fallbackDb = null;
+        Connection? fallback = null;
         string openError = "";
         try
         {
-            ours = Database.OpenReadOnly(dbPath);
-            conn = ours.Connect();
+            if (Qd.Cold)
+            {
+                ours = Database.OpenReadOnlyAsync(dbPath, Qd.Options).AsTask().GetAwaiter().GetResult();
+                conn = ours.ConnectAsync().AsTask().GetAwaiter().GetResult();
+            }
+            else
+            {
+                ours = Database.OpenReadOnly(dbPath);
+                conn = ours.Connect();
+            }
         }
         catch (OneLiteException e)
         {
@@ -43,7 +53,7 @@ internal static class Executor
                 Outcome[] theirs = ShellRunner.RunBatch(dbPath, fresh);
                 for (int i = 0; i < fresh.Count; i++)
                 {
-                    seen.Add(fresh[i], conn is null ? OpenFailure(openError) : RunOurs(conn, fresh[i]), theirs[i]);
+                    seen.Add(fresh[i], conn is null ? OpenFailure(openError) : RunOurs(conn, fresh[i], dbPath, ref fallbackDb, ref fallback), theirs[i]);
                 }
             }
 
@@ -51,19 +61,39 @@ internal static class Executor
         }
         finally
         {
-            conn?.Dispose();
+            if (Qd.Cold)
+            {
+                conn?.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            }
+            else
+            {
+                conn?.Dispose();
+            }
+
             ours?.Dispose();
+            fallback?.Dispose();
+            fallbackDb?.Dispose();
         }
     }
 
     private static Outcome OpenFailure(string message) => new() { HasError = true, Phase = "open", Code = 1, Message = message };
 
 #pragma warning disable CA1031 // any failure inside the engine under test is a finding, never a reason to stop the campaign
-    private static Outcome RunOurs(Connection conn, string sql)
+    private static Outcome RunOurs(Connection conn, string sql, string dbPath, ref Database? fallbackDb, ref Connection? fallback)
     {
         try
         {
-            return OursRunner.Run(conn, sql);
+            Outcome o = OursRunner.Run(conn, sql, Qd.Cold);
+            if (Qd.Cold && o.NeedsBlocking)
+            {
+                // Something this statement does cannot suspend (docs/engine.md): the sync driver answers it, and the tool counts it.
+                Qd.CountFallback();
+                fallbackDb ??= Database.OpenReadOnly(dbPath);
+                fallback ??= fallbackDb.Connect();
+                return OursRunner.Run(fallback, sql);
+            }
+
+            return o;
         }
         catch (Exception e)
         {

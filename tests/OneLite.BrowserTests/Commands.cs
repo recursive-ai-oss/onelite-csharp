@@ -114,6 +114,15 @@ internal static partial class Exports
                         return r;
                     }
 
+                case "http.open":
+                case "http.q":
+                case "http.close":
+                    return await HttpReader.Handle(cmd, a).ConfigureAwait(false);
+
+                case "kill.run":
+                case "kill.acked":
+                    return await KillWriter.Handle(cmd, a).ConfigureAwait(false);
+
                 default:
                     return "FAIL unknown command " + cmd;
             }
@@ -124,7 +133,7 @@ internal static partial class Exports
         }
         catch (OneLiteException e)
         {
-            return (e.ExtendedCode == ResultCode.Busy ? "BUSY " : "ERR ") + e.ExtendedCode + " " + e.Message;
+            return (e.ExtendedCode == ResultCode.Busy ? "BUSY " : "ERR ") + e.ExtendedCode + " " + e.Message + (e.Detail.Length > 0 ? " [" + e.Detail + "]" : string.Empty);
         }
         catch (Exception e)
         {

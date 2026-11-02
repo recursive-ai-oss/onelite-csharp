@@ -103,7 +103,10 @@ public sealed class OneLiteConnection : DbConnection
     /// <inheritdoc />
     public override void ChangeDatabase(string databaseName) => throw new NotSupportedException("a OneLite connection has one main database; use ATTACH");
 
-    private (OneLiteDatabase Db, SharedMemoryDatabase? Shared) Create()
+    // Set by Create(deferExistsCheck: true) for a read-only open: the caller opens it with OpenReadOnlyAsync, which awaits the existence check.
+    private (string Source, DatabaseOptions Options)? _readOnlyOpen;
+
+    private (OneLiteDatabase Db, SharedMemoryDatabase? Shared) Create(bool deferExistsCheck = false)
     {
         OneLiteConnectionStringBuilder b = _builder ??= new OneLiteConnectionStringBuilder(_connectionString);
         string source = b.DataSource;
@@ -132,6 +135,12 @@ public sealed class OneLiteConnection : DbConnection
             }
 
             var withVfs = new DatabaseOptions { Vfs = custom, BusyTimeoutMs = options.BusyTimeoutMs, ForeignKeys = options.ForeignKeys, Key = options.Key };
+            if (mode == OneLiteOpenMode.ReadOnly && deferExistsCheck)
+            {
+                _readOnlyOpen = (source, withVfs);
+                return (null!, null);
+            }
+
             return (mode == OneLiteOpenMode.ReadOnly ? OneLiteDatabase.OpenReadOnly(source, withVfs) : OneLiteDatabase.Open(source, withVfs), null);
         }
 
@@ -246,7 +255,13 @@ public sealed class OneLiteConnection : DbConnection
         SharedMemoryDatabase? sm = null;
         try
         {
-            (db, sm) = Create();
+            _readOnlyOpen = null;
+            (db, sm) = Create(deferExistsCheck: true);
+            if (_readOnlyOpen is { } ro)
+            {
+                db = await OneLiteDatabase.OpenReadOnlyAsync(ro.Source, ro.Options, cancellationToken).ConfigureAwait(false);
+            }
+
             Opened(db, await db.ConnectAsync(cancellationToken).ConfigureAwait(false), sm);
         }
         catch (OneLiteException e)
@@ -301,7 +316,17 @@ public sealed class OneLiteConnection : DbConnection
             await t.DisposeAsync().ConfigureAwait(false);
         }
 
-        Close();
+        string? name = SharedNameFor(_sharedMemory);
+        if (_conn is { } engine)
+        {
+            await engine.DisposeAsync().ConfigureAwait(false);
+        }
+
+        Release(_db, _sharedMemory, name);
+        _conn = null;
+        _db = null;
+        _sharedMemory = null;
+        _state = ConnectionState.Closed;
     }
 
     /// <inheritdoc />

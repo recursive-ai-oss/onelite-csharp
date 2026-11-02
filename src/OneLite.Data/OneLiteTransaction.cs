@@ -46,7 +46,7 @@ public sealed class OneLiteTransaction : DbTransaction
 
     private static async Task RunAsync(Connection c, string sql, CancellationToken ct)
     {
-        using Statement st = c.Prepare(sql);
+        await using Statement st = await c.PrepareAsync(sql, ct).ConfigureAwait(false);
         while (await st.StepAsync(ct).ConfigureAwait(false))
         {
         }

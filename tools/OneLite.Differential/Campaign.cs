@@ -1,3 +1,4 @@
+using RecursiveAI.OneLite.QueryDiff;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Globalization;
@@ -345,6 +346,9 @@ internal sealed class Campaign
             unsupportedReasons = _unsupportedReasons.OrderByDescending(k => k.Value).Take(40).ToDictionary(k => k.Key, k => k.Value),
             minimizedRepros = _repros,
             toolErrors = _toolErrors,
+            driver = Qd.Cold ? "async-cold" : Qd.Async ? "async" : "sync",
+            asyncCalls = Qd.Cold ? Qd.ColdVfs.Calls : 0,
+            syncFallbacks = Qd.Fallbacks,
             setupVia = _o.SetupOneLite ? "onelite" : "reference",
             setupBuiltByOneLite = _setupBuilt,
             setupUnsupported = _setupUnsupported,

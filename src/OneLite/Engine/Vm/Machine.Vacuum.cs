@@ -39,6 +39,7 @@ internal sealed partial class Machine
             return RunResult.Done;
         }
 
+        pg.RequireBlockingBackend("VACUUM");
         void Pump() => pg.ExecuteSync();
         try
         {
@@ -223,6 +224,7 @@ internal sealed partial class Machine
 
         BtContext ctx = c.ContextOf(db);
         IBtPageSource src = ctx.Source;
+        pg.RequireBlockingBackend("VACUUM INTO");
         void Pump() => pg.ExecuteSync();
         BtStatus Run(Func<BtStatus> op)
         {
