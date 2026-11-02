@@ -55,6 +55,8 @@ public sealed class ConcurrentTransactionTests : IDisposable
         return sb.ToString();
     }
 
+    private static readonly string[] s_standardFiles = ["std.db", "std.db-shm", "std.db-wal"];
+
     private static OneLiteException Fails(Action a) => Assert.Throws<OneLiteException>(a);
 
     private static void Setup(Connection c)
@@ -263,6 +265,201 @@ public sealed class ConcurrentTransactionTests : IDisposable
         }
 
         Assert.Equal("ok", Q(a, "PRAGMA integrity_check"));
-        Assert.Equal(Math.Max(ia, Q(a, "SELECT max(id) FROM s").Length > 0 ? long.Parse(Q(a, "SELECT max(id) FROM s"), System.Globalization.CultureInfo.InvariantCulture) : 0).ToString(System.Globalization.CultureInfo.InvariantCulture), Q(a, "SELECT seq FROM sqlite_sequence WHERE name = 's'"));
+        Assert.Equal(Q(a, "SELECT max(id) FROM s"), Q(a, "SELECT seq FROM sqlite_sequence WHERE name = 's'"));
+    }
+
+    [Fact]
+    public void RowidsAndForeignKeyChildrenSurviveReplay()
+    {
+        using Database db = Open();
+        using Connection a = db.Connect();
+        using Connection b = db.Connect();
+        Run(a, "PRAGMA foreign_keys = ON");
+        Run(b, "PRAGMA foreign_keys = ON");
+        Run(a, "CREATE TABLE p(id INTEGER PRIMARY KEY, x INT)");
+        Run(a, "CREATE TABLE c(id INTEGER PRIMARY KEY, pid INT REFERENCES p(id))");
+        Run(a, "BEGIN CONCURRENT");
+        Run(b, "BEGIN CONCURRENT");
+        Run(a, "INSERT INTO p(x) VALUES (1)");
+        string id = Q(a, "SELECT last_insert_rowid()");
+        Run(a, $"INSERT INTO c(pid) VALUES ({id})");
+        Run(b, "INSERT INTO p(x) VALUES (2)");
+        Run(b, "COMMIT");
+        Run(a, "COMMIT");
+        Assert.Equal("1", Q(a, $"SELECT x FROM p WHERE id = {id}"));
+        Assert.Equal(id, Q(a, "SELECT pid FROM c"));
+        Assert.Equal(string.Empty, Q(a, "PRAGMA foreign_key_check"));
+    }
+
+    [Fact]
+    public void ParentDeletedMeanwhileRefusesTheChild()
+    {
+        using Database db = Open();
+        using Connection a = db.Connect();
+        using Connection b = db.Connect();
+        Run(a, "PRAGMA foreign_keys = ON");
+        Run(b, "PRAGMA foreign_keys = ON");
+        Run(a, "CREATE TABLE p(id INTEGER PRIMARY KEY)");
+        Run(a, "CREATE TABLE c(id INTEGER PRIMARY KEY, pid INT REFERENCES p(id))");
+        Run(a, "INSERT INTO p VALUES (1), (2)");
+        Run(a, "BEGIN CONCURRENT");
+        Run(b, "BEGIN CONCURRENT");
+        Run(a, "INSERT INTO c(pid) VALUES (1)");
+        Run(b, "DELETE FROM p WHERE id = 1");
+        Run(b, "COMMIT");
+        Assert.Equal(ResultCode.BusySnapshot, Fails(() => Run(a, "COMMIT")).ExtendedCode);
+        Run(a, "ROLLBACK");
+        Assert.Equal("0", Q(a, "SELECT count(*) FROM c"));
+    }
+
+    [Fact]
+    public void TriggerEffectsAreReplayed()
+    {
+        using Database db = Open();
+        using Connection a = db.Connect();
+        using Connection b = db.Connect();
+        Run(a, "CREATE TABLE t(id INTEGER PRIMARY KEY, v INT)");
+        Run(a, "CREATE TABLE log(id INTEGER PRIMARY KEY, tid INT)");
+        Run(a, "CREATE TRIGGER tr AFTER INSERT ON t BEGIN INSERT INTO log(tid) VALUES (new.id); END");
+        Run(a, "BEGIN CONCURRENT");
+        Run(b, "BEGIN CONCURRENT");
+        Run(a, "INSERT INTO t(v) VALUES (1)");
+        Run(b, "INSERT INTO t(v) VALUES (2)");
+        Run(b, "COMMIT");
+        Run(a, "COMMIT");
+        Assert.Equal("2", Q(a, "SELECT count(*) FROM log"));
+        Assert.Equal("0", Q(a, "SELECT count(*) FROM log WHERE tid NOT IN (SELECT id FROM t)"));
+    }
+
+    [Fact]
+    public void MaxRowidReadConflictsWithAnAppendOnlyWhenSerializable()
+    {
+        foreach (bool snapshot in new[] { false, true })
+        {
+            using Database db = Open(snapshot ? "mx-si.db" : "mx-ser.db");
+            using Connection a = db.Connect();
+            using Connection b = db.Connect();
+            Setup(a);
+            string begin = snapshot ? "BEGIN CONCURRENT SNAPSHOT" : "BEGIN CONCURRENT";
+            Run(a, begin);
+            Run(b, begin);
+            Assert.Equal("3", Q(a, "SELECT max(id) FROM t"));
+            Run(a, "INSERT INTO t(v) VALUES (0)");
+            Run(b, "INSERT INTO t(v) VALUES (1)");
+            Run(b, "COMMIT");
+            if (snapshot)
+            {
+                Run(a, "COMMIT");
+            }
+            else
+            {
+                Assert.Equal(ResultCode.BusySnapshot, Fails(() => Run(a, "COMMIT")).ExtendedCode);
+                Run(a, "ROLLBACK");
+            }
+        }
+    }
+
+    [Fact]
+    public void SameExplicitRowidCommitsOnce()
+    {
+        using Database db = Open();
+        using Connection a = db.Connect();
+        using Connection b = db.Connect();
+        Setup(a);
+        Run(a, "BEGIN CONCURRENT SNAPSHOT");
+        Run(b, "BEGIN CONCURRENT SNAPSHOT");
+        Run(a, "INSERT INTO t VALUES (900, 1)");
+        Run(b, "INSERT INTO t VALUES (900, 2)");
+        Run(a, "COMMIT");
+        Assert.Equal(ResultCode.BusySnapshot, Fails(() => Run(b, "COMMIT")).ExtendedCode);
+        Run(b, "ROLLBACK");
+        Assert.Equal("1", Q(a, "SELECT v FROM t WHERE id = 900"));
+    }
+
+    [Fact]
+    public void RowidsAtTheTopOfTheRangeFollowTheOrdinaryRule()
+    {
+        using Database db = Open();
+        using Connection a = db.Connect();
+        Run(a, "CREATE TABLE t(id INTEGER PRIMARY KEY, v INT)");
+        Run(a, "CREATE TABLE s(id INTEGER PRIMARY KEY AUTOINCREMENT, v INT)");
+        Run(a, "INSERT INTO t VALUES (9223372036854775807, 0)");
+        Run(a, "INSERT INTO s VALUES (9223372036854775807, 0)");
+        Run(a, "BEGIN CONCURRENT");
+        Run(a, "INSERT INTO t(v) VALUES (1)");
+        Run(a, "INSERT INTO t(v) VALUES (2)");
+        OneLiteException full = Fails(() => Run(a, "INSERT INTO s(v) VALUES (1)"));
+        Assert.Equal(ResultCode.Full, full.Code);
+        Run(a, "COMMIT");
+        Assert.Equal("3", Q(a, "SELECT count(*) FROM t"));
+        Assert.Equal("3", Q(a, "SELECT count(DISTINCT id) FROM t"));
+    }
+
+    [Fact]
+    public void WithoutRowidTablesConflictOnTheSameKeyOnly()
+    {
+        using Database db = Open();
+        using Connection a = db.Connect();
+        using Connection b = db.Connect();
+        Run(a, "CREATE TABLE w(k TEXT PRIMARY KEY, v INT) WITHOUT ROWID");
+        Run(a, "BEGIN CONCURRENT SNAPSHOT");
+        Run(b, "BEGIN CONCURRENT SNAPSHOT");
+        Run(a, "INSERT INTO w VALUES ('a', 1)");
+        Run(b, "INSERT INTO w VALUES ('b', 2)");
+        Run(a, "COMMIT");
+        Run(b, "COMMIT");
+        Assert.Equal("2", Q(a, "SELECT count(*) FROM w"));
+        Run(a, "BEGIN CONCURRENT SNAPSHOT");
+        Run(b, "BEGIN CONCURRENT SNAPSHOT");
+        Run(a, "INSERT OR REPLACE INTO w VALUES ('c', 1)");
+        Run(b, "INSERT OR REPLACE INTO w VALUES ('c', 2)");
+        Run(a, "COMMIT");
+        Assert.Equal(ResultCode.BusySnapshot, Fails(() => Run(b, "COMMIT")).ExtendedCode);
+        Run(b, "ROLLBACK");
+    }
+
+    [Fact]
+    public void AutoincrementDoesNotReuseAnIdADeletedRowHeld()
+    {
+        using Database db = Open();
+        using Connection a = db.Connect();
+        using Connection stale = db.Connect();
+        Run(a, "CREATE TABLE s(id INTEGER PRIMARY KEY AUTOINCREMENT, v INT)");
+        Run(a, "INSERT INTO s(v) VALUES (1)");
+        Run(stale, "BEGIN CONCURRENT SNAPSHOT");
+        Run(stale, "INSERT INTO s(v) VALUES (9)");
+        long id = long.Parse(Q(stale, "SELECT last_insert_rowid()"), System.Globalization.CultureInfo.InvariantCulture);
+
+        // Another connection uses that id and deletes it again before the stale transaction commits.
+        Run(a, $"INSERT INTO s(id, v) VALUES ({id}, 2)");
+        Run(a, $"DELETE FROM s WHERE id = {id}");
+        Assert.Equal(ResultCode.BusySnapshot, Fails(() => Run(stale, "COMMIT")).ExtendedCode);
+        Run(stale, "ROLLBACK");
+        Assert.Equal("1", Q(a, "SELECT count(*) FROM s"));
+    }
+
+    [Fact]
+    public void FilesStayStandardForTheShell()
+    {
+        Assert.SkipUnless(File.Exists(RecursiveAI.OneLite.Oracle.OraclePaths.Cli), "the pinned sqlite3 shell is not installed");
+        string path = Path.Combine(_dir, "std.db");
+        using (Database db = Database.Open(path, s_opts))
+        using (Connection a = db.Connect())
+        using (Connection b = db.Connect())
+        {
+            Setup(a);
+            Run(a, "BEGIN CONCURRENT");
+            Run(b, "BEGIN CONCURRENT");
+            Run(a, "INSERT INTO t(v) VALUES (4)");
+            Run(b, "INSERT INTO t(v) VALUES (5)");
+            Run(b, "UPDATE t SET v = 99 WHERE id = 1");
+            Run(a, "COMMIT");
+            Run(b, "COMMIT");
+        }
+
+        string dump = RecursiveAI.OneLite.Oracle.SqliteCli.Dump(path);
+        Assert.Contains("99", dump, StringComparison.Ordinal);
+        Assert.True(RecursiveAI.OneLite.Oracle.PinnedSqlite.IntegrityOk(path, out string detail), detail);
+        Assert.All(Directory.GetFiles(_dir).Select(Path.GetFileName), f => Assert.Contains(f, s_standardFiles));
     }
 }
