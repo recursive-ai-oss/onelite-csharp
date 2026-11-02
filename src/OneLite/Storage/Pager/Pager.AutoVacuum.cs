@@ -52,6 +52,13 @@ public sealed partial class Pager
     private uint _avParent;
     private PageFrame? _avFromFrame;
     private PageFrame? _avToFrame;
+    private bool _avExplicit;
+    private bool _avActive;
+    private uint _avLimit;
+    private uint _avReleased;
+    private uint _avRemaining;
+    private List<uint>? _avSurv;
+    private int _avSi;
 
     /// <summary>
     /// Installs the B-tree layer's relocation callback. With one, a commit in a full auto-vacuum database (auto-vacuum on, incremental flag
@@ -104,7 +111,8 @@ public sealed partial class Pager
             {
                 case 0:
                 {
-                    if (!_autoVacuum || _incremental || _relocator == null || _dbSize < 3)
+                    // At commit only a full auto-vacuum database is vacuumed; PRAGMA incremental_vacuum asks for it in an incremental one.
+                    if (!_autoVacuum || _incremental != _avExplicit || _relocator == null || _dbSize < 3)
                     {
                         return PagerStatus.Ok;
                     }
@@ -123,6 +131,9 @@ public sealed partial class Pager
                         return PagerStatus.Ok;
                     }
 
+                    // A commit empties the freelist; the pragma gives back at most the requested number of pages (pragma incremental_vacuum).
+                    _avReleased = _avExplicit ? Math.Min(_avLimit, _avCount) : _avCount;
+                    _avRemaining = _avCount - _avReleased;
                     _avFree = [];
                     _avTrunks = [];
                     _avVisited = 0;
@@ -200,7 +211,7 @@ public sealed partial class Pager
                         return FailCorrupt("the freelist is larger than the database");
                     }
 
-                    _avFinal = FinalSize(used - holes);
+                    _avFinal = FinalSize(used - holes + _avRemaining);
                     _avLast = _dbSize;
                     _avTarget = 0;
                     _avStep = 2;
@@ -366,14 +377,86 @@ public sealed partial class Pager
                     break;
                 }
 
-                default:
+                case 20:
                 {
-                    // 20: the freelist is gone, the database is _avFinal pages. A free page below the final size that nothing moved into would be lost.
-                    if (_avTarget < _avFree!.Count && _avFree[_avTarget] <= _avFinal)
+                    // The free pages that were not cut off or used as targets stay on the freelist; every target was taken in ascending order, so they
+                    // are the rest of the sorted list. A commit leaves none.
+                    _avSurv = [];
+                    for (int i = _avTarget; i < _avFree!.Count; i++)
                     {
-                        return FailCorrupt($"auto-vacuum left free page {_avFree[_avTarget]} unused: the pointer map and the freelist disagree");
+                        if (_avFree[i] <= _avFinal)
+                        {
+                            _avSurv.Add(_avFree[i]);
+                        }
                     }
 
+                    if (_avSurv.Count != _avRemaining)
+                    {
+                        return FailCorrupt($"auto-vacuum left {_avSurv.Count} free pages but {_avRemaining} were expected: the pointer map and the freelist disagree");
+                    }
+
+                    _avSi = 0;
+                    _avStep = _avSurv.Count == 0 ? 30 : 21;
+                    break;
+                }
+
+                case 21:
+                {
+                    // Rewrite the freelist (fileformat2 §1.5): trunk pages chained through their first four bytes, each listing up to MaxTrunkLeaves leaves.
+                    // The surviving free pages are laid out as trunk, its leaves, next trunk, its leaves, and so on.
+                    if (_avSi >= _avSurv!.Count)
+                    {
+                        _avStep = 30;
+                        break;
+                    }
+
+                    uint tp = _avSurv[_avSi];
+                    bool wasTrunk = _avTrunks!.Contains(tp);
+                    if (!wasTrunk && tp <= _origSize)
+                    {
+                        _jBits.Set(tp);
+                    }
+
+                    PagerStatus s = GetCore(tp, wasTrunk ? GetOptions.None : GetOptions.NoContent, out PageFrame? f);
+                    if (s != PagerStatus.Ok)
+                    {
+                        return s;
+                    }
+
+                    _avToFrame = f;
+                    _avStep = 22;
+                    break;
+                }
+
+                case 22:
+                {
+                    PagerStatus s = MakeWritable(_avToFrame!);
+                    if (s != PagerStatus.Ok)
+                    {
+                        return s;
+                    }
+
+                    int leaves = Math.Min(MaxTrunkLeaves, _avSurv!.Count - _avSi - 1);
+                    byte[] d = _avToFrame!.Data;
+                    Array.Clear(d, 0, _pageSize);
+                    int nextAt = _avSi + 1 + leaves;
+                    DatabaseHeader.SetUInt32(d, 0, nextAt < _avSurv.Count ? _avSurv[nextAt] : 0);
+                    DatabaseHeader.SetUInt32(d, 4, (uint)leaves);
+                    for (int i = 0; i < leaves; i++)
+                    {
+                        DatabaseHeader.SetUInt32(d, 8 + 4 * i, _avSurv[_avSi + 1 + i]);
+                    }
+
+                    _avToFrame.Pins--;
+                    _avToFrame = null;
+                    _avSi = nextAt;
+                    _avStep = 21;
+                    break;
+                }
+
+                default:
+                {
+                    // 30: the database is _avFinal pages and the freelist is rebuilt (or empty).
                     PagerStatus s = GetCore(1, GetOptions.None, out PageFrame? p1);
                     if (s != PagerStatus.Ok)
                     {
@@ -387,18 +470,60 @@ public sealed partial class Pager
                         return w;
                     }
 
-                    DatabaseHeader.SetUInt32(p1!.Data, DatabaseHeader.FreelistTrunkOffset, 0);
-                    DatabaseHeader.SetUInt32(p1.Data, DatabaseHeader.FreelistCountOffset, 0);
+                    DatabaseHeader.SetUInt32(p1!.Data, DatabaseHeader.FreelistTrunkOffset, _avSurv is { Count: > 0 } ? _avSurv[0] : 0);
+                    DatabaseHeader.SetUInt32(p1.Data, DatabaseHeader.FreelistCountOffset, _avRemaining);
                     p1.Pins--;
                     _dbSize = _avFinal;
                     DropFramesBeyond(_avFinal);
                     _avFree = null;
                     _avTrunks = null;
+                    _avSurv = null;
                     _avStep = 0;
                     return PagerStatus.Ok;
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// <c>PRAGMA incremental_vacuum(N)</c>: in an incremental auto-vacuum database, gives up to <paramref name="pages"/> free pages back by moving pages from the
+    /// end of the file into free pages nearer the start and cutting the file short (pragma incremental_vacuum). Needs a write transaction. Does
+    /// nothing in other modes or when nothing is free.
+    /// </summary>
+    /// <param name="pages">How many pages to free; 0 means the whole freelist. More than the freelist holds also means all of it.</param>
+    /// <param name="released">When the result is <see cref="PagerStatus.Ok"/>, how many pages left the freelist.</param>
+    /// <returns>The status; repeat the same call after <see cref="PagerStatus.Pending"/>.</returns>
+    public PagerStatus IncrementalVacuumStep(uint pages, out uint released)
+    {
+        released = 0;
+        if (!_avActive)
+        {
+            _avActive = true;
+            _avExplicit = true;
+            _avLimit = pages == 0 ? uint.MaxValue : pages;
+            _avReleased = 0;
+            _avRemaining = 0;
+        }
+
+        PagerStatus s = AutoVacuumCommit();
+        if (s == PagerStatus.Pending)
+        {
+            return s;
+        }
+
+        if (s == PagerStatus.Ok)
+        {
+            released = _avReleased;
+        }
+        else
+        {
+            _avStep = 0;
+            _avFree = null;
+        }
+
+        _avActive = false;
+        _avExplicit = false;
+        return s;
     }
 
     /// <summary>True if the database is in incremental auto-vacuum mode (header offset 64).</summary>

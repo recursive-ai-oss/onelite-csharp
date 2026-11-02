@@ -64,6 +64,9 @@ public sealed partial class Connection
 
     internal BusyPolicy? Busy;
 
+    /// <summary>The main-database tables whose indexes a query of this connection has been planned to seek through; PRAGMA optimize looks only at these unless asked to check every table.</summary>
+    internal readonly HashSet<string> StatsUsed = new(AsciiComparer.Instance);
+
     /// <summary>The busy timeout in milliseconds (<c>PRAGMA busy_timeout</c>); 0 means the busy callback alone decides.</summary>
     internal int BusyTimeoutMs
     {

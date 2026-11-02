@@ -534,6 +534,11 @@ public sealed class Statement : IDisposable, IAsyncDisposable
         }
 
         ReleaseBlocked();
+        if (_machine.Writing)
+        {
+            await _machine.FinishWriteAsync().ConfigureAwait(false);
+        }
+
         await _conn.WithAsyncAbort(_machine.Close).ConfigureAwait(false);
         _disposed = true;
         _conn.Forget(this);
@@ -548,6 +553,12 @@ public sealed class Statement : IDisposable, IAsyncDisposable
         }
 
         ReleaseBlocked();
+        if (_machine.Writing)
+        {
+            // finalizing a write statement that was not stepped to its end (rows still to read) commits what it did, as Reset does
+            _machine.FinishWriteSync();
+        }
+
         _machine.Close();
         _disposed = true;
         _conn.Forget(this);

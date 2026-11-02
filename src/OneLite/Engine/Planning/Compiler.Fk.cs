@@ -26,6 +26,9 @@ internal sealed class FkSpec
     internal bool IsCount;
     internal VmProgram? Program;
 
+    /// <summary>Compiles the program itself instead of from <see cref="Sql"/> (PRAGMA optimize's ANALYZE of the tables it picked).</summary>
+    internal Func<Compiler, VmProgram>? Custom;
+
     /// <summary>The compiled program; compiled on first use, so tables that refer to each other do not compile each other forever.</summary>
     internal VmProgram Get()
     {
@@ -34,9 +37,9 @@ internal sealed class FkSpec
             return done;
         }
 
-        SqlStatement stmt = SqlParser.ParseOne(Sql, 0, out _) ?? throw new OneLiteException(ResultCode.Error, "internal foreign key statement is empty");
         var c = new Compiler(Cat, Sql, Enc) { ForeignKeysEnabled = true, FkLazy = true };
-        VmProgram p = stmt switch
+        SqlStatement? stmt = Custom is null ? SqlParser.ParseOne(Sql, 0, out _) ?? throw new OneLiteException(ResultCode.Error, "internal foreign key statement is empty") : null;
+        VmProgram p = Custom is not null ? Custom(c) : stmt switch
         {
             SelectStatement s => c.CompileSelect(s),
             DeleteStatement d => c.CompileDelete(d),

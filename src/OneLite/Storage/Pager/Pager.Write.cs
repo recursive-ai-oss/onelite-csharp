@@ -934,6 +934,9 @@ public sealed partial class Pager
         _rmStep = 0;
         _rjStep = 0;
         _avStep = 0;
+        _avActive = false;
+        _avExplicit = false;
+        _avSurv = null;
         _ajOpenOnly = false;
         _reserving = false;
         _avFree = null;
