@@ -44,3 +44,4 @@ Process kills (SIGKILL at random moments) and fault injection through the VFS (t
 - Native extensions (`load_extension`) are not supported; managed extensions register through the core's interfaces.
 - Geopoly, sessions and changesets, `carray` and the shell's miscellaneous extensions are not implemented.
 - The `RecursiveAI.OneLite.SQLitePCLRaw` adapter and the `onelite` command-line tool are placeholders in this preview.
+- `PRAGMA optimize` and `PRAGMA incremental_vacuum` are accepted and do nothing: no statistics are gathered and no free pages are returned. Use `ANALYZE` and a full `VACUUM` instead.
