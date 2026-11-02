@@ -6,7 +6,7 @@ This table lists what has been measured and what is known to differ. Gaps are li
 
 How the numbers are produced: [sqllogictest.md](sqllogictest.md), [differential.md](differential.md), [interop-and-durability.md](interop-and-durability.md).
 
-## Summary (0.2.0-preview.1)
+## Summary (0.3.0-preview.1)
 
 | Area | sqllogictest | Differential testing against `sqlite3` | Known gaps |
 |---|---|---|---|
@@ -18,7 +18,7 @@ How the numbers are produced: [sqllogictest.md](sqllogictest.md), [differential.
 | DDL, ALTER TABLE, triggers, generated columns, STRICT | covered by `evidence/*` (487 pass, 1 explained) | 0 unexplained | |
 | Pragmas, ATTACH | — | 0 unexplained | |
 | JSON, math functions, `generate_series` | — | 0 unexplained | |
-| FTS5 | — | 25-minute run: 19 of 647 cases differ, all in the window `snippet` chooses or a malformed-query quirk of the shell (see [fts5.md](fts5.md)) | `contentless_delete`, `tokendata` and locale options are not implemented |
+| FTS5 | — | 25-minute run plus six shorter seeds (7,000 cases): no `snippet` window differences; the cases that differ are a malformed-database quirk of the shell on `snippet()` of an UNINDEXED column (we return the text), about 1 in 1,500 cases where `snippet(t, -1, ...)` picks another column when an UNINDEXED column holds a match under `detail=column` or `none`, and one last-digit `bm25` difference on arm64 (see [fts5.md](fts5.md)) | `contentless_delete`, `tokendata` and locale options are not implemented |
 | FTS3 and FTS4 | — | 25-minute run: 264 cases, 0 differing | see [fts3.md](fts3.md): `matchinfo` hit totals for multi-phrase queries depend on file layout; `col:"phrase"` without a space |
 | R*Tree, `dbstat`, `vec0` | — | — | R*Tree node layout differs from the shell's (results and integrity checks match) |
 

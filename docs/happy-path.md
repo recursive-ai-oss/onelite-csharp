@@ -24,7 +24,7 @@ snapshot while a write is in progress) and a commit needs fewer syncs (sqlite.or
 `":memory:"` is a private in-memory database.
 **WAL is persistent:** opening an existing rollback-journal file with `OpenAsync`/`OpenDefault` switches that file to WAL for good (it is a property of the
 file, as `PRAGMA journal_mode=WAL` is in SQLite), so other programs that open it, `sqlite3` included, see a WAL database and need write access to the
-directory for the `-wal` and `-shm` files; pass `DatabaseOptions` to keep the file's journal mode. `Database.Open` is unchanged and keeps the reference defaults. One `Database` serializes its calls on one connection; open more connections with `Connect()` for
+directory for the `-wal` and `-shm` files; pass `DatabaseOptions` to keep the file's journal mode. `Database.Open` is unchanged and keeps the reference defaults. Because the switch to WAL initialises a new file, `PRAGMA auto_vacuum` set afterwards has no effect until a `VACUUM` (as in SQLite; see [engine.md](engine.md)). One `Database` serializes its calls on one connection; open more connections with `Connect()` for
 parallel readers.
 
 ## Queries

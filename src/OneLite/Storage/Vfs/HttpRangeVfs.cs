@@ -56,9 +56,9 @@ public sealed class RemoteFileChangedException : VfsException
 /// <para><b>One version per open.</b> Opening fetches the first block and records the file's size and its <c>ETag</c> and <c>Last-Modified</c>. Every later
 /// request carries <c>If-Match</c> (strong ETag) or <c>If-Unmodified-Since</c>, and the answer's validators are compared with the recorded ones; a difference
 /// fails the read with <see cref="RemoteFileChangedException"/>. Blocks are cached per VFS instance and file version.</para>
-/// <para><b>Rollback-journal databases only.</b> A <c>-journal</c> next to the file makes opening fail (it may be hot, and nothing can be written to play it
-/// back), and a database in WAL mode fails at the first read with CANTOPEN, because its wal-index needs shared memory and a writable <c>-shm</c>. Convert a
-/// database to <c>journal_mode=DELETE</c> before publishing it.</para>
+/// <para><b>Journals and logs.</b> Opening the main file looks for <c>-journal</c> (and <c>-wal</c> when the header says WAL): a non-empty one makes the open
+/// fail with CANTOPEN, because a hot journal cannot be played back and a log may hold commits the file lacks. Empty ones are ignored, so a database in WAL mode
+/// whose log was checkpointed and removed (or left empty) opens and reads normally. Publish a database with its log checkpointed.</para>
 /// <para>The server must answer <c>Range</c> requests with 206, or the whole file with 200 when it is at most one block. Cross-origin use from a browser
 /// needs CORS to allow the <c>Range</c> and <c>If-Match</c> headers.</para>
 /// </remarks>
