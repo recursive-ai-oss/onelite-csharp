@@ -27,7 +27,7 @@
     <Copyright>Copyright (c) Recursive AI, LLC</Copyright>
     <PackageLicenseExpression>MIT OR Apache-2.0</PackageLicenseExpression>
     <!-- The one place the package version lives. All packages share it. -->
-    <Version>0.2.0-preview.1</Version>
+    <Version>0.3.0-preview.1</Version>
     <PackageTags>sqlite;sqlite-compatible;database;sql;embedded;wal;fts5;rtree;sqlcipher;encryption;vector-search;nativeaot;wasm</PackageTags>
     <RepositoryType>git</RepositoryType>
     <RepositoryUrl>https://github.com/recursive-ai-oss/onelite-csharp</RepositoryUrl>
@@ -37,7 +37,8 @@
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
-    <!-- No baseline until the first release is published; then set PackageValidationBaselineVersion to it. -->
+    <!-- Pack fails on an unintended breaking change against the last published version; only published IDs have a baseline. -->
+    <PackageValidationBaselineVersion Condition="'$(MSBuildProjectName)' == 'OneLite' Or '$(MSBuildProjectName)' == 'OneLite.Data'">0.2.0-preview.1</PackageValidationBaselineVersion>
     <EnablePackageValidation>true</EnablePackageValidation>
     <PackageDescriptionNotice>OneLite is an independent project and is not affiliated with, endorsed by, or sponsored by the SQLite developers or Hipp, Wyrick &amp; Company. SQLite is a registered trademark of Hipp, Wyrick &amp; Company.</PackageDescriptionNotice>
   </PropertyGroup>
