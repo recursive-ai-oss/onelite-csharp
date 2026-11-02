@@ -1455,7 +1455,13 @@ internal sealed partial class Machine
                 }
             }
 
-            _conn.HoldForTransaction();
+            if ((ins.P5 & 1) == 0)
+            {
+                _conn.HoldForTransaction();
+            }
+
+            // A write statement keeps the read transaction for the open transaction only once it has the write lock: when the lock is refused
+            // the read lock taken just for it goes too (lockingv3), so a failed write does not block the connection that holds RESERVED.
             _dml |= (ins.P5 & 8) != 0;
             _txStep = 1;
         }
@@ -1494,7 +1500,17 @@ internal sealed partial class Machine
         }
 
         RunResult w = DoTransactionWrite((ins.P5 & 16) != 0);
-        return w == RunResult.Done && _txStep >= 20 ? DoTransaction(ref ins) : w;
+        if (w == RunResult.Done && _txStep >= 20)
+        {
+            return DoTransaction(ref ins);
+        }
+
+        if (w == RunResult.Done)
+        {
+            _conn.HoldForTransaction();
+        }
+
+        return w;
     }
 
     // ------------------------------------------------------------------ seeks

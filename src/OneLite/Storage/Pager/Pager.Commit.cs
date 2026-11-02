@@ -190,7 +190,9 @@ public sealed partial class Pager
     {
         if (_cmNothing)
         {
-            return PagerStatus.Ok;
+            // Observed on the reference: a write transaction that changed nothing still needs the EXCLUSIVE lock to commit, so it is BUSY
+            // while another connection is reading (lockingv3: the lock is taken before the commit looks at what changed).
+            return TakeLock(LockLevel.Exclusive);
         }
 
         for (; ; )

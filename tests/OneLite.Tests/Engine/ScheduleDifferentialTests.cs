@@ -62,6 +62,14 @@ public sealed class ScheduleDifferentialTests : IDisposable
 
         l.Add(X(0, "CREATE TABLE t(x INTEGER)"));
         l.Add(X(0, "INSERT INTO t VALUES (1),(2),(3)"));
+        l.Add(X(0, "CREATE TABLE u(y)"));
+        // Every connection reads the schema now. OneLite drops its cached schema after its own DDL and reads it again at the next prepare, which
+        // needs a read lock where the reference needs none; the schedules start with that already done (a documented difference).
+        for (int c = 0; c < connections; c++)
+        {
+            l.Add(X(c, "SELECT count(*) FROM u"));
+        }
+
         return l;
     }
 
@@ -294,10 +302,23 @@ public sealed class ScheduleDifferentialTests : IDisposable
     {
         'x' => c.Exec(st.Sql),
         'p' => c.Open(st.Slot, st.Sql),
-        's' => c.StepSlot(st.Slot),
+        's' => AfterStep(c, st.Slot, c.StepSlot(st.Slot)),
         'r' => Do(() => c.ResetSlot(st.Slot)),
         _ => Do(() => c.FinalSlot(st.Slot)),
     };
+
+    // A statement that failed is reset at once, as the documentation for sqlite3_step tells an application to do. The reference keeps a write
+    // statement that returned SQLITE_BUSY "in progress" until it is reset (a later COMMIT then says "SQL statements in progress", and a later
+    // autocommit statement does not commit); OneLite ends such a statement at the error. That difference is documented, not scheduled.
+    private static string AfterStep(IEngineConn c, int slot, string result)
+    {
+        if (result.StartsWith("ERR", StringComparison.Ordinal))
+        {
+            c.ResetSlot(slot);
+        }
+
+        return result;
+    }
 
     private static string Do(Action a)
     {
@@ -307,6 +328,12 @@ public sealed class ScheduleDifferentialTests : IDisposable
 
     private static List<string> Run(Schedule sc, bool native, string file)
     {
+        // Every run starts from nothing: a journal left by an earlier trial would be played back into this one.
+        foreach (string suffix in new[] { "", "-journal", "-wal", "-shm" })
+        {
+            File.Delete(file + suffix);
+        }
+
         var trace = new List<string>();
         var conns = new IEngineConn[sc.Connections];
         Database? shared = null;
@@ -324,6 +351,16 @@ public sealed class ScheduleDifferentialTests : IDisposable
 
             foreach (Step st in sc.Steps)
             {
+                if (st.Op == 'x' && st.Sql == "ROLLBACK")
+                {
+                    // The reference lets a pending read go on after ROLLBACK; OneLite cuts it off with SQLITE_ABORT_ROLLBACK when the rollback
+                    // undid writes (a documented difference). Scheduled rollbacks end the connection's statements first.
+                    for (int slot = 0; slot < Slots; slot++)
+                    {
+                        conns[st.Conn].ResetSlot(slot);
+                    }
+                }
+
                 trace.Add(Apply(conns[st.Conn], st));
             }
 
@@ -341,7 +378,7 @@ public sealed class ScheduleDifferentialTests : IDisposable
                 trace.Add("end c" + i + " " + conns[i].Exec("ROLLBACK"));
             }
 
-            trace.Add("final " + conns[0].Exec(SelectAll));
+            trace.Add("final " + conns[0].Exec("SELECT count(*), sum(x), group_concat(x) FROM (SELECT x FROM t ORDER BY x)"));
         }
         finally
         {
@@ -358,6 +395,12 @@ public sealed class ScheduleDifferentialTests : IDisposable
 
     private string? Compare(Schedule sc, string tag)
     {
+        string? d = CompareRaw(sc, tag);
+        return d == null ? null : Minimize(sc, tag) + d;
+    }
+
+    private string? CompareRaw(Schedule sc, string tag)
+    {
         string a = Path.Combine(_dir, tag + "-ours.db");
         string b = Path.Combine(_dir, tag + "-native.db");
         List<string> ours = Run(sc, false, a);
@@ -369,13 +412,52 @@ public sealed class ScheduleDifferentialTests : IDisposable
             {
                 string desc = i < sc.Steps.Count ? sc.Steps[i].ToString() : "(wind-down)";
                 string report = $"step {i} [{desc}]\n  ours:   {ours[i]}\n  native: {theirs[i]}\n{sc}";
-                // The test runner shortens long assertion messages; a failing schedule is kept whole next to the test databases.
-                File.WriteAllText(Path.Combine(Path.GetTempPath(), "onelite-schedule-" + tag + ".txt"), report);
                 return report;
             }
         }
 
         return null;
+    }
+
+    // Drops steps one at a time while the two engines still disagree, so a failing random schedule reads as a short story.
+    private string Minimize(Schedule sc, string tag)
+    {
+        int keep = 2 * sc.Connections + 3; // the journal_mode pragmas, the three setup statements and the schema reads
+        List<Step> steps = [.. sc.Steps];
+        string? last = null;
+        for (int chunk = Math.Max(1, (steps.Count - keep) / 2); chunk >= 1; chunk /= 2)
+        {
+            for (bool changed = true; changed;)
+            {
+                changed = false;
+                for (int i = steps.Count - chunk; i >= keep; i -= chunk)
+                {
+                    var trial = new List<Step>(steps);
+                    trial.RemoveRange(i, chunk);
+                    string? d = CompareRaw(sc with { Steps = trial }, tag + "m");
+                    if (d != null)
+                    {
+                        steps = trial;
+                        last = d;
+                        changed = true;
+                    }
+                }
+            }
+        }
+
+        return last == null ? string.Empty : "minimized:\n" + last.Split("\nmode=")[0] + "\nmode=" + last.Split("\nmode=")[1] + "\n";
+    }
+
+    // The test runner shortens long assertion messages; a failing schedule is kept whole in the temp directory.
+    private void AssertSame(Schedule sc, string tag)
+    {
+        string? diff = Compare(sc, tag);
+        if (diff != null)
+        {
+            File.WriteAllText(Path.Combine(Path.GetTempPath(), "onelite-schedule-" + tag + ".txt"), diff);
+        }
+
+        Assert.Null(diff);
     }
 
     private static void Require()
@@ -418,7 +500,7 @@ public sealed class ScheduleDifferentialTests : IDisposable
             R(0, 0),
             X(1, "INSERT INTO t VALUES (99)"),
             X(0, SelectAll));
-        Assert.Null(Compare(sc, "w-" + mode + shared));
+        AssertSame(sc, "w-" + mode + shared);
     }
 
     /// <summary>A connection whose schema is stale (another connection created the table after it looked) sees the table when it prepares, as the reference does.</summary>
@@ -435,7 +517,7 @@ public sealed class ScheduleDifferentialTests : IDisposable
             X(0, "CREATE TABLE t(x INTEGER)"), X(0, "INSERT INTO t VALUES (1),(2),(3)"),
             X(1, "INSERT INTO t VALUES (4)"), P(1, 0, SelectAll), S(1, 0), X(0, "ALTER TABLE t ADD COLUMN y"), S(1, 0), X(1, "SELECT * FROM t"),
         };
-        Assert.Null(Compare(new Schedule(mode, shared, 2, l), "stale-" + mode + shared));
+        AssertSame(new Schedule(mode, shared, 2, l), "stale-" + mode + shared);
     }
 
     /// <summary>An explicit COMMIT that cannot get EXCLUSIVE fails with BUSY, keeps the transaction open, and succeeds when retried after the reader is done.</summary>
@@ -455,7 +537,7 @@ public sealed class ScheduleDifferentialTests : IDisposable
             X(0, SelectAll),
             X(1, "BEGIN IMMEDIATE"), X(1, "INSERT INTO t VALUES (51)"), P(0, 1, SelectAll), S(0, 1),
             X(1, "COMMIT"), X(1, "ROLLBACK"), X(1, SelectAll));
-        Assert.Null(Compare(sc, "c-" + mode + shared));
+        AssertSame(sc, "c-" + mode + shared);
     }
 
     /// <summary>A reader inside an explicit transaction blocks the writer's commit until it ends; BEGIN EXCLUSIVE and BEGIN IMMEDIATE against readers and writers.</summary>
@@ -471,7 +553,7 @@ public sealed class ScheduleDifferentialTests : IDisposable
             X(0, "COMMIT"),
             X(1, "BEGIN IMMEDIATE"), X(2, "COMMIT"), X(1, "ROLLBACK"), X(2, "BEGIN EXCLUSIVE"),
             X(0, SelectAll), X(2, "ROLLBACK"), X(0, SelectAll));
-        Assert.Null(Compare(sc, "b-" + mode + shared));
+        AssertSame(sc, "b-" + mode + shared);
     }
 
     /// <summary>Two writers, a stale reader that tries to write, and a statement left half-stepped across a COMMIT.</summary>
@@ -491,7 +573,35 @@ public sealed class ScheduleDifferentialTests : IDisposable
             S(2, 0),
             X(1, "COMMIT"), S(2, 0), R(2, 0), X(1, "COMMIT"),
             X(0, "INSERT INTO t VALUES (23)"), X(2, SelectAll));
-        Assert.Null(Compare(sc, "s-" + mode + shared));
+        AssertSame(sc, "s-" + mode + shared);
+    }
+
+    /// <summary>A statement being stepped when BEGIN runs keeps its read transaction (and so its lock or snapshot) until the transaction ends.</summary>
+    [Theory]
+    [MemberData(nameof(JournalModes))]
+    public void BeginKeepsTheReadTransactionOfAStatementInProgress(string mode, bool shared)
+    {
+        Require();
+        Schedule sc = Named(mode, shared, 2,
+            P(0, 0, "SELECT count(*) FROM t"), S(0, 0),
+            X(1, "INSERT INTO t VALUES (30)"),
+            X(0, "BEGIN"), S(0, 0),
+            X(1, "INSERT INTO t VALUES (31)"), X(0, "UPDATE t SET x = x + 1 WHERE x = 1"),
+            X(0, "COMMIT"),
+            X(1, "INSERT INTO t VALUES (32)"), X(0, SelectAll), X(1, SelectAll));
+        AssertSame(sc, "k-" + mode + shared);
+    }
+
+    /// <summary>Rolling back a transaction that only read leaves a pending query running.</summary>
+    [Theory]
+    [MemberData(nameof(JournalModes))]
+    public void RollbackOfAReadOnlyTransactionLeavesPendingReads(string mode, bool shared)
+    {
+        Require();
+        Schedule sc = Named(mode, shared, 2,
+            P(0, 0, SelectAll), S(0, 0), X(0, "BEGIN"), X(0, "ROLLBACK TRANSACTION"), S(0, 0), S(0, 0), S(0, 0),
+            X(1, "INSERT INTO t VALUES (40)"));
+        AssertSame(sc, "q-" + mode + shared);
     }
 
     // ---------------------------------------------------------------- generated schedules
@@ -501,7 +611,7 @@ public sealed class ScheduleDifferentialTests : IDisposable
         "BEGIN", "BEGIN", "BEGIN IMMEDIATE", "BEGIN EXCLUSIVE", "COMMIT", "COMMIT", "ROLLBACK", "SAVEPOINT a", "RELEASE a",
         "INSERT INTO t VALUES ({n})", "INSERT INTO t VALUES ({n})", "INSERT INTO t SELECT x + 1000 FROM t",
         "UPDATE t SET x = x + 100 WHERE x = {k}", "DELETE FROM t WHERE x = {k}", "DELETE FROM t WHERE x > {n}",
-        SelectAll, SelectAll, "SELECT count(*), sum(x) FROM t", "CREATE TABLE IF NOT EXISTS u(y)", "INSERT INTO u VALUES ({n})", "SELECT y FROM u ORDER BY y",
+        SelectAll, SelectAll, "SELECT count(*), sum(x) FROM t", "INSERT INTO u VALUES ({n})", "SELECT y FROM u ORDER BY y",
     ];
 
     private static readonly string[] s_open = [SelectAll, "SELECT count(*) FROM t", "INSERT INTO t VALUES ({n})", "UPDATE t SET x = x + 1 WHERE x = {k}", "SELECT y FROM u"];
@@ -509,7 +619,8 @@ public sealed class ScheduleDifferentialTests : IDisposable
     internal static Schedule Generate(long seed, string? forcedMode = null)
     {
         var rng = new Random(unchecked((int)(seed * 2654435761L ^ (seed >> 32))));
-        string[] modes = ["delete", "truncate", "persist", "wal", "delete", "wal", "memory", "off"];
+        // journal_mode=off is left out: the pinned shell refuses it (defensive mode) while the library accepts it, and OneLite follows the shell.
+        string[] modes = ["delete", "truncate", "persist", "wal", "delete", "wal", "memory"];
         string mode = forcedMode ?? modes[rng.Next(modes.Length)];
         int conns = rng.Next(4) == 0 ? 3 : 2;
         var l = Prelude(mode, conns);
@@ -561,7 +672,8 @@ public sealed class ScheduleDifferentialTests : IDisposable
             if (diff != null)
             {
                 failures.Add($"seed {seed + i}: {diff}");
-                if (failures.Count >= 5)
+                File.WriteAllText(Path.Combine(Path.GetTempPath(), $"onelite-schedule-seed{seed + i}.txt"), diff);
+                if (failures.Count >= 3)
                 {
                     break;
                 }

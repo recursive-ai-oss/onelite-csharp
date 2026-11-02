@@ -446,17 +446,45 @@ public sealed partial class Connection : IDisposable
             // have changed it since. The schema is read again and the statement compiled once more, as the reference does when a statement
             // fails to compile and the schema cookie has moved. If the file cannot be read right now (another connection holds a lock), the
             // original error stands, as it does there.
-            InvalidateSchema();
-            try
+            if (!TryReloadSchema())
             {
-                return CompileSqlCore(sql, out tail, out empty, mode);
-            }
-            catch (OneLiteException e2) when (e2.Code == ResultCode.Busy)
-            {
-                System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(e).Throw();
                 throw;
             }
+
+            return CompileSqlCore(sql, out tail, out empty, mode);
         }
+    }
+
+    // Reads the schema again; the loaded one is replaced only if that works. False if the file cannot be read now (a lock held by another
+    // connection): the schema already loaded stays in use.
+    private bool TryReloadSchema()
+    {
+        Catalog? old = _catalog;
+        try
+        {
+            for (; ; )
+            {
+                RunResult r = ReloadSchemaStep();
+                if (r == RunResult.Done)
+                {
+                    break;
+                }
+
+                _pager.ExecuteSync();
+            }
+        }
+        catch (OneLiteException e) when (e.Code == ResultCode.Busy)
+        {
+            _catalog = old;
+            return false;
+        }
+
+        if (!ReferenceEquals(old, _catalog))
+        {
+            DisconnectVirtuals(old);
+        }
+
+        return true;
     }
 
     private VmProgram CompileSqlCore(string sql, out string tail, out bool empty, PlanMode mode)

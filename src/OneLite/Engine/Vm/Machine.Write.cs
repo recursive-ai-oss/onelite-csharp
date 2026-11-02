@@ -587,7 +587,13 @@ internal sealed partial class Machine
                 }
 
                 case 5:
-                    _conn.InvalidateSchema();
+                    // Rolling back throws the loaded schema away only if the rolled-back work could have changed it; a refused write (SQLITE_BUSY)
+                    // leaves it valid, and reloading it needs a read lock another connection may be holding against us.
+                    if (_ddl || _conn.SchemaDirty || _conn.Temp != null)
+                    {
+                        _conn.InvalidateSchema();
+                    }
+
                     _conn.EndTransactionState();
                     _fw = 6;
                     break;
@@ -670,9 +676,11 @@ internal sealed partial class Machine
                             }
 
                             _conn.ExplicitTx = true;
-                            if (_holdsRead)
+                            if (!_conn.HoldsNoRead)
                             {
-                                // BEGIN IMMEDIATE/EXCLUSIVE has already started the read transaction; it outlives the statement.
+                                // A read transaction is already running (BEGIN IMMEDIATE/EXCLUSIVE just started one, or a statement is still being
+                                // stepped): it now belongs to the explicit transaction and outlives its statement, so its snapshot (WAL) or SHARED
+                                // lock (rollback journal) is kept until COMMIT or ROLLBACK, as in the reference.
                                 _conn.HoldForTransaction();
                             }
 
@@ -693,7 +701,13 @@ internal sealed partial class Machine
                                 throw new OneLiteException(ResultCode.Error, "cannot rollback - no transaction is active");
                             }
 
-                            _conn.ReleaseCursorsOf(_owner);
+                            // Pending queries are cut off only when the rollback undoes writes (rescode SQLITE_ABORT_ROLLBACK); rolling back a transaction
+                            // that only read leaves them running, as the reference does.
+                            if (pg.InWriteTransaction || _conn.AttachedWriting || _conn.Temp != null)
+                            {
+                                _conn.ReleaseCursorsOf(_owner);
+                            }
+
                             _wstep = 20;
                             break;
                         case 3:
@@ -701,6 +715,12 @@ internal sealed partial class Machine
                             bool first = _conn.AutoCommit;
                             var e = new SavepointEntry { Name = name!, FkDeferred = _conn.FkDeferred };
                             _conn.Savepoints.Add(e);
+                            if (!_conn.HoldsNoRead)
+                            {
+                                // As for BEGIN: a statement still being stepped keeps its read transaction for the transaction the savepoint opens.
+                                _conn.HoldForTransaction();
+                            }
+
                             if (pg.InWriteTransaction)
                             {
                                 e.Level = pg.OpenSavepoint();
@@ -734,6 +754,15 @@ internal sealed partial class Machine
                             }
 
                             _conn.VtabRelease(i + 1);
+                            if (i == 0 && !_conn.ExplicitTx)
+                            {
+                                // Releasing the outermost savepoint of a transaction no BEGIN opened commits it (lang_savepoint). If the commit is
+                                // refused (SQLITE_BUSY) the savepoints and the transaction must still be there, so nothing is taken apart before
+                                // it succeeds; EndTransactionState clears them afterwards.
+                                _wstep = 10;
+                                break;
+                            }
+
                             int level = _conn.Savepoints[i].Level;
                             int tlevel = _conn.Savepoints[i].TempLevel;
                             int[]? alevels = _conn.Savepoints[i].AttachedLevels;
@@ -836,7 +865,11 @@ internal sealed partial class Machine
                     _conn.RollbackAttached();
                     _conn.VtabRollback();
                     _conn.AfterRollback();
-                    _conn.InvalidateSchema();
+                    if (_conn.SchemaDirty || _conn.Temp != null)
+                    {
+                        _conn.InvalidateSchema();
+                    }
+
                     _conn.EndTransactionState();
                     _wstep = 12;
                     break;
