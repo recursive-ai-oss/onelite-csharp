@@ -60,6 +60,7 @@ internal static class Program
             "run" => Parent.Run(o, native),
             "child" => Child(o),
             "list" => List(),
+            "merge" => Parent.Merge(o, [.. args.Skip(1).Where(a => a.EndsWith(".json", StringComparison.Ordinal))]),
             _ => Fail("unknown command " + args[0]),
         };
     }
@@ -68,6 +69,7 @@ internal static class Program
         onelite-bench: OneLite against native SQLite, at two levels.
           run   [--rows a,b|all] [--levels engine,app] [--reps 3] [--n 100000] [--dir DIR] [--out PREFIX]
                 [--native LIB] [--vec VEC0_EXT] [--job ID] [--class wq-class] [--label TEXT]
+          merge --out PREFIX a.json b.json ...   combine filtered runs into one report
           list  show the row names
         engine = OneLite Statement.Step vs raw P/Invoke sqlite3_step; app = OneLite.Data vs Microsoft.Data.Sqlite.
         Writes PREFIX.json and PREFIX.md. Each row/side/level runs in its own child process (clean peak memory).

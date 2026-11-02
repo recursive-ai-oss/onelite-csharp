@@ -35,7 +35,7 @@ internal static class Parent
 
         public string MdsVersion { get; init; } = "";
 
-        public string Job { get; init; } = "";
+        public string Job { get; set; } = "";
 
         public string WqClass { get; init; } = "";
 
@@ -52,7 +52,28 @@ internal static class Parent
         public int N { get; init; }
 
         public string Commit { get; init; } = "";
+
+        public string LoadNote { get; set; } = "";
     }
+
+    internal sealed record Doc(Env Env, List<ChildResult> Results);
+
+    /// <summary>Joins the JSON files of several filtered runs into one report (the geometric mean then covers all rows).</summary>
+    public static int Merge(Dictionary<string, string> o, string[] files)
+    {
+        var docs = files.Select(f => JsonSerializer.Deserialize<Doc>(File.ReadAllText(f), Web)!).ToList();
+        Env env = docs[0].Env;
+        env.Job = string.Join(", ", docs.Select(d => d.Env.Job));
+        env.LoadNote = string.Join("; ", docs.Select((d, i) => string.Create(Inv, $"group {i + 1} before {d.Env.LoadBefore:F2}, highest between rows {d.Env.LoadMax:F2}, after {d.Env.LoadAfter:F2}")));
+        var all = docs.SelectMany(d => d.Results).ToList();
+        string prefix = o.GetValueOrDefault("out", "bench-merged");
+        File.WriteAllText(prefix + ".json", JsonSerializer.Serialize(new { env, results = all }, Indented));
+        File.WriteAllText(prefix + ".md", Markdown(env, all, o.GetValueOrDefault("levels", "engine,app").Split(',')));
+        Console.WriteLine("wrote " + prefix + ".json and .md");
+        return 0;
+    }
+
+    private static readonly JsonSerializerOptions Web = new(JsonSerializerDefaults.Web);
 
     public static int Run(Dictionary<string, string> o, string native)
     {
@@ -84,13 +105,13 @@ internal static class Parent
             NativeVersion = Native.Version(),
             AppNativeVersion = mdsServer,
             MdsVersion = typeof(Microsoft.Data.Sqlite.SqliteConnection).Assembly.GetName().Version?.ToString() ?? "?",
-            Job = o.GetValueOrDefault("job", ""),
+            Job = o.GetValueOrDefault("job", Environment.GetEnvironmentVariable("REMOTE_RUN_JOB_ID") ?? ""),
             WqClass = o.GetValueOrDefault("class", ""),
             Label = o.GetValueOrDefault("label", ""),
             LoadBefore = Load(),
             Reps = reps,
             N = n,
-            Commit = o.GetValueOrDefault("commit", ""),
+            Commit = o.GetValueOrDefault("commit", Environment.GetEnvironmentVariable("BENCH_COMMIT") ?? ""),
         };
         env.LoadMax = env.LoadBefore;
 
@@ -236,14 +257,14 @@ internal static class Parent
 
     // ---- report -----------------------------------------------------------------------------------------------
 
-    private static string Markdown(Env env, List<ChildResult> results, string[] levels)
+    internal static string Markdown(Env env, IReadOnlyList<ChildResult> results, string[] levels)
     {
         var sb = new StringBuilder();
         sb.AppendLine($"### {env.Cpu}, {env.Cores} cores, {env.Os}");
         sb.AppendLine();
         sb.AppendLine($"- Runtime {env.Runtime}; reference library SQLite {env.NativeVersion} (engine rows, raw P/Invoke); `Microsoft.Data.Sqlite` {env.MdsVersion} on SQLite {env.AppNativeVersion} (app rows).");
         sb.AppendLine($"- Medians of {env.Reps} timed repetitions after one warm-up; base table {env.N:N0} rows; commit {env.Commit}; job {env.Job} (wq class `{env.WqClass}`); {env.Label}.");
-        sb.AppendLine($"- Load average (1 min): before {env.LoadBefore:F2}, highest between rows {env.LoadMax:F2}, after {env.LoadAfter:F2}.");
+        sb.AppendLine(env.LoadNote.Length > 0 ? "- Load average (1 min): " + env.LoadNote : $"- Load average (1 min): before {env.LoadBefore:F2}, highest between rows {env.LoadMax:F2}, after {env.LoadAfter:F2}.");
         foreach (string level in levels)
         {
             sb.AppendLine();
