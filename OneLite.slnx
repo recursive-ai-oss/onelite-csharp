@@ -44,5 +44,6 @@
   </Folder>
   <Folder Name="/bench/">
     <Project Path="bench/OneLite.Bench/OneLite.Bench.csproj" />
+    <Project Path="bench/OneLite.Bench.Cold/OneLite.Bench.Cold.csproj" />
   </Folder>
 </Solution>

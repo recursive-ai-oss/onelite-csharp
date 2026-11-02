@@ -203,7 +203,7 @@ internal static class Program
             MedianMs = Median(ms),
             Ops = row.Ops(ctx),
             AllocBytes = (long)Median(alloc.Select(x => (double)x).ToArray()),
-            PeakKb = Process.GetCurrentProcess().PeakWorkingSet64 / 1024,
+            PeakKb = PeakKb(),
             Check = check,
             SetupMs = setupMs,
         };
@@ -252,7 +252,21 @@ internal static class Program
         }
 
         double cold = (DateTime.Now - Process.GetCurrentProcess().StartTime).TotalMilliseconds;
-        return new ChildResult { Row = "cold_start", Level = level, Side = side, Impl = impl, ColdMs = cold, Check = check, PeakKb = Process.GetCurrentProcess().PeakWorkingSet64 / 1024 };
+        return new ChildResult { Row = "cold_start", Level = level, Side = side, Impl = impl, ColdMs = cold, Check = check, PeakKb = PeakKb() };
+    }
+
+    /// <summary>Peak resident set of this process in KiB (Process.PeakWorkingSet64 reads 0 on macOS, so getrusage fills in).</summary>
+    private static long PeakKb()
+    {
+        long ws = Process.GetCurrentProcess().PeakWorkingSet64 / 1024;
+        if (ws > 0)
+        {
+            return ws;
+        }
+
+        // struct rusage: two timevals (4 longs), then ru_maxrss: bytes on macOS.
+        var ru = new long[18];
+        return Native.getrusage(0, ru) == 0 ? ru[4] / (OperatingSystem.IsMacOS() ? 1024 : 1) : 0;
     }
 
     internal static double Median(double[] v)

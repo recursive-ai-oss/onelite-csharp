@@ -83,6 +83,9 @@ internal static partial class Native
     [LibraryImport(Lib, StringMarshalling = StringMarshalling.Utf8)]
     public static partial int sqlite3_load_extension(nint db, string file, string? entry, nint errmsg);
 
+    [LibraryImport("libc")]
+    public static partial int getrusage(int who, [In, Out] long[] usage);
+
     public static string Version() => Marshal.PtrToStringUTF8(sqlite3_libversion()) ?? "?";
 
     public static string Error(nint db) => Marshal.PtrToStringUTF8(sqlite3_errmsg(db)) ?? "?";

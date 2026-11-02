@@ -142,6 +142,11 @@ internal static class Parent
                         }
                     }
 
+                    if (level == "engine" && o.TryGetValue("aot", out string? aot))
+                    {
+                        results.AddRange(ColdAot(aot, native, dir));
+                    }
+
                     continue;
                 }
 
@@ -163,6 +168,41 @@ internal static class Parent
         File.WriteAllText(outPrefix + ".md", Markdown(env, results, levels));
         Console.WriteLine("wrote " + outPrefix + ".json and .md");
         return 0;
+    }
+
+    // The NativeAOT cold-start executable, run on the databases the JIT cold-start rows just prepared.
+    private static List<ChildResult> ColdAot(string exe, string native, string dir)
+    {
+        var list = new List<ChildResult>();
+        foreach (string side in new[] { "onelite", "native" })
+        {
+            var ms = new List<double>();
+            long check = 0;
+            for (int k = 0; k < 3; k++)
+            {
+                var psi = new ProcessStartInfo(exe) { RedirectStandardOutput = true, UseShellExecute = false };
+                foreach (string a in new[] { side, Path.Combine(dir, $"cold_start-engine-{side}.db"), native })
+                {
+                    psi.ArgumentList.Add(a);
+                }
+
+                using Process p = Process.Start(psi)!;
+                string text = p.StandardOutput.ReadToEnd();
+                p.WaitForExit();
+                string[] parts = text.Trim().Split(' ');
+                if (parts.Length == 3 && parts[0] == "COLD")
+                {
+                    ms.Add(double.Parse(parts[1], Inv));
+                    check = long.Parse(parts[2], Inv);
+                }
+            }
+
+            double m = Program.Median([.. ms]);
+            Console.WriteLine($"cold_start_aot       engine {side,-8} {m,10:F1} ms");
+            list.Add(new ChildResult { Row = "cold_start_aot", Level = "engine", Side = side, Impl = side == "onelite" ? "OneLite (NativeAOT)" : "native sqlite3 via P/Invoke (NativeAOT)", ColdMs = m, MedianMs = m, RepMs = [.. ms], Check = check });
+        }
+
+        return list;
     }
 
     private static ChildResult? Spawn(string native, string row, string level, string side, string dir, int n, int reps, string? vec, string phase)
@@ -277,7 +317,7 @@ internal static class Parent
                 : "| Row | Ops | OneLite.Data ms | Microsoft.Data.Sqlite ms | Ratio | OneLite B/op | Peak MB (OneLite / MDS) | Results agree |");
             sb.AppendLine("|---|---:|---:|---:|---:|---:|---:|:-:|");
             var ratios = new List<(string Row, double Ratio)>();
-            foreach (IGrouping<string, ChildResult> g in results.Where(r => r.Level == level && r.Row != "cold_start").GroupBy(r => r.Row))
+            foreach (IGrouping<string, ChildResult> g in results.Where(r => r.Level == level && !r.Row.StartsWith("cold_start", StringComparison.Ordinal)).GroupBy(r => r.Row))
             {
                 ChildResult? a = g.FirstOrDefault(r => r.Side == "onelite");
                 ChildResult? b = g.FirstOrDefault(r => r.Side == "native");
@@ -306,7 +346,7 @@ internal static class Parent
 
             sb.AppendLine();
             sb.AppendLine("Cold start (process start to the first query's answer, JIT, median of 3 fresh processes, report only):");
-            foreach (ChildResult c in results.Where(r => r.Level == level && r.Row == "cold_start"))
+            foreach (ChildResult c in results.Where(r => r.Level == level && r.Row.StartsWith("cold_start", StringComparison.Ordinal)))
             {
                 sb.AppendLine(string.Create(Inv, $"- {c.Impl}: {c.ColdMs:F0} ms"));
             }
