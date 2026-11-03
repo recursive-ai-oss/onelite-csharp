@@ -263,7 +263,7 @@ public struct IoRequest
     /// <summary>The wal-index to map or lock, for <see cref="IoKind.ShmMap"/> and <see cref="IoKind.ShmLock"/>.</summary>
     public IVfsShm? Shm { get; set; }
 
-    /// <summary>The task to wait for, for <see cref="IoKind.GroupWait"/>.</summary>
+    /// <summary>The task to wait for, for <see cref="IoKind.GroupWait"/> (<see cref="Length"/> milliseconds at most when positive).</summary>
     public Task? Wait { get; set; }
 }
 

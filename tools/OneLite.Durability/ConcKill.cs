@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using RecursiveAI.OneLite.Oracle;
 using RecursiveAI.OneLite.Storage.Pager;
@@ -15,8 +16,8 @@ namespace RecursiveAI.OneLite.Durability;
 /// and are all killed with SIGKILL at a random moment, again and again on the same file. After every kill the pinned shell recovers the file and
 /// checks it: <c>integrity_check</c>, every acknowledged commit present, and the invariants that tie one transaction's writes together
 /// (so a half-replayed transaction shows).
-/// <c>conc-kill [--kills N] [--writers W] [--seed S] [--max-delay-ms MS] [--sync full|normal] [--work DIR]</c>;
-/// <c>conc-writer DB LEDGER SRC SYNC</c> is the child.
+/// <c>conc-kill [--kills N] [--writers W] [--threads T] [--seed S] [--max-delay-ms MS] [--sync full|normal] [--work DIR]</c>;
+/// <c>conc-writer DB LEDGER SRC SYNC [THREADS]</c> is the child; with THREADS above 1 it runs that many connections in one process.
 /// </summary>
 public static class ConcKill
 {
@@ -30,6 +31,34 @@ public static class ConcKill
         string db = a[0], ledgerPath = a[1];
         int src = int.Parse(a[2], CultureInfo.InvariantCulture);
         SynchronousMode sync = a[3] == "full" ? SynchronousMode.Full : SynchronousMode.Normal;
+        int threads = a.Length > 4 ? int.Parse(a[4], CultureInfo.InvariantCulture) : 1;
+        using var ledger = new FileStream(ledgerPath, FileMode.Append, FileAccess.Write, FileShare.ReadWrite);
+        using var ready = new CountdownEvent(threads);
+        var gate = new object();
+        for (int t = 1; t < threads; t++)
+        {
+            // More than one connection in the process, as an application with several threads has: their commits can share a WAL sync.
+            int s2 = src * 100 + t;
+            new Thread(() => WriterLoop(db, ledger, gate, s2, sync, ready)) { IsBackground = true }.Start();
+        }
+
+        if (threads > 1)
+        {
+            var main = new Thread(() => WriterLoop(db, ledger, gate, src * 100, sync, ready)) { IsBackground = true };
+            main.Start();
+            ready.Wait();
+            Console.Out.WriteLine("READY");
+            Console.Out.Flush();
+            main.Join();
+            return 0;
+        }
+
+        WriterLoop(db, ledger, gate, src, sync, ready, announce: true);
+        return 0;
+    }
+
+    private static void WriterLoop(string db, FileStream ledger, object gate, int src, SynchronousMode sync, CountdownEvent ready, bool announce = false)
+    {
         var opts = new DatabaseOptions { JournalMode = JournalMode.Wal, ConcurrentWrites = true, Synchronous = sync, BusyTimeoutMs = 20000, WalAutoCheckpoint = 200 };
         using Database database = Database.Open(db, opts);
         using Connection c = database.Connect();
@@ -42,9 +71,16 @@ public static class ConcKill
         Exec(c, "INSERT OR IGNORE INTO acc VALUES (0, 0, 0)");
         Exec(c, $"INSERT OR IGNORE INTO acc VALUES ({src}, 0, 0)");
         long n = Scalar(c, $"SELECT coalesce(max(n), 0) FROM ev WHERE src = {src}") + 1;
-        using var ledger = new FileStream(ledgerPath, FileMode.Append, FileAccess.Write, FileShare.ReadWrite);
-        Console.Out.WriteLine("READY");
-        Console.Out.Flush();
+        if (announce)
+        {
+            Console.Out.WriteLine("READY");
+            Console.Out.Flush();
+        }
+        else
+        {
+            ready.Signal();
+        }
+
         var rnd = new Random(src * 7919 + Environment.ProcessId);
         for (; ; )
         {
@@ -94,8 +130,12 @@ public static class ConcKill
             }
 
             byte[] line = System.Text.Encoding.ASCII.GetBytes($"{src} {n}\n");
-            ledger.Write(line, 0, line.Length);
-            ledger.Flush();
+            lock (gate)
+            {
+                ledger.Write(line, 0, line.Length);
+                ledger.Flush();
+            }
+
             n++;
         }
     }
@@ -127,6 +167,7 @@ public static class ConcKill
         int seed = int.Parse(o.GetValueOrDefault("seed", "1"), CultureInfo.InvariantCulture);
         int maxDelay = int.Parse(o.GetValueOrDefault("max-delay-ms", "400"), CultureInfo.InvariantCulture);
         string sync = o.GetValueOrDefault("sync", "normal");
+        int threads = int.Parse(o.GetValueOrDefault("threads", "1"), CultureInfo.InvariantCulture);
         string work = o.GetValueOrDefault("work") ?? Path.Combine(Path.GetTempPath(), "onelite-conc-kill-" + Environment.ProcessId.ToString(CultureInfo.InvariantCulture));
         Directory.CreateDirectory(work);
         string db = Path.Combine(work, "kill.db");
@@ -152,7 +193,7 @@ public static class ConcKill
             {
                 string ledger = Path.Combine(work, $"ledger-{w}.txt");
                 ledgers.Add(ledger);
-                (string exe, List<string> args) = Proc.Self(["conc-writer", db, ledger, w.ToString(CultureInfo.InvariantCulture), sync]);
+                (string exe, List<string> args) = Proc.Self(["conc-writer", db, ledger, w.ToString(CultureInfo.InvariantCulture), sync, threads.ToString(CultureInfo.InvariantCulture)]);
                 procs.Add(Proc.Start(exe, args));
             }
 

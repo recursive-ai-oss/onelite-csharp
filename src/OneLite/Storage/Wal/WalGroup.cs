@@ -36,6 +36,50 @@ internal sealed class WalGroup
     /// <summary>True once the anchor is leaving: no new follower may join; a new generation starts after the anchor releases.</summary>
     public bool Closing;
 
+    /// <summary>The number of committers waiting for a turn (or for the next generation).</summary>
+    public int Waiters;
+
+    /// <summary>The number of syncs run in this generation.</summary>
+    public int Syncs;
+
+    /// <summary>Counts syncs for ever (not reset per generation).</summary>
+    public long SyncSeq;
+
+    /// <summary>How long the last sync took, in <see cref="System.Diagnostics.Stopwatch"/> ticks.</summary>
+    public long LastSyncTicks;
+
+    /// <summary>For each committer that appended recently, the value of <see cref="SyncSeq"/> when it last did: the writers a sync may expect to cover.</summary>
+    public readonly Dictionary<int, long> Active = [];
+
+    /// <summary>How many committers appended within the last few syncs (prunes older entries). Call under <see cref="Gate"/>.</summary>
+    public int ActiveCount()
+    {
+        int n = 0;
+        List<int>? old = null;
+        foreach (KeyValuePair<int, long> e in Active)
+        {
+            long age = SyncSeq - e.Value;
+            if (age <= 2)
+            {
+                n++;
+            }
+            else if (age > 16)
+            {
+                (old ??= []).Add(e.Key);
+            }
+        }
+
+        if (old != null)
+        {
+            foreach (int k in old)
+            {
+                Active.Remove(k);
+            }
+        }
+
+        return n;
+    }
+
     /// <summary>True while one committer is replaying and appending (it owns the end of the log).</summary>
     public bool BatonHeld;
 

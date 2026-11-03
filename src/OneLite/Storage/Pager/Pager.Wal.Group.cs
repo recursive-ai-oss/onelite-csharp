@@ -25,6 +25,15 @@ public sealed partial class Pager
     private bool _grpBaton;
     private long _grpTicket;
     private long _grpGeneration;
+    private static int s_grpIds;
+    private readonly int _grpId = Interlocked.Increment(ref s_grpIds);
+
+    // A sync waits up to this long for the committers that appended during the last few syncs to append again, when syncs are slow enough for that to pay.
+    // Without it the writers fall into two groups that take turns, each sync covering half of them. Early wake-ups end the wait as soon as they have all arrived.
+    private const int GroupGatherMaxMs = 1;
+
+    // How many syncs a generation may run before its anchor leaves, so that the anchor's own COMMIT returns in bounded time under a steady stream of commits.
+    private const int GroupMaxSyncs = 2;
 
     private bool GroupEligible =>
         _opts.GroupCommit && _sync >= SynchronousMode.Full && _wal is { ReadOnly: false } w && !w.Index.IsHeap && w.Index.HasRegion(0);
@@ -59,6 +68,7 @@ public sealed partial class Pager
                     else
                     {
                         wait = g.WaitTask;
+                        g.Waiters++;
                     }
                 }
             }
@@ -79,7 +89,24 @@ public sealed partial class Pager
 
             if (wait != null)
             {
-                yield return GroupWaitRq(wait, cancellable: true);
+                bool counted = true;
+                try
+                {
+                    yield return GroupWaitRq(wait, cancellable: true);
+                }
+                finally
+                {
+                    // Also runs when the wait is abandoned.
+                    if (counted)
+                    {
+                        lock (g.Gate)
+                        {
+                            g.Waiters--;
+                        }
+                    }
+                }
+
+                counted = false;
                 if (_comp.Status != 0)
                 {
                     WFail(_comp.Status, "waiting for the group commit failed");
@@ -110,6 +137,7 @@ public sealed partial class Pager
                         g.Closing = false;
                         g.Failed = false;
                         g.Syncing = false;
+                        g.Syncs = 0;
                         g.BatonHeld = true;
                         g.Tail = cur;
                         g.Published = cur;
@@ -236,14 +264,17 @@ public sealed partial class Pager
         {
             _grpTicket = ++g.TailTicket;
             g.Tail = w.Hdr;
+            g.Active[_grpId] = g.SyncSeq;
             g.BatonHeld = false;
             _grpBaton = false;
             g.Wake();
         }
 
+        long gatherDeadline = 0;
         for (; ; )
         {
             Task? wait = null;
+            int waitMs = 0;
             bool sync = false;
             bool failed = false;
             WalIndexHeader target = default;
@@ -261,10 +292,25 @@ public sealed partial class Pager
                 }
                 else if (!g.Syncing)
                 {
-                    g.Syncing = true;
-                    target = g.Tail;
-                    targetTicket = g.TailTicket;
-                    sync = true;
+                    // Slow syncs: give the writers that are about to append again a moment, so that one sync covers all of them.
+                    long now = Stopwatch.GetTimestamp();
+                    if (gatherDeadline == 0 && g.LastSyncTicks * 4 >= Stopwatch.Frequency * GroupGatherMaxMs / 500 && g.TailTicket - g.AckedTicket < g.ActiveCount())
+                    {
+                        gatherDeadline = now + (Stopwatch.Frequency * GroupGatherMaxMs / 1000);
+                    }
+
+                    if (gatherDeadline != 0 && now < gatherDeadline && g.TailTicket - g.AckedTicket < g.ActiveCount())
+                    {
+                        wait = g.WaitTask;
+                        waitMs = Math.Max(1, (int)((gatherDeadline - now) * 1000 / Stopwatch.Frequency));
+                    }
+                    else
+                    {
+                        g.Syncing = true;
+                        target = g.Tail;
+                        targetTicket = g.TailTicket;
+                        sync = true;
+                    }
                 }
                 else
                 {
@@ -293,7 +339,10 @@ public sealed partial class Pager
                 continue;
             }
 
-            yield return GroupWaitRq(wait!, cancellable: false);
+            Task toWait = wait!;
+            IoRequest rq = GroupWaitRq(toWait, cancellable: false);
+            rq.Length = waitMs;
+            yield return rq;
         }
 
         w.Snap = w.Hdr;
@@ -305,6 +354,7 @@ public sealed partial class Pager
     private IEnumerable<IoRequest> GroupSyncOp(WalGroup g, WalIndexHeader target, long targetTicket)
     {
         WalConnection w = _wal!;
+        long began = Stopwatch.GetTimestamp();
         foreach (IoRequest r in WalSyncOp(ResumeState.WalSync))
         {
             yield return r;
@@ -329,6 +379,9 @@ public sealed partial class Pager
             g.Published = target;
             g.AckedTicket = targetTicket;
             g.Syncing = false;
+            g.Syncs++;
+            g.SyncSeq++;
+            g.LastSyncTicks = Stopwatch.GetTimestamp() - began;
             g.Wake();
         }
     }
@@ -346,7 +399,6 @@ public sealed partial class Pager
                 _grpBaton = false;
             }
 
-            g.Closing = true;
             g.Wake();
         }
 
@@ -369,8 +421,14 @@ public sealed partial class Pager
                     targetTicket = g.TailTicket;
                     sync = true;
                 }
+                else if (g.Waiters > 0 && g.Syncs < GroupMaxSyncs && !g.Failed)
+                {
+                    // Committers are queued for a turn: stay for them, so their commits share syncs too, but not for ever.
+                    wait = g.WaitTask;
+                }
                 else
                 {
+                    g.Closing = true;
                     break;
                 }
             }

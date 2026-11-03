@@ -162,4 +162,70 @@ public sealed class GroupCommitTests : IDisposable
         Assert.Equal("1", One(c, "SELECT count(*) FROM t"));
         Assert.Equal(before, CountWalSyncs(vfs));
     }
+
+    [Fact]
+    public async Task AFailedSyncFailsTheCommitsItCoveredAndNothingElse()
+    {
+        string path = Path.Combine(_dir, "f.db");
+        var vfs = new FaultVfs(FileVfs.Instance);
+        using (Database d0 = Database.Open(path, Opts(vfs, true)))
+        using (Connection c0 = d0.Connect())
+        {
+            Run(c0, "CREATE TABLE t(id INTEGER PRIMARY KEY, w INT, pad TEXT)");
+        }
+
+        vfs.AddRule(new FaultRule { Call = FaultCall.Sync, Nth = CountSyncs(vfs) + 6, ExtendedCode = VfsCodes.IoErrFsync });
+        int failed = 0;
+        var tasks = new List<Task>();
+        for (int w = 1; w <= 4; w++)
+        {
+            int me = w;
+            tasks.Add(Task.Factory.StartNew(() =>
+            {
+                using Database d = Database.Open(path, Opts(vfs, true));
+                using Connection c = d.Connect();
+                for (int i = 0; i < 15; i++)
+                {
+                    for (; ; )
+                    {
+                        try
+                        {
+                            Run(c, "BEGIN CONCURRENT");
+                            Run(c, $"INSERT INTO t VALUES({me * 1000 + i}, {me}, zeroblob(200))");
+                            Run(c, "COMMIT");
+                            break;
+                        }
+                        catch (Exception e) when (e is OneLiteException || e is InvalidOperationException)
+                        {
+                            if (!(e is OneLiteException ox && (ox.ExtendedCode & 0xFF) == ResultCode.Busy))
+                            {
+                                Interlocked.Increment(ref failed);
+                            }
+
+                            try
+                            {
+                                if (!c.AutoCommit)
+                                {
+                                    Run(c, "ROLLBACK");
+                                }
+                            }
+                            catch (Exception)
+                            {
+                                // Already ended by the failed commit.
+                            }
+                        }
+                    }
+                }
+            }, TaskCreationOptions.LongRunning));
+        }
+
+        await Task.WhenAll(tasks);
+        Assert.True(failed >= 1, "the injected sync failure did not reach any commit");
+        using Database v = Database.Open(path, Opts(FileVfs.Instance, true));
+        using Connection vc = v.Connect();
+        Assert.Equal("ok", All(vc, "PRAGMA integrity_check"));
+        Assert.Equal("60", One(vc, "SELECT count(*) FROM t"));
+    }
+
+    private static int CountSyncs(FaultVfs vfs) => vfs.Ops.Count(o => o.Kind == FaultOpKind.Sync);
 }
