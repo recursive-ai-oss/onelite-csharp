@@ -11,7 +11,7 @@ BEGIN CONCURRENT SNAPSHOT;   -- snapshot isolation
 COMMIT;                      -- SQLITE_BUSY_SNAPSHOT (517) if it cannot be merged
 ```
 
-- Enable it with `DatabaseOptions.ConcurrentWrites = true`. Without it the parser rejects the statement as SQLite does. `Database.HappyPathOptions()` turns it on.
+- Enable it with `DatabaseOptions.ConcurrentWrites = true`. Without it the parser rejects the statement as SQLite does. `Database.HappyPathOptions()` leaves it **off** (0.6.0-preview.1 turned it on by default, which put rowids out of commit order for every `WriteAsync`; later versions do not). To turn it on: `Database.HappyPathOptions() with { ConcurrentWrites = true }` or `new DatabaseOptions { JournalMode = JournalMode.Wal, ConcurrentWrites = true }`; to turn it off, leave the default or set `ConcurrentWrites = false`. ADO.NET (`.Data`) never uses it: `OneLiteConnection` does not set the option, so `BEGIN CONCURRENT` is a syntax error there, as in SQLite.
 - The database must be in WAL mode when the transaction begins; otherwise `SQLITE_ERROR`, "BEGIN CONCURRENT needs the database to be in WAL mode".
 - Plain `BEGIN`, `BEGIN IMMEDIATE` and `BEGIN EXCLUSIVE` behave exactly as in SQLite and use the single WAL write lock.
 - One transaction per connection. The read transaction (snapshot) starts at `BEGIN CONCURRENT`.
@@ -39,6 +39,8 @@ If a replayed read or write finds something different, nothing is written, the l
 ## Rowids and AUTOINCREMENT
 
 A concurrent transaction chooses a new rowid itself, from blocks of 1 to 64 values that start above the largest rowid it can see and above what other connections in the process have already handed out. The chosen rowid is recorded in the trace and replay never changes it, so `last_insert_rowid()`, `RETURNING` and foreign-key children created in the same transaction stay valid. Allocation is not a read. If the rowid was taken by a commit in the meantime, that is an ordinary insert conflict (`SQLITE_BUSY_SNAPSHOT`); the retry skips ahead by a random distance that grows with consecutive collisions. Writers in other processes and a `sqlite3` writer are covered by this validation, not by the hint.
+
+The hand-out position is an in-memory hint per database file and table, kept under the file's identity (the VFS, the full path and the file's creation time), so a database that is deleted and created again, or replaced by a copy, starts with no hint. It is only a hint: every block starts above the largest rowid in the transaction's own snapshot, temp tables take no hint, and commit validation rejects a rowid that is taken, so a stale or foreign hint can leave a gap in the ids but never produce a duplicate or an id at or below the table's maximum.
 
 - **Rowids are not in commit order under `BEGIN CONCURRENT`.** A poller that remembers the largest id it saw and asks `WHERE id > :last` can skip a row that commits later with a smaller id. Poll with a commit-ordered column or sequence of your own instead. Plain `BEGIN` allocates exactly as SQLite does (largest + 1).
 - **AUTOINCREMENT** never reuses an id. The `sqlite_sequence` update is a "max" merge, and replay requires the inserted id to be greater than the current sequence value. A transaction whose id was overtaken by one that committed first with a larger id therefore aborts with `SQLITE_BUSY_SNAPSHOT` and its retry takes a new id: ids are never reused, at the price of some aborts when several writers insert into the same AUTOINCREMENT table.

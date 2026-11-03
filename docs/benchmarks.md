@@ -1,6 +1,6 @@
 # Benchmarks
 
-OneLite's own benchmark suite lives in `bench/OneLite.Bench`. It compares OneLite with the reference SQLite library at two levels and measures nothing else. The tables below are the first published baseline (commit `7e028d2`). Speed is a target, not a release gate: the reference ratios are information, and nothing has been tuned yet.
+OneLite's own benchmark suite lives in `bench/OneLite.Bench`. It compares OneLite with the reference SQLite library at two levels and measures nothing else. The tables below are the first published baseline (commit `7e028d2`). Speed is a target, not a release gate: the reference ratios are information, and the first baseline tables below predate the tuning described under "Tuning: prepare and point lookups".
 
 ## Method
 

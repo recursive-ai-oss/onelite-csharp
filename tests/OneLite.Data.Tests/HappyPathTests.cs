@@ -1,3 +1,4 @@
+using System.Linq;
 using RecursiveAI.OneLite.Oracle;
 using RecursiveAI.OneLite.Storage.Pager;
 using Xunit;
@@ -211,6 +212,74 @@ public sealed class HappyPathTests : IDisposable
         Assert.False(await dogs.DeleteAsync("cleo", Ct));
         Assert.Equal(1L, await db.ScalarAsync<long>($"select count(*) from dogs", Ct));
         Assert.Equal("CREATE TABLE \"dogs\" (\"Name\" TEXT PRIMARY KEY, \"Legs\" INTEGER NOT NULL) STRICT", await db.ScalarAsync<string>($"select sql from sqlite_schema where name = 'dogs'", Ct));
+    }
+
+    [Fact]
+    public async Task DefaultOptionsKeepRowidsInCommitOrderForAPoller()
+    {
+        // Several Database instances on one file, concurrent WriteAsync inserts, a `where id > last` poller: it must see every row,
+        // because the happy path does not use BEGIN CONCURRENT unless asked to.
+        Assert.False(Database.HappyPathOptions().ConcurrentWrites);
+        string path = Path1("poll.db");
+        await using (Database setup = await Database.OpenAsync(path, null, Ct))
+        {
+            await setup.ExecuteScriptAsync("create table ev(id integer primary key, w int)", Ct);
+        }
+
+        const int Writers = 8, Each = 40;
+        var dbs = new List<Database>();
+        for (int i = 0; i < Writers; i++)
+        {
+            dbs.Add(await Database.OpenAsync(path, null, Ct));
+        }
+
+        await using Database reader = await Database.OpenAsync(path, null, Ct);
+        bool done = false;
+        var seen = new List<long>();
+        Task poller = Task.Run(async () =>
+        {
+            long last = 0;
+            while (true)
+            {
+                bool finishing = Volatile.Read(ref done);
+                foreach (long id in await reader.QueryAsync<long>($"select id from ev where id > {last} order by id", Ct))
+                {
+                    seen.Add(id);
+                    last = id;
+                }
+
+                if (finishing)
+                {
+                    return;
+                }
+            }
+        }, Ct);
+        await Task.WhenAll(dbs.Select((db, w) => Task.Run(async () =>
+        {
+            for (int i = 0; i < Each; i++)
+            {
+                await db.WriteAsync(async tx => await tx.ExecuteAsync($"insert into ev(w) values ({w})", Ct), Ct);
+            }
+        }, Ct)));
+        Volatile.Write(ref done, true);
+        await poller;
+        foreach (Database d in dbs)
+        {
+            await d.DisposeAsync();
+        }
+
+        Assert.Equal(Writers * Each, seen.Count);
+        Assert.Equal(Enumerable.Range(1, Writers * Each).Select(x => (long)x), seen);
+    }
+
+    [Fact]
+    public async Task ConcurrentWritesCanBeSwitchedOnWithAWithExpression()
+    {
+        string path = Path1("on.db");
+        await using Database db = await Database.OpenAsync(path, Database.HappyPathOptions() with { ConcurrentWrites = true }, Ct);
+        await db.ExecuteScriptAsync("create table ev(id integer primary key, w int)", Ct);
+        await db.WriteAsync(async tx => await tx.ExecuteAsync($"insert into ev(w) values ({1})", Ct), Ct);
+        Assert.Equal(1L, await db.ScalarAsync<long>($"select count(*) from ev", Ct));
     }
 
     [Fact]

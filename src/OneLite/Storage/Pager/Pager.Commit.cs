@@ -114,6 +114,42 @@ public sealed partial class Pager
 
     internal IVfs Vfs => _vfs;
 
+    private string? _identity;
+
+    /// <summary>
+    /// Names this database file's identity for in-process hints that must not outlive the file: the VFS instance, the full path and the time the file
+    /// was created. A file that is deleted and created again, or replaced by a copy, has a new creation time, so state kept for the old file is not
+    /// used for the new one. Worked out once per pager: a file cannot be replaced under an open handle.
+    /// </summary>
+    internal string Identity
+    {
+        get
+        {
+            if (_identity is null)
+            {
+                string path = FullPath;
+                long born = 0;
+                try
+                {
+                    if (_vfs is not MemoryVfs && File.Exists(path))
+                    {
+                        born = File.GetCreationTimeUtc(path).Ticks;
+                    }
+                }
+                catch (IOException)
+                {
+                }
+                catch (UnauthorizedAccessException)
+                {
+                }
+
+                _identity = System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(_vfs).ToString(System.Globalization.CultureInfo.InvariantCulture) + "|" + born.ToString(System.Globalization.CultureInfo.InvariantCulture) + "|" + path;
+            }
+
+            return _identity;
+        }
+    }
+
     private PagerStatus CommitPrepare(string? superName)
     {
         for (; ; )

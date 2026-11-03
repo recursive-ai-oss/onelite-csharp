@@ -72,7 +72,7 @@ public sealed partial class Connection
     {
         if (ConcTx is not null)
         {
-            ConcurrentRowids.NoteCommit(_pager.FullPath);
+            ConcurrentRowids.NoteCommit(_pager.Identity);
         }
 
         if (Backups.Count > 0)

@@ -4,6 +4,16 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Changed
+
+- `Database.HappyPathOptions()` no longer turns `ConcurrentWrites` on. **0.6.0-preview.1 did**, so every happy-path `WriteAsync` ran as `BEGIN CONCURRENT` without any code change; rowids were then not in commit order, and a `WHERE id > :last` poller could miss rows. The default is `BEGIN IMMEDIATE` again, as in 0.3.0-preview.2. To opt in: `Database.HappyPathOptions() with { ConcurrentWrites = true }`.
+- `DatabaseOptions` is now a `record` (`with` expressions work; object initializers are unchanged). `.Data` never uses `BEGIN CONCURRENT` (documented).
+
+### Fixed
+
+- Concurrent-transaction rowid hints are kept per database file (its creation time and path), not per path: a database deleted and created again, or replaced by a copy, no longer starts its new rowids where the old file left off. A temp table no longer shares the main database's hint.
+- `docs/benchmarks.md`: wording about tuning; a `prepare_cold` row.
+
 ## [0.6.0-preview.1]
 
 ### Added

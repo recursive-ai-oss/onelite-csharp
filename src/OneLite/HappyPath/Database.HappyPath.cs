@@ -6,7 +6,7 @@ namespace RecursiveAI.OneLite;
 // The happy path: one connection per Database, guarded by an async lock, with interpolated queries, WriteAsync and Table<T>.
 public sealed partial class Database : ISession
 {
-    // Write transactions are BEGIN CONCURRENT when the database was opened for it (the happy-path options do, in WAL mode): a conflict is a
+    // Write transactions are BEGIN CONCURRENT when the database was opened for it (opt-in: the happy-path options leave it off; in WAL mode only): a conflict is a
     // SQLITE_BUSY_SNAPSHOT at COMMIT, which WriteAsync retries. Otherwise they take the write lock up front with BEGIN IMMEDIATE.
     private string BeginWrite => _options.ConcurrentWrites && _options.JournalMode == JournalMode.Wal && !_memory ? "BEGIN CONCURRENT" : "BEGIN IMMEDIATE";
 
@@ -18,9 +18,14 @@ public sealed partial class Database : ISession
 
     /// <summary>
     /// The options <see cref="OpenAsync"/> and <see cref="OpenDefault"/> use when you pass none: write-ahead log, <c>foreign_keys=ON</c>, and a 5 s busy timeout.
+    /// <para>
+    /// <see cref="DatabaseOptions.ConcurrentWrites"/> is <b>off</b>: <c>WriteAsync</c> runs <c>BEGIN IMMEDIATE</c> and rowids follow commit order, as in SQLite.
+    /// Opt in with <c>Database.HappyPathOptions() with { ConcurrentWrites = true }</c>; then <c>WriteAsync</c> runs <c>BEGIN CONCURRENT</c> and rowids are
+    /// not in commit order, so a <c>WHERE id &gt; :last</c> poller can skip a row. (0.6.0-preview.1 turned it on by default; later versions do not.)
+    /// </para>
     /// </summary>
     /// <returns>New options.</returns>
-    public static DatabaseOptions HappyPathOptions() => new() { JournalMode = JournalMode.Wal, ForeignKeys = true, BusyTimeoutMs = 5000, ConcurrentWrites = true };
+    public static DatabaseOptions HappyPathOptions() => new() { JournalMode = JournalMode.Wal, ForeignKeys = true, BusyTimeoutMs = 5000, ConcurrentWrites = false };
 
     /// <summary>The most times <see cref="WriteAsync(Func{WriteTransaction, Task}, CancellationToken)"/> runs its delegate when the database is busy. Default 8; at least 1.</summary>
     public int MaxWriteAttempts { get; set; } = 8;

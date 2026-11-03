@@ -6,7 +6,7 @@ namespace RecursiveAI.OneLite;
 /// <summary>
 /// Rowid allocation for concurrent transactions (docs/concurrency.md, "Rowids"). A concurrent transaction takes a rowid above the largest one in
 /// its own view, from a block reserved in a process-wide hint, so that concurrent appenders in one process do not choose the same rowid. The
-/// hint is only a hint: commit still rejects a rowid that is taken, which covers other processes, a live <c>sqlite3</c> writer and a restart.
+/// hint is only a hint, kept per file identity and always raised to the largest rowid the transaction sees: commit still rejects a rowid that is taken, which covers other processes, a live <c>sqlite3</c> writer and a restart.
 /// </summary>
 internal static class ConcurrentRowids
 {
@@ -33,7 +33,7 @@ internal static class ConcurrentRowids
     /// <summary>
     /// The next rowid for <paramref name="root"/>, or 0 if the table is so close to the top of the rowid range that the ordinary rule applies.
     /// </summary>
-    /// <param name="file">The database's full path.</param>
+    /// <param name="file">The database file's identity (<c>Pager.Identity</c>: not just its path, so a recreated file starts with no hint).</param>
     /// <param name="root">The table's root page.</param>
     /// <param name="treeMax">The largest rowid the transaction sees (its snapshot plus its own rows), or the AUTOINCREMENT counter if larger.</param>
     /// <param name="trace">The transaction's trace, which keeps its blocks.</param>
