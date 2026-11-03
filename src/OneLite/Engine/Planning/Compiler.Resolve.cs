@@ -97,7 +97,7 @@ internal sealed partial class Compiler
 
             if (count > 1)
             {
-                throw Err("ambiguous column name: " + RefText(cr));
+                throw ErrAt("ambiguous column name: " + RefText(cr), cr);
             }
 
             if (count == 1)
@@ -144,7 +144,7 @@ internal sealed partial class Compiler
         string text = RefText(cr);
         SourceSpan sp = cr.Span;
         bool dq = cr.Table is null && sp.Start < _sql.Length && _sql[sp.Start] == '"';
-        return Err("no such column: " + (dq ? "\"" + text + "\" - should this be a string literal in single-quotes?" : text));
+        return ErrAt("no such column: " + (dq ? "\"" + text + "\" - should this be a string literal in single-quotes?" : text), cr);
     }
 
     // ------------------------------------------------------------------ recursive CTE

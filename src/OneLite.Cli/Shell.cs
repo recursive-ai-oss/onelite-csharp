@@ -327,12 +327,7 @@ internal sealed partial class Shell : IDisposable
         Fail();
         var sb = new StringBuilder();
         sb.Append("Parse error ").Append(Context(line)).Append(": ").Append(e.Message);
-        int errorOffset = e.ErrorOffset;
-        if (errorOffset < 0 && e.Position is { } pos && (e.Message.StartsWith("no such column", StringComparison.Ordinal) || e.Message.StartsWith("no such function", StringComparison.Ordinal) || e.Message.StartsWith("ambiguous column", StringComparison.Ordinal)))
-        {
-            errorOffset = pos.ByteOffset;
-        }
-
+        int errorOffset = e.ErrorOffset;   // the position the reference shell shows is its sqlite3_error_offset
         if (errorOffset >= 0)
         {
             // The statement is shown on one line, cut to a window of 78 characters that keeps the error within 50 of the left edge;
@@ -348,7 +343,7 @@ internal sealed partial class Shell : IDisposable
                 window = window[..78];
             }
 
-            int col = charOff - start;
+            int col = off - Encoding.UTF8.GetByteCount(flat.AsSpan(0, Math.Min(start, flat.Length)));
             sb.Append('\n').Append("  ").Append(window).Append('\n');
             if (col >= 25)
             {

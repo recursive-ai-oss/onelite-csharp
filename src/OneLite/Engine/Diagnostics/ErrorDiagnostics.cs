@@ -44,6 +44,13 @@ internal static class ErrorDiagnostics
             else
             {
                 Names(e, sql, cat);
+                if (e.NodeStart >= 0 && e.NodeStart <= sql.Length && e.ErrorOffset < 0)
+                {
+                    // The compiler named the token the reference library points at (sqlite3_error_offset).
+                    e.ErrorOffset = Encoding.UTF8.GetByteCount(sql.AsSpan(0, e.NodeStart));
+                    Token t = Lexer.Next(sql, e.NodeStart);
+                    SetPosition(e, sql, e.NodeStart, Math.Max(1, Math.Min(t.End, sql.Length) - e.NodeStart));
+                }
             }
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)

@@ -814,8 +814,17 @@ public sealed partial class Pager
 
     // ---- write transactions --------------------------------------------------------------------------------------------------------
 
-    private PagerStatus WalBeginWriteStep()
+    // A write lock another connection holds is reported as BUSY at once when the caller says so: the reference calls the busy handler only for a connection
+    // that has no transaction open (c3ref busy_handler), so a connection that already read must not wait for a writer that may commit under its snapshot.
+    private bool _wBeginNoWait;
+
+    private PagerStatus WalBeginWriteStep(bool noWait)
     {
+        if (_wOp == null)
+        {
+            _wBeginNoWait = noWait;
+        }
+
         if (_wal!.ReadOnly)
         {
             return Fail(ResultCode.ReadOnly, "the database is read-only");
@@ -828,7 +837,7 @@ public sealed partial class Pager
     private IEnumerable<IoRequest> WalBeginWriteOp()
     {
         WalConnection w = _wal!;
-        foreach (IoRequest r in WalLock(WalIndex.WriteLock, 1, true, true))
+        foreach (IoRequest r in WalLock(WalIndex.WriteLock, 1, true, !_wBeginNoWait))
         {
             yield return r;
         }

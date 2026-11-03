@@ -19,7 +19,7 @@ internal sealed partial class Compiler
     private IEnumerable<TableInfo> TablesOf(int db) => _cat.DictOf(db).Values.Distinct();
 
     // The database a CREATE puts its object in: TEMP, or the schema named in front of the object (lang_naming).
-    private int CreateDb(string? schema, bool temp)
+    private int CreateDb(string? schema, bool temp, SqlNode? at = null)
     {
         if (temp)
         {
@@ -37,7 +37,7 @@ internal sealed partial class Compiler
         }
 
         int slot = _cat.SlotOf(schema);
-        return slot >= 0 ? slot : throw Err("unknown database " + schema);
+        return slot >= 0 ? slot : throw (at is null ? Err("unknown database " + schema) : ErrAt("unknown database " + schema, at));
     }
 
     // The database named by a qualified object name in DROP/ALTER, or -1 if unqualified; an unknown name reads as "no such <kind>: schema.name".
@@ -239,7 +239,7 @@ internal sealed partial class Compiler
     private VmProgram CompileCreateView(CreateViewStatement cv)
     {
         PreassignParameters();
-        int db = CreateDb(cv.Name.Schema?.Text, cv.Temporary);
+        int db = CreateDb(cv.Name.Schema?.Text, cv.Temporary, cv.Name.Schema);
         string name = cv.Name.Name.Text;
         if (name.StartsWith("sqlite_", StringComparison.OrdinalIgnoreCase) && !WritableSchema)
         {
@@ -253,7 +253,7 @@ internal sealed partial class Compiler
                 return EmptyProgram();
             }
 
-            throw Err(AlreadyExists(name, db));
+            throw AlreadyExists(name, db) is { } msg2 && (msg2.StartsWith("table ", StringComparison.Ordinal) || msg2.StartsWith("view ", StringComparison.Ordinal)) ? ErrAt(msg2, cv.Name.Name) : Err(AlreadyExists(name, db));
         }
 
         _forceTemp = db == 1;
@@ -303,7 +303,7 @@ internal sealed partial class Compiler
             throw Unsupported("CREATE TABLE ... AS SELECT");
         }
 
-        int db = CreateDb(ct.Name.Schema?.Text, ct.Temporary);
+        int db = CreateDb(ct.Name.Schema?.Text, ct.Temporary, ct.Name.Schema);
         string name = ct.Name.Name.Text;
         if (name.StartsWith("sqlite_", StringComparison.OrdinalIgnoreCase) && !WritableSchema)
         {
@@ -318,7 +318,7 @@ internal sealed partial class Compiler
                 return new VmProgram { Code = Finish(), RegisterCount = 1, Encoding = _enc };
             }
 
-            throw Err(AlreadyExists(name, db));
+            throw AlreadyExists(name, db) is { } msg1 && (msg1.StartsWith("table ", StringComparison.Ordinal) || msg1.StartsWith("view ", StringComparison.Ordinal)) ? ErrAt(msg1, ct.Name.Name) : Err(AlreadyExists(name, db));
         }
 
         // Checks the reference makes while parsing the definition.

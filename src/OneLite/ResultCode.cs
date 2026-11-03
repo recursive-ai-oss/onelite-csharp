@@ -237,7 +237,10 @@ public class OneLiteException : Exception
     }
 
     /// <summary>For a rejected SQL statement, the UTF-8 byte offset of the offending token (what <c>sqlite3_error_offset</c> returns); -1 when there is none.</summary>
-    public int ErrorOffset { get; private init; } = -1;
+    public int ErrorOffset { get; internal set; } = -1;
+
+    /// <summary>UTF-16 index in the statement text of the token the compiler blames, or -1; turned into <see cref="ErrorOffset"/> when the statement text is known.</summary>
+    internal int NodeStart { get; init; } = -1;
 
     /// <summary>The extended result code; equals <see cref="Code"/> when the failure has no extended code.</summary>
     public int ExtendedCode { get; }

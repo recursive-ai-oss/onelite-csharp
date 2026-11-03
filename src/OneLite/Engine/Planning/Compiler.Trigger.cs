@@ -188,7 +188,7 @@ internal sealed partial class Compiler
                 return EmptyProgram();
             }
 
-            throw Err("trigger " + name + " already exists");
+            throw ErrAt("trigger " + name + " already exists", ct.Name.Name);
         }
 
         if (name.StartsWith("sqlite_", StringComparison.OrdinalIgnoreCase) && !WritableSchema)

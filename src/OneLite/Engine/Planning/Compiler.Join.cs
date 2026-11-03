@@ -173,7 +173,12 @@ internal sealed partial class Compiler
 
             if (item.On is not null)
             {
-                target.AddRange(Conjuncts(item.On));
+                _onRoots.Add(item.On);
+                foreach (Expr conjunct in Conjuncts(item.On))
+                {
+                    _onRoots.Add(conjunct);
+                    target.Add(conjunct);
+                }
             }
         }
 

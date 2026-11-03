@@ -40,7 +40,7 @@ internal sealed partial class Compiler
             int rdb = schema is null ? -1 : _cat.SlotOf(schema);
             if (schema is not null && rdb < 0)
             {
-                throw Err("unknown database " + schema);
+                throw ErrAt("unknown database " + schema, ri.Target.Schema!);
             }
 
             string name = ri.Target.Name.Text;
@@ -290,7 +290,7 @@ internal sealed partial class Compiler
                 vdb = _cat.SlotOf(schema);
                 if (vdb < 0)
                 {
-                    throw Err("unknown database " + schema);
+                    throw ErrAt("unknown database " + schema, vs.Schema!);
                 }
             }
         }
