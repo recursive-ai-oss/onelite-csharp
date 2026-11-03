@@ -241,6 +241,37 @@ public class ProviderParityTests
     });
 
     [Fact]
+    public void IndexPragmas() => Same(log =>
+    {
+        sqlite3 db = Open();
+        Exec(log, db, "create table p(id integer primary key, a text, b int unique, c, unique(a, c)); create index ix on p(c desc, a) where b > 1; create table w(x text, y int, primary key(x, y)) without rowid; create table q(id text primary key, r references p(b)); create table cp(a int, b text, c, primary key(a, b)); create table ai(id integer primary key autoincrement, x text unique); create table g(id integer primary key, x int, y int, s as (x - y), t as (x + y) stored); create index gi on g(s, t, (x * 2))");
+        foreach (string t in new[] { "p", "w", "q", "cp", "ai", "g" })
+        {
+            Query(log, db, $"pragma index_list({t})");
+            Query(log, db, $"select * from pragma_index_list('{t}')");
+            Query(log, db, $"select il.name, ii.* from pragma_index_list('{t}') il, pragma_index_xinfo(il.name) ii");
+            Query(log, db, $"pragma table_xinfo({t})");
+            Query(log, db, $"pragma foreign_key_list({t})");
+        }
+
+        Query(log, db, "select type, name, tbl_name, sql from sqlite_master order by name");
+        raw.sqlite3_close(db);
+        return "";
+    });
+
+    [Fact]
+    public void LimitSeesNoColumns() => Same(log =>
+    {
+        sqlite3 db = Open();
+        Exec(log, db, "create table t(id integer primary key, value int); insert into t values(1,1),(2,1),(3,2)");
+        Query(log, db, "select 1 from t s where (select x from (select 1 x) limit 1 offset s.id) = 1");
+        Query(log, db, "select 1 from t s where (select x from (select 1 x) limit s.id) = 1");
+        Query(log, db, "select (select x from (select 1 x) limit 1 offset 1)");
+        raw.sqlite3_close(db);
+        return "";
+    });
+
+    [Fact]
     public void UserFunctionsAggregatesCollations() => Same(log =>
     {
         sqlite3 db = Open();

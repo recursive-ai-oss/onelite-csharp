@@ -99,7 +99,7 @@ internal sealed partial class Compiler
                 DryRun(() =>
                 {
                     Scope? s2 = _scope;
-                    _scope = scope.Parent;
+                    _scope = NoColumnsScope();
                     try
                     {
                         Compile(limit.Limit);
@@ -671,17 +671,29 @@ internal sealed partial class Compiler
             return;
         }
 
-        limReg = NewReg();
-        CompileInto(lim.Limit, limReg);
-        Emit(Op.MustBeInt, limReg);
-        if (lim.Offset is { } off)
+        // lang_select: LIMIT and OFFSET are evaluated once, before any row, so no column (the query's own or an outer one) is visible to them.
+        Scope? saved = _scope;
+        _scope = NoColumnsScope();
+        try
         {
-            offReg = NewReg();
-            CompileInto(off, offReg);
-            Emit(Op.MustBeInt, offReg);
-            Emit(Op.OffsetFix, offReg);
+            limReg = NewReg();
+            CompileInto(lim.Limit, limReg);
+            Emit(Op.MustBeInt, limReg);
+            if (lim.Offset is { } off)
+            {
+                offReg = NewReg();
+                CompileInto(off, offReg);
+                Emit(Op.MustBeInt, offReg);
+                Emit(Op.OffsetFix, offReg);
+            }
+        }
+        finally
+        {
+            _scope = saved;
         }
     }
+
+    private Scope NoColumnsScope() => new() { Parent = null, Depth = (_scope?.Depth ?? -1) + 1 };
 
     /// <summary>ORDER BY the rowid (or the INTEGER PRIMARY KEY that is the rowid), or the single-column key of a WITHOUT ROWID table in its own
     /// collation: the scan already runs in that order, so rows reach the caller as they are found (and a runtime error mid-scan comes after the

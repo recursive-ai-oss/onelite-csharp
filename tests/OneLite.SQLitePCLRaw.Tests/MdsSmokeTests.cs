@@ -43,6 +43,26 @@ public class MdsSmokeTests
     }
 
     [Fact]
+    public void TableValuedPragmasWithParameters()
+    {
+        using var c = new SqliteConnection("Data Source=:memory:");
+        c.Open();
+        void Run(string sql, params (string, object)[] ps)
+        {
+            using SqliteCommand cmd = c.CreateCommand();
+            cmd.CommandText = sql;
+            foreach (var (n, v) in ps) cmd.Parameters.AddWithValue(n, v);
+            using SqliteDataReader r = cmd.ExecuteReader();
+            while (r.Read()) { for (int i = 0; i < r.FieldCount; i++) { Assert.False(r.IsDBNull(i), sql + " column " + r.GetName(i)); } }
+        }
+
+        Run("create table p(id integer primary key, a text, b int unique); create index ix on p(a desc)");
+        Run("SELECT \"name\" FROM pragma_index_list(@table) WHERE \"origin\" = 'u' ORDER BY \"seq\"", ("@table", "p"));
+        Run("SELECT \"name\", \"unique\" FROM pragma_index_list(@table) WHERE \"origin\" = 'c' AND instr(\"name\", 'sqlite_') <> 1 ORDER BY \"seq\"", ("@table", "p"));
+        Run("SELECT \"name\", \"desc\" FROM pragma_index_xinfo(@index) WHERE key = 1 ORDER BY \"seqno\"", ("@index", "ix"));
+    }
+
+    [Fact]
     public void SelectOne()
     {
         using var c = new SqliteConnection("Data Source=:memory:");
