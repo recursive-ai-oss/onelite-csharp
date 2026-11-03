@@ -1017,7 +1017,9 @@ public sealed partial class Pager
             yield break;
         }
 
-        if (_sync >= SynchronousMode.Full)
+        // A grouped commit leaves the sync and the publication to GroupAckOp, which may share them with other commits (docs/wal.md).
+        bool grouped = _grpRole != GroupRole.None;
+        if (!grouped && _sync >= SynchronousMode.Full)
         {
             foreach (IoRequest r in WalSyncOp(ResumeState.WalSync))
             {
@@ -1032,9 +1034,16 @@ public sealed partial class Pager
 
         w.Hdr.W5 = _dbSize;
         w.Hdr.W2 = unchecked(w.Hdr.W2 + 1);
-        w.Index.WriteHeader(ref w.Hdr);
-        w.Snap = w.Hdr;
-        w.ReadMx = w.Hdr.MxFrame;
+        if (grouped)
+        {
+            w.Hdr.Seal();
+        }
+        else
+        {
+            w.Index.WriteHeader(ref w.Hdr);
+            w.Snap = w.Hdr;
+            w.ReadMx = w.Hdr.MxFrame;
+        }
 
         // journal_size_limit: after a restart, a log file longer than the limit is cut back, but never into the frames just written.
         long limit = JournalSizeLimit;
@@ -1048,6 +1057,14 @@ public sealed partial class Pager
                 {
                     yield return Rq(ResumeState.WalSizeLimit, IoKind.Truncate, w.File, offset: keep);
                 }
+            }
+        }
+
+        if (grouped)
+        {
+            foreach (IoRequest r in GroupAckOp())
+            {
+                yield return r;
             }
         }
     }
@@ -1077,12 +1094,30 @@ public sealed partial class Pager
     private IEnumerable<IoRequest> WalEndWriteOp(bool rollback)
     {
         WalConnection w = _wal!;
+        GroupRole role = _grpRole;
+        if (role == GroupRole.Anchor)
+        {
+            // Let the commits of this generation finish before the lock goes back, whether this one committed or not.
+            foreach (IoRequest r in GroupDrainOp())
+            {
+                yield return r;
+            }
+        }
+        else if (role == GroupRole.Follower)
+        {
+            GroupLeaveFollower();
+        }
+
         if (rollback)
         {
-            // Frames after the published ones are dead: take their hash entries out so the next append starts clean.
+            // Frames after the published ones are dead: take their hash entries out so the next append starts clean. (A follower leaves that to the
+            // anchor, which cleans up after the whole generation; the frames of commits still being synced are not dead.)
             if (w.Index.TryReadHeader(out WalIndexHeader cur))
             {
-                w.Index.Cleanup(cur.MxFrame);
+                if (role != GroupRole.Follower)
+                {
+                    w.Index.Cleanup(cur.MxFrame);
+                }
                 if (cur != w.Snap)
                 {
                     w.Snap = cur;
@@ -1090,7 +1125,7 @@ public sealed partial class Pager
                     _walLastSnapValid = false;
                 }
             }
-            else
+            else if (role != GroupRole.Follower)
             {
                 w.Index.Cleanup(w.Snap.MxFrame);
             }
@@ -1098,9 +1133,20 @@ public sealed partial class Pager
 
         w.Hdr = w.Snap;
         w.Writing = false;
+        if (role == GroupRole.Follower)
+        {
+            // The write lock is the anchor's.
+            yield break;
+        }
+
         foreach (IoRequest r in WalUnlock(WalIndex.WriteLock, 1, true))
         {
             yield return r;
+        }
+
+        if (role == GroupRole.Anchor)
+        {
+            GroupCloseGeneration();
         }
     }
 

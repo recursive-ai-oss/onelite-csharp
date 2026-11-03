@@ -74,6 +74,9 @@ public enum IoKind : byte
 
     /// <summary>Take or release wal-index lock slots (<see cref="IoRequest.Offset"/> first slot, <see cref="IoRequest.Length"/> count, <see cref="IoRequest.Arg"/> a <see cref="ShmLockOptions"/>); the result is 1 for granted.</summary>
     ShmLock,
+
+    /// <summary>Wait until the task in <see cref="IoRequest.Wait"/> completes (group commit: a turn, a covering sync, the end of a group).</summary>
+    GroupWait,
 }
 
 /// <summary>The named state of the pager that issued a request (suspend-point notes; used for diagnostics and fault-injection tests).</summary>
@@ -217,6 +220,8 @@ public enum ResumeState : byte
     SortMergeRead,
     /// <summary>Encrypted database: page 1 in the database file does not decode, so look for a WAL that holds a newer page 1.</summary>
     WalProbe,
+    /// <summary>Group commit: waiting for the turn to append, for a covering sync, or for the group to drain.</summary>
+    WalGroupWait,
 }
 
 /// <summary>The one I/O a pager is waiting for. Filled in place; never allocated per request.</summary>
@@ -257,6 +262,9 @@ public struct IoRequest
 
     /// <summary>The wal-index to map or lock, for <see cref="IoKind.ShmMap"/> and <see cref="IoKind.ShmLock"/>.</summary>
     public IVfsShm? Shm { get; set; }
+
+    /// <summary>The task to wait for, for <see cref="IoKind.GroupWait"/>.</summary>
+    public Task? Wait { get; set; }
 }
 
 /// <summary>The result of running an <see cref="IoRequest"/>.</summary>
