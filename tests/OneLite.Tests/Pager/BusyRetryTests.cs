@@ -21,7 +21,7 @@ public sealed class BusyRetryTests
     [InlineData(JournalMode.Persist)]
     public void AfterACommitFailsWithBusyTheNextTransactionGrowsTheFileCorrectly(JournalMode jm)
     {
-        string dir = Path.Combine(Environment.GetEnvironmentVariable("TMPDIR") ?? Path.GetTempPath(), "onelite-busy-retry");
+        string dir = Path.Combine(Environment.GetEnvironmentVariable("TMPDIR") ?? Path.GetTempPath(), "onelite-busy-retry" + "-" + Environment.ProcessId.ToString(System.Globalization.CultureInfo.InvariantCulture));
         Directory.CreateDirectory(dir);
         string file = Path.Combine(dir, $"b-{jm}.db");
         File.Delete(file);

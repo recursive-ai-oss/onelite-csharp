@@ -39,7 +39,7 @@ public sealed class PagerDropRecreateTests
 
     private static string Scratch(string name)
     {
-        string dir = Path.Combine(Environment.GetEnvironmentVariable("TMPDIR") ?? Path.GetTempPath(), "onelite-pager-btree");
+        string dir = Path.Combine(Environment.GetEnvironmentVariable("TMPDIR") ?? Path.GetTempPath(), "onelite-pager-btree" + "-" + Environment.ProcessId.ToString(System.Globalization.CultureInfo.InvariantCulture));
         Directory.CreateDirectory(dir);
         return Path.Combine(dir, name);
     }

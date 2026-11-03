@@ -56,7 +56,7 @@ public sealed class SqliteWriteInteropTests
         }
 
         db.Verify();
-        string dir = Path.Combine(Environment.GetEnvironmentVariable("TMPDIR") ?? Path.GetTempPath(), "onelite-btree-interop");
+        string dir = Path.Combine(Environment.GetEnvironmentVariable("TMPDIR") ?? Path.GetTempPath(), "onelite-btree-interop" + "-" + Environment.ProcessId.ToString(System.Globalization.CultureInfo.InvariantCulture));
         Directory.CreateDirectory(dir);
         string file = Path.Combine(dir, $"w-{pageSize}-{(int)enc}-{autoVacuum}-{reserved}-{yieldEvery}.db");
         byte[] image = db.Img!.ToBytes();

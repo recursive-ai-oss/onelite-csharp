@@ -156,7 +156,7 @@ public sealed class CorpusChurnTests
             return; // the structural check above ran; the shell checks need the pinned sqlite3
         }
 
-        string tmp = Path.Combine(Environment.GetEnvironmentVariable("TMPDIR") ?? Path.GetTempPath(), "onelite-btree-interop");
+        string tmp = Path.Combine(Environment.GetEnvironmentVariable("TMPDIR") ?? Path.GetTempPath(), "onelite-btree-interop" + "-" + Environment.ProcessId.ToString(System.Globalization.CultureInfo.InvariantCulture));
         Directory.CreateDirectory(tmp);
         string file = Path.Combine(tmp, "churn-" + name + "-" + yieldEvery + ".db");
         File.WriteAllBytes(file, src.ToBytes());
