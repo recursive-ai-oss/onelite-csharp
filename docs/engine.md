@@ -505,3 +505,7 @@ that suspends on every call and refuses every synchronous one (`ColdAsyncVfs` ov
 backend") is rerun on the sync driver and counted (`syncFallbacks` in the summary). `scan` compares `SELECT *` over every table of a set of databases; `fuzz --seed S --count N` runs a seeded generator over
 the subset (including hostile forms: blobs in arithmetic, huge integers, `COLLATE` everywhere, constant `ORDER BY` terms).
 Known harness limits: the shell prints a text value only up to its first NUL, and prints negative zero as `0.0`.
+
+## `PRAGMA writable_schema`
+
+With `writable_schema=ON` the schema table can be changed by plain `INSERT`, `UPDATE` and `DELETE`, and objects whose names start with `sqlite_` can be created. This is what the shell's `.dump` uses to restore `sqlite_sequence` and virtual tables (a schema row with root page 0). The connection's schema is read again when the pragma is turned `OFF`, so rows written by hand take effect then (a virtual table row added this way is connected on the next statement). Programs compiled while the pragma is on are not kept for reuse. There is no defensive mode: the setting is honoured whatever the input. Writing bad rows leaves a file whose schema fails to load, as in SQLite. The stored `sql` of `CREATE INDEX` keeps what follows the last token up to the `;` (or the end of the text), and a view's keeps it minus trailing white space, as the reference does.

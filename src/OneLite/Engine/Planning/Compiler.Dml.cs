@@ -94,6 +94,9 @@ internal sealed partial class Compiler
         }
     }
 
+    /// <summary>PRAGMA writable_schema is on: the schema table can be written and reserved names created. A program compiled so is never kept for reuse.</summary>
+    private bool WritableSchema => _cat.Owner?.PragmaSettings.WritableSchema ?? false;
+
     private TableInfo TableForWrite(QualifiedName qn)
     {
         string? schema = qn.Schema?.Text;
@@ -104,9 +107,9 @@ internal sealed partial class Compiler
             throw Err("no such table: " + (schema is null ? (InTrigger ? "main." + name : name) : schema + "." + name));
         }
 
-        if (ReferenceEquals(t, _cat.MainTables.GetValueOrDefault("sqlite_master")) || ReferenceEquals(t, _cat.TempMaster))
+        if ((ReferenceEquals(t, _cat.MainTables.GetValueOrDefault("sqlite_master")) || ReferenceEquals(t, _cat.TempMaster)) && !WritableSchema)
         {
-            throw Err("table " + name + " may not be modified");
+            throw Err("table " + t.Name + " may not be modified");
         }
 
         if (t.View is not null)

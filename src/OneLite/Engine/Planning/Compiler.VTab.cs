@@ -84,7 +84,7 @@ internal sealed partial class Compiler
         PreassignParameters();
         int db = CreateDb(cv.Name.Schema?.Text, false);
         string name = cv.Name.Name.Text;
-        if (name.StartsWith("sqlite_", StringComparison.OrdinalIgnoreCase))
+        if (name.StartsWith("sqlite_", StringComparison.OrdinalIgnoreCase) && !WritableSchema)
         {
             throw Err("object name reserved for internal use: " + name);
         }

@@ -34,6 +34,9 @@ internal sealed class PragmaSettings
     internal Storage.Crypto.CipherSettings DefaultCipher { get; set; } = Storage.Crypto.CipherSettings.V4;
 
     internal bool QueryOnly => Get("query_only", 0) != 0;
+
+    /// <summary>PRAGMA writable_schema: the schema table may be changed by plain INSERT, UPDATE and DELETE, and reserved names may be created.</summary>
+    internal bool WritableSchema => Get("writable_schema", 0) != 0;
 }
 
 internal static class PragmaArgs
@@ -198,10 +201,14 @@ internal sealed partial class Machine
                 return SetPragmaInt(d, st.Get(name, bdef));
             }
 
-            // The shell runs with the schema locked down, so writable_schema cannot be turned on; the same is done here.
-            if (name != "writable_schema")
+            bool wasWritable = st.WritableSchema;
+            st.Set(name, PragmaArgs.GetBoolean(arg, 0));
+
+            // pragma writable_schema: rows written to the schema table by hand take effect when the schema is read again, which turning
+            // the pragma off does.
+            if (name == "writable_schema" && wasWritable && !st.WritableSchema)
             {
-                st.Set(name, PragmaArgs.GetBoolean(arg, 0));
+                _conn.InvalidateSchema();
             }
 
             _pc++;

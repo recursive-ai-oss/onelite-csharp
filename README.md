@@ -32,7 +32,7 @@ OneLite is a clean-room implementation. It is written from SQLite's public docum
 | `RecursiveAI.OneLite` | The core: storage layer, engine layer and the happy path. No third-party dependencies. |
 | `RecursiveAI.OneLite.Data` | ADO.NET provider with real async. Depends on the core only. |
 | `RecursiveAI.OneLite.SQLitePCLRaw` | An `ISQLite3Provider` so `Microsoft.Data.Sqlite` and EF Core can run on OneLite. Depends on the core and `SQLitePCLRaw.core`. Not published yet. |
-| `RecursiveAI.OneLite.Cli` | The `onelite` command-line tool (`dotnet tool install`). Not published yet. |
+| `RecursiveAI.OneLite.Cli` | The `onelite` command-line tool (`dotnet tool install`): a shell used like `sqlite3`, with `.dump`, `.import` and a read-only `.recover` ([docs/cli.md](docs/cli.md)). Not published yet. |
 
 ## Building
 

@@ -117,6 +117,49 @@ internal sealed partial class Compiler
             body = body[..^1].TrimEnd();
         }
 
+        // The shell keeps what follows the last token up to the terminating ';' (or the end of the text) in the stored text of an index, whitespace
+        // and comments included, and in a view's, whitespace at the very end excepted. Other objects end at their last token.
+        if (cs is CreateIndexStatement or CreateViewStatement)
+        {
+            int i = end;
+            if (i > 0 && _sql[i - 1] == ';')
+            {
+                i--;
+            }
+
+            int j = i;
+            while (j < _sql.Length)
+            {
+                char c = _sql[j];
+                if (c is ' ' or '\t' or '\n' or '\r' or '\f')
+                {
+                    j++;
+                }
+                else if (c == '-' && j + 1 < _sql.Length && _sql[j + 1] == '-')
+                {
+                    while (j < _sql.Length && _sql[j] != '\n')
+                    {
+                        j++;
+                    }
+                }
+                else if (c == '/' && j + 1 < _sql.Length && _sql[j + 1] == '*')
+                {
+                    int close = _sql.IndexOf("*/", j + 2, StringComparison.Ordinal);
+                    j = close < 0 ? _sql.Length : close + 2;
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+            if (j >= _sql.Length || _sql[j] == ';')
+            {
+                string raw = _sql[start..j];
+                body = cs is CreateViewStatement ? raw.TrimEnd() : raw;
+            }
+        }
+
         return prefix + body;
     }
 
@@ -198,7 +241,7 @@ internal sealed partial class Compiler
         PreassignParameters();
         int db = CreateDb(cv.Name.Schema?.Text, cv.Temporary);
         string name = cv.Name.Name.Text;
-        if (name.StartsWith("sqlite_", StringComparison.OrdinalIgnoreCase))
+        if (name.StartsWith("sqlite_", StringComparison.OrdinalIgnoreCase) && !WritableSchema)
         {
             throw Err("object name reserved for internal use: " + name);
         }
@@ -262,7 +305,7 @@ internal sealed partial class Compiler
 
         int db = CreateDb(ct.Name.Schema?.Text, ct.Temporary);
         string name = ct.Name.Name.Text;
-        if (name.StartsWith("sqlite_", StringComparison.OrdinalIgnoreCase))
+        if (name.StartsWith("sqlite_", StringComparison.OrdinalIgnoreCase) && !WritableSchema)
         {
             throw Err("object name reserved for internal use: " + name);
         }
@@ -423,7 +466,7 @@ internal sealed partial class Compiler
             throw Err("table " + t.Name + " may not be indexed");
         }
 
-        if (name.StartsWith("sqlite_", StringComparison.OrdinalIgnoreCase))
+        if (name.StartsWith("sqlite_", StringComparison.OrdinalIgnoreCase) && !WritableSchema)
         {
             throw Err("object name reserved for internal use: " + name);
         }
@@ -575,7 +618,7 @@ internal sealed partial class Compiler
                     throw Unsupported(t.Unsupported);
                 }
 
-                if (name.StartsWith("sqlite_", StringComparison.OrdinalIgnoreCase))
+                if (name.StartsWith("sqlite_", StringComparison.OrdinalIgnoreCase) && !WritableSchema)
                 {
                     throw Err("table " + name + " may not be dropped");
                 }
