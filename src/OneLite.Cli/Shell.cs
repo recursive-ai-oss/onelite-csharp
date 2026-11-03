@@ -33,12 +33,15 @@ internal sealed partial class Shell : IDisposable
     private string _where = "near line";
     private int _argIndex;
 
-    public Shell()
+    public Shell(Stream stdout, Stream stderr)
     {
-        _stdout = new ByteOut(Console.OpenStandardOutput(), false);
-        _stderr = new ByteOut(Console.OpenStandardError(), false);
+        _stdout = new ByteOut(stdout, false);
+        _stderr = new ByteOut(stderr, false);
         _out = _stdout;
     }
+
+    /// <summary>Writes text to the current output.</summary>
+    public void Print(string text) => _out.Write(text);
 
     public bool Bail { get => _bail; set => _bail = value; }
 

@@ -19,12 +19,14 @@ internal sealed partial class Shell
         private readonly string _text;
         private readonly string _colSep;
         private readonly string _rowSep;
+        private readonly bool _raw;
         private readonly Action<string> _report;
         private int _pos;
         private int _line = 1;
 
-        public DelimitedReader(string text, string colSep, string rowSep, Action<string> report)
+        public DelimitedReader(string text, string colSep, string rowSep, bool raw, Action<string> report)
         {
+            _raw = raw;
             _text = text;
             _colSep = colSep;
             _rowSep = rowSep;
@@ -58,7 +60,7 @@ internal sealed partial class Shell
             while (true)
             {
                 var sb = new StringBuilder();
-                if (_text[_pos] == '"')
+                if (!_raw && _text[_pos] == '"')
                 {
                     _pos++;
                     while (true)
@@ -137,7 +139,8 @@ internal sealed partial class Shell
 
     private bool DotImport(string[] a)
     {
-        bool csv = false, ascii = false;
+        bool ascii = false;
+        bool csv = false;
         int skip = 0;
         string schema = "main";
         var pos = new List<string>();
@@ -170,6 +173,13 @@ internal sealed partial class Shell
             }
         }
 
+        if (pos.Count < 1)
+        {
+            ErrLine(ContextPrefix() + "Missing FILE argument");
+            Fail();
+            return false;
+        }
+
         if (pos.Count != 2)
         {
             return DotUsage(".import", "?OPTIONS? FILE TABLE");
@@ -199,11 +209,17 @@ internal sealed partial class Shell
         string text;
         try
         {
-            text = File.ReadAllText(file, new UTF8Encoding(false));
+            text = new UTF8Encoding(false).GetString(File.ReadAllBytes(file));
+            if (!ascii && text.StartsWith('\uFEFF'))
+            {
+                text = text[1..];
+            }
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
-            return DotFail($"cannot open \"{file}\"");
+            ErrLine(ContextPrefix() + $"cannot open \"{file}\"");
+            Fail();
+            return false;
         }
 
         Connection? conn = Conn();
@@ -213,7 +229,7 @@ internal sealed partial class Shell
         }
 
         DelimitedReader? reader = null;
-        reader = new DelimitedReader(text, colSep, rowSep, msg => ErrLine($"{file}:{reader!.Line}: {msg}"));
+        reader = new DelimitedReader(text, colSep, rowSep, ascii, msg => ErrLine($"{file}:{reader!.Line}: {msg}"));
         var fields = new List<string>();
         for (int i = 0; i < skip; i++)
         {

@@ -114,6 +114,9 @@ internal sealed partial class Shell
         return true;
     }
 
+    /// <summary>Where a command came from, as the reference shell prefixes some of its messages: <c>argv[N]: </c> for an argument, <c>line N: </c> for a script.</summary>
+    private string ContextPrefix() => _where == "in" ? $"argv[{_argIndex}]: " : $"line {Math.Max(_dotLineNo, 1)}: ";
+
     private bool DotFail(string message)
     {
         ErrLine("Error: " + message);
@@ -270,7 +273,9 @@ internal sealed partial class Shell
                 }
                 catch (Exception e) when (e is IOException or UnauthorizedAccessException)
                 {
-                    return DotFail($"cannot change to directory \"{a[0]}\"");
+                    ErrLine($"Cannot change to directory \"{a[0]}\"");
+                    Fail();
+                    return false;
                 }
 
                 return true;
@@ -463,7 +468,9 @@ internal sealed partial class Shell
             }
             else if (s.StartsWith('-'))
             {
-                return DotFail($"unknown option: {s}");
+                ErrLine($"unknown option: {s}");
+                Fail();
+                return false;
             }
             else
             {

@@ -31,10 +31,13 @@ internal static class Program
            -version             show the version
         """;
 
-    private static int Main(string[] args)
+    private static int Main(string[] args) =>
+        Run(args, Console.OpenStandardInput(), Console.OpenStandardOutput(), Console.OpenStandardError(), !Console.IsInputRedirected);
+
+    /// <summary>Runs the shell on the given streams (what <c>Main</c> does with the console); returns the exit code.</summary>
+    internal static int Run(string[] args, Stream stdinStream, Stream stdoutStream, Stream stderrStream, bool inputIsTerminal)
     {
-        Console.InputEncoding = new UTF8Encoding(false);
-        using var shell = new Shell();
+        using var shell = new Shell(stdoutStream, stderrStream);
         var commands = new List<(string Text, int Index)>();
         var pre = new List<(string Text, int Index, bool IsFile)>();
         string? file = null;
@@ -69,10 +72,10 @@ internal static class Program
                     case "help":
                     case "h":
                     case "?":
-                        Console.Out.WriteLine(Usage);
+                        shell.Print(Usage + "\n");
                         return 0;
                     case "version":
-                        Console.Out.WriteLine($"{VersionText} (OneLite; SQLite-compatible, behaviour of SQLite 3.53.4)");
+                        shell.Print($"{VersionText} (OneLite; SQLite-compatible, behaviour of SQLite 3.53.4)\n");
                         return 0;
                     case "bail":
                         shell.Bail = true;
@@ -165,8 +168,7 @@ internal static class Program
                     case "no-rowid-in-view":
                         break;
                     default:
-                        Console.Error.WriteLine($"onelite: Error: unknown option: {arg}");
-                        Console.Error.WriteLine("Use -help for a list of options.");
+                        shell.ErrLine($"onelite: Error: unknown option: {arg}\nUse -help for a list of options.");
                         return 1;
                 }
             }
@@ -206,19 +208,17 @@ internal static class Program
                 return shell.ExitCode;
             }
 
-            bool tty = !Console.IsInputRedirected && !batch || interactive;
+            bool tty = inputIsTerminal && !batch || interactive;
             if (tty)
             {
-                Console.Out.WriteLine($"OneLite {VersionText}");
-                Console.Out.WriteLine("Enter \".help\" for usage hints.");
+                shell.Print($"OneLite {VersionText}\nEnter \".help\" for usage hints.\n");
                 if (shell.DbPath == ":memory:")
                 {
-                    Console.Out.WriteLine("Connected to a transient in-memory database.");
-                    Console.Out.WriteLine("Use \".open FILENAME\" to reopen on a persistent database.");
+                    shell.Print("Connected to a transient in-memory database.\nUse \".open FILENAME\" to reopen on a persistent database.\n");
                 }
             }
 
-            using var stdin = new StreamReader(Console.OpenStandardInput(), new UTF8Encoding(false));
+            using var stdin = new StreamReader(stdinStream, new UTF8Encoding(false));
             shell.RunReader(stdin, tty);
             return shell.ExitCode;
         }

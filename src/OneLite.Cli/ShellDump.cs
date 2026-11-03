@@ -110,12 +110,13 @@ internal sealed partial class Shell
                     continue;
                 }
 
-                if (!dataOnly)
+                if (!writable)
                 {
-                    _out.Write("CREATE TABLE IF NOT EXISTS sqlite_sequence(name,seq);\n");
+                    _out.Write("PRAGMA writable_schema=ON;\n");
+                    writable = true;
                 }
 
-                _out.Write("DELETE FROM sqlite_sequence;\n");
+                _out.Write("CREATE TABLE IF NOT EXISTS sqlite_sequence(name,seq);\nDELETE FROM sqlite_sequence;\n");
             }
             else if (name.StartsWith("sqlite_stat", StringComparison.OrdinalIgnoreCase))
             {

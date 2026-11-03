@@ -20,11 +20,16 @@ internal sealed partial class Shell
     {
         string? outFile = null;
         double minConfidence = 0.5;
+        bool merge = false;
         for (int i = 0; i < a.Length; i++)
         {
             if (a[i] == "--min-confidence" && i + 1 < a.Length)
             {
                 double.TryParse(a[++i], NumberStyles.Float, CultureInfo.InvariantCulture, out minConfidence);
+            }
+            else if (a[i] == "--merge")
+            {
+                merge = true;
             }
             else if (a[i].StartsWith('-'))
             {
@@ -60,7 +65,7 @@ internal sealed partial class Shell
             IReadOnlyList<CarvedRecord> carved = snap.Carve(new CarveOptions { MinConfidence = minConfidence });
 
             dest.Write("-- OneLite .recover: live rows first, then rows carved from free space.\n");
-            dest.Write("-- Carved rows are guesses: each has a comment with its source and confidence, and goes in with INSERT OR IGNORE.\n");
+            dest.Write(merge ? "-- Carved rows are guesses: each has a comment with its source and confidence and goes into its table with INSERT OR IGNORE.\n" : "-- Carved rows are guesses: they go into lost_and_found, each with its source and confidence, and the tables hold live rows only.\n");
             foreach (string note in snap.Notes)
             {
                 dest.Write("-- note: " + note.Replace('\n', ' ') + "\n");
@@ -126,28 +131,44 @@ internal sealed partial class Shell
                 }
             }
 
-            foreach (CarvedRecord c in carved.OrderByDescending(c => c.Confidence))
+            var ordered = carved.OrderByDescending(c => c.Confidence).ToList();
+            int width = ordered.Count > 0 ? ordered.Max(c => c.Values.Length) : 0;
+            if (ordered.Count > 0 && !merge)
+            {
+                dest.Write("CREATE TABLE lost_and_found(source_table, confidence, source, page, page_offset, wal_frame, rowid" + string.Concat(Enumerable.Range(0, width).Select(i => ", c" + i.ToString(CultureInfo.InvariantCulture))) + ");\n");
+            }
+
+            foreach (CarvedRecord c in ordered)
             {
                 string source = $"source={c.Source} file={c.File} page={c.Page} offset={c.PageOffset}" + (c.WalFrame > 0 ? $" wal_frame={c.WalFrame}" : string.Empty);
-                string head = $"-- carved: table={c.Table ?? "?"} {source} confidence={c.Confidence.ToString("F2", CultureInfo.InvariantCulture)}" + (c.Truncated ? " truncated" : string.Empty) + (c.PrefixReconstructed ? " prefix-reconstructed" : string.Empty);
-                if (c.Table is not null && writable.TryGetValue(c.Table, out ForensicTable? t) && t.Name != "sqlite_sequence" && c.Values.Length > 0 && c.Values.Length <= t.ColumnNames.Count)
+                string conf = c.Confidence.ToString("F2", CultureInfo.InvariantCulture);
+                dest.Write($"-- carved: table={c.Table ?? "?"} {source} confidence={conf}" + (c.Truncated ? " truncated" : string.Empty) + (c.PrefixReconstructed ? " prefix-reconstructed" : string.Empty) + "\n");
+                if (merge && c.Table is not null && writable.TryGetValue(c.Table, out ForensicTable? t) && t.Name != "sqlite_sequence" && c.Values.Length > 0 && c.Values.Length <= t.ColumnNames.Count)
                 {
-                    dest.Write(head + "\n");
                     dest.Write("INSERT OR IGNORE INTO " + SqlText.QuoteIdent(t.Name) + "(" + string.Join(",", t.ColumnNames.Take(c.Values.Length).Select(SqlText.QuoteIdent)) + ") VALUES(");
                     WriteValues(dest, fmtStmt, c.Values, c.Values.Length);
                     dest.Write(");\n");
                     carvedLoaded++;
                 }
-                else
+                else if (!merge)
                 {
-                    dest.Write(head + " (not loaded) values=");
-                    var tmp = new MemoryStream();
-                    using (var mo = new ByteOut(tmp, false))
+                    dest.Write("INSERT INTO lost_and_found VALUES(" + (c.Table is null ? "NULL" : SqlText.QuoteString(c.Table)) + "," + conf + "," + SqlText.QuoteString(c.Source.ToString()) + "," + c.Page.ToString(CultureInfo.InvariantCulture) + "," + c.PageOffset.ToString(CultureInfo.InvariantCulture) + "," + (c.WalFrame > 0 ? c.WalFrame.ToString(CultureInfo.InvariantCulture) : "NULL") + "," + (c.Rowid is { } rid ? rid.ToString(CultureInfo.InvariantCulture) : "NULL"));
+                    if (c.Values.Length > 0)
                     {
-                        WriteValues(mo, fmtStmt, c.Values, c.Values.Length);
+                        dest.Write(",");
+                        WriteValues(dest, fmtStmt, c.Values, c.Values.Length);
                     }
 
-                    dest.Write(Encoding.UTF8.GetString(tmp.ToArray()).Replace("\n", "\\n", StringComparison.Ordinal).Replace("\r", "\\r", StringComparison.Ordinal) + "\n");
+                    for (int k = c.Values.Length; k < width; k++)
+                    {
+                        dest.Write(",NULL");
+                    }
+
+                    dest.Write(");\n");
+                    carvedLoaded++;
+                }
+                else
+                {
                     carvedComment++;
                 }
             }
@@ -158,7 +179,7 @@ internal sealed partial class Shell
             }
 
             dest.Write("COMMIT;\n");
-            ErrLine($"recovered {liveRows} live rows from {writable.Count} tables; carved {carvedLoaded + carvedComment} records ({carvedLoaded} loaded as INSERT OR IGNORE, {carvedComment} written as comments)");
+            ErrLine($"recovered {liveRows} live rows from {writable.Count} tables; carved {carvedLoaded + carvedComment} records ({carvedLoaded} loaded{(merge ? " as INSERT OR IGNORE into their tables" : " into lost_and_found")}, {carvedComment} not loaded)");
         }
         catch (Exception e) when (e is OneLiteException or NotADatabaseException or IOException or ForensicChangedException)
         {

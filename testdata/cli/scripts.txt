@@ -1,0 +1,43 @@
+select 1;\nselect nope;\nselect 2;\n
+create table t(a);\ninsert into t values(1),(2);\nselect * from t;\n.mode column\nselect * from t;\n
+select 1,2\n;\n.headers on\nselect 1 as x\n\n\n;\n
+create trigger tr after insert on t begin select 1; end;\nselect 5;\n
+create table t(a);\ncreate trigger tr after insert on t begin\n insert into t values(1);\n select 1;\nend;\ninsert into t values(3);\nselect * from t;\n
+.foo\nselect 1;\n
+.mode foo\n
+.mode list --foo\n
+.separator\n
+.separator ,\nselect 1,2;\n.separator | .\nselect 1,2;\n
+.nullvalue X\nselect null;\n.mode json\nselect null;\n.mode list\nselect null;\n
+.headers maybe\n
+.bail on\nselect nope;\nselect 3;\n
+.echo on\nselect 1;\n.mode list\n
+select 'a'\n'b';\nselect 1 -- c\n;\n
+/* multi\nline */ select 7;\n
+select '\n;\n';\nselect "a;b" as x;\n
+.print hello world\n.print "a  b" c\n.print\n
+create table t(a);\n.changes on\ninsert into t values(1),(2),(3);\nupdate t set a=a+1;\ndelete from t;\nselect 1;\n
+select 1;\n.once /dev/null\nselect 2;\nselect 3;\n
+.exit 3\nselect 1;\n
+.quit\nselect 1;\n
+select 1\n
+select 1;;;\n;\nselect 2;\n
+begin;\ncreate table t(a);\nrollback;\nselect count(*) from sqlite_schema;\n
+pragma user_version=5;\npragma user_version;\nselect sqlite_version();\n
+select 1 union select 2 order by 1 desc;\n
+select abs(-9223372036854775808);\n
+select 'x' from nope;\n
+select typeof(1), typeof(1.0), typeof('a'), typeof(x'00'), typeof(null);\n
+select 1 as aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa, nope from (select 1) where 1 + 1 and 2 and 3 and 4;\n
+select 1;\n\n\nselect\n  nope\n;\n
+insert into nope values(1);\n
+.read nofile\n
+.open\nselect 1;\n
+.mode csv\nselect 1,'a b';\n.mode tabs\nselect 1,'a b';\n.mode ascii\nselect 1,'a';\n
+.mode insert foo\nselect 1,'a',null,x'01',1.5;\n.mode insert\nselect 1;\n
+.mode list\n.headers on\n.mode quote\nselect 1 as a, 'x' as b;\n.mode html\nselect 1 as a, 'x<' as b;\n
+.mode line\nselect 1 as a, 'x\ny' as bbbb;\n
+.mode qbox\nselect 1 as a, 'x' as b, null;\n
+.show\n
+.tables\n.indexes\n.schema\n.databases\n
+.width 8 6\n.mode column\nselect 1,2;\nselect 'abc', 'x';\n.width -8 -8\nselect 1,'abc';\n
