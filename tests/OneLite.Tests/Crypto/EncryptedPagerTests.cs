@@ -223,7 +223,11 @@ public class EncryptedPagerTests
         Create(vfs, "k", 6);
         using (IVfsFile f = vfs.Open(Db, VfsOpenOptions.ReadWrite))
         {
-            f.Write(4L * Ps + 100, [0x55]);
+            // Flip the byte rather than store a fixed one: the page is random ciphertext, so a fixed value equals it once in 256 runs.
+            byte[] b = new byte[1];
+            f.Read(4L * Ps + 100, b);
+            b[0] ^= 0xFF;
+            f.Write(4L * Ps + 100, b);
         }
 
         using PagerClass p = PagerClass.Open(vfs, Db, Opts("k"));
