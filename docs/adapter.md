@@ -60,3 +60,31 @@ Each of these returns a documented result, never a silent success.
 `tests/OneLite.SQLitePCLRaw.Tests` runs the same `sqlite3_*` calls through SQLitePCLRaw on the native library (`SQLitePCLRaw.bundle_e_sqlite3`, SQLite 3.53.4) and on the adapter and compares return codes, extended codes, messages, column names, declared types, values, `changes()`, `last_insert_rowid()` and hook calls.
 
 `Microsoft.Data.Sqlite`'s own public test suite and Entity Framework Core's SQLite functional tests run against the adapter; `tools/scripts/fetch_efcore_tests.sh` fetches only their `test/` projects at a pinned release (never committed), and `tools/scripts/mds_suite.sh` and `tools/scripts/ef_suite.sh` run them. The results and the classified failures are in the table at the end of this file.
+
+### Results
+
+Run against `Microsoft.Data.Sqlite` 10.0.14's and EF Core 10.0.14's tests, with `SQLitePCLRaw` 3.0.5, on SQLite 3.53.4 compatibility. The EF suite is run serially, in three groups of at most 25 minutes (not-`Query`, `Query` for Northwind and Gears of War, the rest of `Query`).
+
+| Suite | Tests | Passed | Failed | Skipped by the suite |
+|---|---|---|---|---|
+| `Microsoft.Data.Sqlite` | 687 | 670 | 10 | 7 |
+| EF Core SQLite, not `Query` | 20,580 | 20,374 | 7 | 199 |
+| EF Core SQLite, `Query` Northwind and Gears of War | 8,313 | 8,290 | 2 | 21 |
+| EF Core SQLite, other `Query` | 8,525 | 8,452 | 4 | 69 |
+
+Every failure, classified:
+
+| Count | Tests | Class |
+|---|---|---|
+| 4 | `EnableExtensions_works`, `LoadExtension_works` (open and closed) | Documented: `load_extension` is unsupported. |
+| 2 + 6 | `ReadUncommitted_allows_dirty_reads`, `Serialized_disallows_dirty_reads`; EF `TransactionSqliteTest.Query(Async)_uses_explicit_transaction` | Documented: shared-cache table locks (`SQLITE_LOCKED_SHAREDCACHE`) are not implemented. |
+| 2 | `Open_works_when_password`, `Open_releases_handle_when_constructor_fails` | Documented: the tests expect the native library to reject `Password=`; OneLite supports SQLCipher-compatible encryption, so it accepts it. |
+| 1 | `ExecuteReader_works_on_EXPLAIN` | Documented: `EXPLAIN` bytecode is not produced. |
+| 1 | `Functions_dont_bleed_across_connections` | Documented: `pragma_function_list` is not implemented. |
+| 1 | EF `SqliteComplianceTest.All_test_bases_must_be_implemented` | Not applicable: it checks the fetched subset of the test tree against the full one. |
+| 1 | EF `PrimitiveCollectionsQuerySqliteTest.Parameter_collection_Concat_column_collection` | The test asserts a wrong answer that the native library gives (a correlated `json_each` inside a compound subquery repeats the first row's array); OneLite returns the right count. |
+| 4 | EF `GroupBy_with_aggregate_containing_complex_where`, `Aggregate_over_subquery_in_group_by_projection_2` (sync and async) | Known difference: an aggregate in a subquery whose arguments are all outer columns (`select (select max(t0.id) ... where t0.v = max(t.id)) from t group by ...`) belongs to the outer query in SQLite; OneLite reports "misuse of aggregate". |
+
+One more EF failure seen in an earlier run, `EntitySplittingQuerySqliteTest.Tph_entity_owning_a_split_reference_on_middle_without` (an `ArgumentOutOfRangeException` when a statement handle was released by the finalizer thread while the connection's statement list changed), is fixed by guarding that list.
+
+After running a suite, delete the databases it leaves behind together with their `-wal` and `-shm` files; `ef_suite.sh` does so. A stale WAL file is replayed into a new database of the same name, as it would be by SQLite.

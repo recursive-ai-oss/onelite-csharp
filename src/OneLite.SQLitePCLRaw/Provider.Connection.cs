@@ -261,7 +261,13 @@ public sealed partial class OneLiteSqlite3Provider : ISQLite3Provider
         }
 
         d.Closed = true;
-        foreach (StmtState s in d.Statements.ToArray())
+        StmtState[] open;
+        lock (d.Statements)
+        {
+            open = d.Statements.ToArray();
+        }
+
+        foreach (StmtState s in open)
         {
             FinalizeStatement(s);
         }

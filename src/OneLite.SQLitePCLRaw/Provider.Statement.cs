@@ -75,7 +75,12 @@ public sealed partial class OneLiteSqlite3Provider
 
         var state = new StmtState { Db = d, Statement = st, Sql = consumed };
         state.Id = Handles.Add(state);
-        d.Statements.Add(state);
+        // A statement handle can be released by the finalizer thread, so the list is guarded.
+        lock (d.Statements)
+        {
+            d.Statements.Add(state);
+        }
+
         stmt = state.Id;
         return 0;
     }
@@ -340,7 +345,11 @@ public sealed partial class OneLiteSqlite3Provider
         s.Finalized = true;
         s.HasRow = false;
         s.Active = false;
-        s.Db.Statements.Remove(s);
+        lock (s.Db.Statements)
+        {
+            s.Db.Statements.Remove(s);
+        }
+
         try
         {
             s.Statement.Dispose();
@@ -399,12 +408,18 @@ public sealed partial class OneLiteSqlite3Provider
 
         if (stmt == IntPtr.Zero)
         {
-            return d.Statements.Count > 0 ? d.Statements[0].Id : IntPtr.Zero;
+            lock (d.Statements)
+            {
+                return d.Statements.Count > 0 ? d.Statements[0].Id : IntPtr.Zero;
+            }
         }
 
         StmtState? cur = Handles.Get<StmtState>(stmt);
-        int i = cur is null ? -1 : d.Statements.IndexOf(cur);
-        return i >= 0 && i + 1 < d.Statements.Count ? d.Statements[i + 1].Id : IntPtr.Zero;
+        lock (d.Statements)
+        {
+            int i = cur is null ? -1 : d.Statements.IndexOf(cur);
+            return i >= 0 && i + 1 < d.Statements.Count ? d.Statements[i + 1].Id : IntPtr.Zero;
+        }
     }
 
     /// <inheritdoc />

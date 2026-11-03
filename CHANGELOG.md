@@ -4,6 +4,16 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- `RecursiveAI.OneLite.SQLitePCLRaw`: an `ISQLite3Provider` for SQLitePCLRaw that runs on OneLite, so `Microsoft.Data.Sqlite` and EF Core's SQLite provider use it without a native library (`OneLiteBatteries.Init()`). `Microsoft.Data.Sqlite`'s own tests pass 670 of 687 and EF Core's SQLite functional tests 37,116 of 37,418 (289 skipped by the suites; the 13 failures are classified in `docs/adapter.md`). Connections through the adapter start with `foreign_keys` on, as the native library bundled with SQLitePCLRaw does; the core and `.Data` keep SQLite's default (off).
+- `X REGEXP Y` calls a user function `regexp(Y, X)` as SQLite documents; without one it fails with "no such function: regexp".
+
+### Fixed
+
+- `PRAGMA index_xinfo` and `index_info` name the column of an index key on a virtual generated column (they reported an expression with a NULL name).
+- `LIMIT` and `OFFSET` can no longer refer to columns of the query or of an outer query ("no such column", as SQLite).
+
 ## [0.6.0-preview.2]
 
 ### Changed
