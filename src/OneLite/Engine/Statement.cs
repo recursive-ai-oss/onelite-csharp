@@ -90,7 +90,14 @@ public sealed class Statement : IDisposable, IAsyncDisposable
         string tail;
         try
         {
-            _prog = conn.CompileSql(sql, out tail, out _, planMode);
+            if (planMode == PlanMode.Off && conn.TakeProgram(sql, out VmProgram kept, out tail))
+            {
+                _prog = kept;
+            }
+            else
+            {
+                _prog = conn.CompileSql(sql, out tail, out _, planMode);
+            }
         }
         catch (OneLiteException e)
         {
@@ -482,6 +489,12 @@ public sealed class Statement : IDisposable, IAsyncDisposable
     {
         VmProgram p = _conn.CompileSql(_sql, out _, out _, _planMode);
         _prog = p;
+        if (_convert.Length != p.ResultCount)
+        {
+            // The schema changed under the statement: SELECT * can now have another number of columns.
+            _convert = new byte[p.ResultCount][];
+        }
+
         _machine = new Machine(_conn, p, _vars) { _owner = this };
     }
 
@@ -542,6 +555,10 @@ public sealed class Statement : IDisposable, IAsyncDisposable
         await _conn.WithAsyncAbort(_machine.Close).ConfigureAwait(false);
         _disposed = true;
         _conn.Forget(this);
+        if (_planMode == PlanMode.Off)
+        {
+            _conn.KeepProgram(_sql, _prog, Tail);
+        }
     }
 
     /// <summary>Finalizes the statement.</summary>
@@ -562,6 +579,10 @@ public sealed class Statement : IDisposable, IAsyncDisposable
         _machine.Close();
         _disposed = true;
         _conn.Forget(this);
+        if (_planMode == PlanMode.Off)
+        {
+            _conn.KeepProgram(_sql, _prog, Tail);
+        }
     }
 
     // ------------------------------------------------------------------ columns

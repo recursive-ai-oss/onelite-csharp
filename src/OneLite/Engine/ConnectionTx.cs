@@ -103,6 +103,8 @@ public sealed partial class Connection
             compiler.StartPlan(stmt switch { Sql.InsertStatement => "INSERT", Sql.UpdateStatement => "UPDATE", _ => "DELETE" }, mode == PlanMode.Count);
         }
 
+        CompileTaint = false;
+        CompileStatsTables.Clear();
         VmProgram p = stmt switch
         {
             Sql.InsertStatement i => compiler.CompileInsert(i),
@@ -120,6 +122,11 @@ public sealed partial class Connection
         p.PlanCounterCount = p.Plan?.CounterCount ?? 0;
         p.SchemaCookie = cat.Cookie;
         p.Encoding = enc;
+        if (mode == PlanMode.Off && stmt is Sql.InsertStatement or Sql.UpdateStatement or Sql.DeleteStatement)
+        {
+            MarkReusable(p, cat);
+        }
+
         return p;
     }
 

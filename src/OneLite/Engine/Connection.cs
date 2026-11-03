@@ -625,6 +625,84 @@ public sealed partial class Connection : IDisposable, IAsyncDisposable
 
     internal void Forget(Statement s) => _statements.Remove(s);
 
+    // ---- programs kept between prepares ----------------------------------------------------------------------------------------------
+    // Preparing the same text again is the common case (a statement per call, a command per query). When a statement is finalized its program goes
+    // back here, and the next prepare of the same text takes it instead of parsing and planning again. A program is taken out of the table, so it
+    // belongs to one statement at a time, exactly as a freshly compiled one does. It is used again only if everything compilation read is unchanged:
+    // the connection still holds the same schema object (every schema change builds a new one) at the same cookie, with the same foreign-key
+    // setting and text encoding. Anything else compiles again. A program that read other connection state (virtual tables, the statistics log
+    // behind PRAGMA optimize) is never kept. c3ref/prepare: the schema is checked when the statement runs, which the kept program still does.
+    private const int ProgramTableLimit = 32;
+    private readonly Dictionary<string, (VmProgram Program, string Tail)> _programs = new(StringComparer.Ordinal);
+
+    /// <summary>Set by the compiler when it reads connection state a kept program could not account for.</summary>
+    internal bool CompileTaint;
+
+    /// <summary>The tables the compile in progress added to <see cref="StatsUsed"/>; a kept program adds them again when it is taken.</summary>
+    internal readonly List<string> CompileStatsTables = [];
+
+    internal bool TakeProgram(string sql, out VmProgram program, out string tail)
+    {
+        if (_programs.Count != 0 && _programs.Remove(sql, out (VmProgram Program, string Tail) e))
+        {
+            VmProgram p = e.Program;
+            Catalog? cat = _catalog;
+            if (cat is not null && ReferenceEquals(p.CompiledAgainst, cat) && p.SchemaCookie == cat.Cookie && p.ForeignKeysAtCompile == ForeignKeysEnabled
+                && p.Encoding == (_ctx?.Encoding ?? TextEncoding.Utf8))
+            {
+                if (p.StatsTables is { } st)
+                {
+                    foreach (string name in st)
+                    {
+                        StatsUsed.Add(name);
+                    }
+                }
+
+                program = p;
+                tail = e.Tail;
+                return true;
+            }
+        }
+
+        program = null!;
+        tail = string.Empty;
+        return false;
+    }
+
+    internal void KeepProgram(string sql, VmProgram program, string tail)
+    {
+        if (!program.Reusable || !ReferenceEquals(program.CompiledAgainst, _catalog))
+        {
+            return;
+        }
+
+        if (_programs.Count >= ProgramTableLimit && !_programs.ContainsKey(sql))
+        {
+            using Dictionary<string, (VmProgram, string)>.Enumerator it = _programs.GetEnumerator();
+            it.MoveNext();
+            _programs.Remove(it.Current.Key);
+        }
+
+        _programs[sql] = (program, tail);
+    }
+
+    private void MarkReusable(VmProgram p, Catalog cat)
+    {
+        p.CompiledAgainst = cat;
+        p.ForeignKeysAtCompile = ForeignKeysEnabled;
+        bool ok = !CompileTaint;
+        foreach (CursorSpec c in p.Cursors)
+        {
+            if (c.Module is not null || c.Table?.Virtual is not null)
+            {
+                ok = false;
+            }
+        }
+
+        p.Reusable = ok;
+        p.StatsTables = CompileStatsTables.Count == 0 ? null : [.. CompileStatsTables];
+    }
+
     /// <summary>Compiles one statement (parse, then name resolution against the schema).</summary>
     internal VmProgram CompileSql(string sql, out string tail, out bool empty, PlanMode mode = PlanMode.Off)
     {
@@ -759,11 +837,18 @@ public sealed partial class Connection : IDisposable, IAsyncDisposable
             compiler.StartPlan("SELECT", mode == PlanMode.Count);
         }
 
+        CompileTaint = false;
+        CompileStatsTables.Clear();
         VmProgram p = compiler.CompileSelect(sel);
         p.Plan = compiler.FinishPlan();
         p.PlanCounterCount = p.Plan?.CounterCount ?? 0;
         p.SchemaCookie = cat.Cookie;
         p.Encoding = enc;
+        if (mode == PlanMode.Off)
+        {
+            MarkReusable(p, cat);
+        }
+
         return p;
     }
 

@@ -240,6 +240,7 @@ internal sealed partial class Compiler
             if (table.Db == 0 && terms.Count > 0 && table.Indexes.Any(i => !i.IsPrimaryKey && terms.Any(x => Array.IndexOf(i.Columns, x.Column) >= 0)))
             {
                 _cat.Owner?.StatsUsed.Add(table.Name);
+                _cat.Owner?.CompileStatsTables.Add(table.Name);
             }
 
             if (best is not null && best.Equal.Count > 0)
