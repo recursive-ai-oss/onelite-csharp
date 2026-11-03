@@ -721,6 +721,13 @@ internal sealed class QueryEval
     internal void Prefetch(List<QPhrase> phrases)
     {
         var need = new List<(Seg, byte[])>();
+        CollectSeeks(phrases, need);
+        Fts5Store.FetchSeeks(need);
+    }
+
+    /// <summary>The searches of <see cref="Prefetch"/> that are not loaded yet, listed without signalling a restart.</summary>
+    internal void CollectSeeks(List<QPhrase> phrases, List<(Seg, byte[])> need)
+    {
         foreach (QPhrase p in phrases)
         {
             foreach (PTerm t in p.Terms)
@@ -737,8 +744,6 @@ internal sealed class QueryEval
                 }
             }
         }
-
-        Fts5Store.FetchSeeks(need);
     }
 
     private PostingList Postings(PTerm t)

@@ -34,6 +34,9 @@ internal sealed partial class Machine
     private bool _dml;
     private bool _ddl;
     private int _stmtLevel;
+
+    // The statement runs inside a transaction without a savepoint of its own (Program.NoStatementSavepoint); _stmtDirty says a write has begun.
+    private bool _noStmtSp, _stmtDirty;
     private int _stmtTempLevel;
     private int[]? _stmtAttLevels;
     private int _wstep;
@@ -565,13 +568,15 @@ internal sealed partial class Machine
         {
             _writing = true;
             // A statement inside a transaction is a savepoint of its own, so that a constraint failure undoes just this statement (lang_conflict ABORT).
-            _stmtLevel = _conn.AutoCommit ? 0 : _conn.Pager.OpenSavepoint();
+            _noStmtSp = !_conn.AutoCommit && _conn.ConcTx is null && _conn.Attached.Count == 0 && _prog.NoStatementSavepoint;
+            _stmtDirty = false;
+            _stmtLevel = _conn.AutoCommit || _noStmtSp ? 0 : _conn.Pager.OpenSavepoint();
             if (_prog.UsesTemp)
             {
                 _conn.GetTemp();
             }
 
-            _stmtTempLevel = !_conn.AutoCommit && _conn.Temp is { } tmp ? tmp.Pager.OpenSavepoint() : 0;
+            _stmtTempLevel = !_conn.AutoCommit && !_noStmtSp && _conn.Temp is { } tmp ? tmp.Pager.OpenSavepoint() : 0;
             _stmtAttLevels = _conn.AutoCommit ? null : _conn.OpenAttachedSavepoints();
             _fkStartDef = _conn.FkDeferred;
             _conn.FkImm = 0;
@@ -618,6 +623,13 @@ internal sealed partial class Machine
         return RunResult.Done;
     }
 
+    // An I/O error undoes the whole transaction, as the reference does (rescode, c3ref sqlite3_get_autocommit): the shell shows it too, a failed
+    // write in the middle of an INSERT leaves no row of the transaction behind.
+    private static bool IsIoError(Exception? e) => e is OneLiteException { ExtendedCode: var code } && (code & 0xff) == ResultCode.IoErr;
+
+    private static bool IsStorageFault(Exception? e) =>
+        e is OneLiteException { ExtendedCode: var code } && (code & 0xff) is ResultCode.IoErr or ResultCode.Full or ResultCode.Corrupt or ResultCode.NoMem or ResultCode.CantOpen;
+
     /// <summary>Ends the write side of the statement: commit in autocommit mode, statement rollback or transaction rollback after an error.</summary>
     private RunResult FinishWrite(bool error)
     {
@@ -641,7 +653,14 @@ internal sealed partial class Machine
                         {
                             _fwWhole = true;
                         }
-                        else
+                        else if (IsIoError(Error) || (_noStmtSp && (_stmtDirty || IsStorageFault(Error))))
+                        {
+                            // No savepoint to go back to. Once a write has begun only an I/O or storage fault can get here, and those undo the whole
+                            // transaction (c3ref sqlite3_get_autocommit, rescode). A storage fault before the first write (a failed cache spill or
+                            // journal flush while the pages were being fetched) leaves the pager in an unknown state, so it undoes the transaction too.
+                            _fwWhole = true;
+                        }
+                        else if (!_noStmtSp)
                         {
                             _fwStmt = true;
                         }
@@ -1095,6 +1114,17 @@ internal sealed partial class Machine
                             _conn.ConcDoomed = true;
                         }
 
+                        if (IsIoError(Error))
+                        {
+                            // An I/O error during COMMIT undoes the transaction, as the reference does (the shell leaves autocommit mode back on and
+                            // none of the rows). The rollback runs first; the COMMIT then reports the error.
+                            _hookAsked = false;
+                            _hookErr = Error;
+                            Error = null;
+                            _wstep = 20;
+                            break;
+                        }
+
                         _wstep = 0;
                         return RunResult.Error;
                     }
@@ -1348,6 +1378,7 @@ internal sealed partial class Machine
 
     private RunResult DoInsert(ref Instr ins)
     {
+        _stmtDirty = true;
         VmCursor c = _cur[ins.P1];
         long rowid = R[ins.P3].IntValue;
         BtStatus s = c.Bt!.Insert(rowid, BuildRecordOnce(ins.P2, ((TableInfo)ins.P4!).RecordWidth));
@@ -1387,6 +1418,7 @@ internal sealed partial class Machine
 
     private RunResult DoIdxInsert(ref Instr ins)
     {
+        _stmtDirty = true;
         VmCursor c = _cur[ins.P1];
         BtStatus s = c.Bt!.Insert(BuildRecordOnce(ins.P2, ins.P3), PrepareKey(ins.P2, ins.P3));
         if (s == BtStatus.Pending)

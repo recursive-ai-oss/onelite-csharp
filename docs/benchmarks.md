@@ -265,6 +265,37 @@ What was wrong, and what changed:
 
 What is still proportional to the doclist, not to the result: the rows of each term's doclist are held as row numbers plus the raw position bytes (about 20 B per row per term) while the query runs, and the segment pages read (about 250 KB per query here, most of it the binary-search probes of eight small segments). Native SQLite streams doclists and keeps neither. The remaining 3.5x is mostly this, plus one exception-based restart for each batch of pages (4 per query).
 
+## Tuning: single-row inserts and the FTS5 start
+
+Indicative before/after, x64 (Ryzen 9 7950X3D, .NET 10, reference SQLite 3.53.4), heavy-queue jobs on a shared machine (load average 9 to 16 throughout), base and new builds alternated per row, 3 rounds of 3 timed repetitions, medians. Results unchanged (checksums agree); `B/op` of every row that was 0 is still 0. Not bench-class rows.
+
+What changed:
+
+1. **No statement savepoint for a straight-line single-row `INSERT` inside a transaction.** The savepoint copied the touched page on every row. The statement is eligible only if every operation that can fail comes before its first write (no trigger, foreign key, `RETURNING`, temp or attached table, no `BEGIN CONCURRENT`); a storage fault after the first write rolls back the whole transaction, which is what an I/O error does in SQLite (see `docs/pager.md`, "I/O errors").
+2. **The insert reuses the uniqueness probe's position** (one root-to-leaf descent instead of two), probes the last cell of a page first when appending, and rebinds equal-length text into the old byte array.
+3. **FTS5 `MATCH`** loads the configuration, structure, averages and term seeks before the computation runs (no restart per missing record: four exceptions per query before, none now).
+
+| Row | Level | Before ms | After ms | Ratio to reference before | after | B/op before | after |
+|---|---|---:|---:|---:|---:|---:|---:|
+| insert_tx_10k | engine | 8.84 | 5.93 | 2.12x | 1.39x | 317 | 254 |
+| insert_tx_100k | engine | 130.6 | 94.1 | 1.64x | 1.20x | 317 | 253 |
+| insert_tx_10k | app | 13.91 | 11.37 | 1.53x | 1.08x | 637 | 638 |
+| insert_tx_100k | app | 166.6 | 124.5 | 1.32x | 0.89x | 637 | 637 |
+| fts5_top10 | engine | 100.2 | 90.6 | 1.78x | 1.87x | 658,071 | 654,638 |
+| fts5_top10 | app | 95.5 | 92.7 | 1.86x | 1.70x | 675,262 | 673,598 |
+
+Every other row is within run-to-run noise of its base (engine: `lookup_rowid` 0.93 to 1.05, `lookup_index` 0.93, `scan_filter` 0.91, `range_scan` 0.76, `join` 1.04, `group_by` 0.88, `vec0_knn` 0.94, `open_time` 0.97, `wal_commit_*` and `insert_autocommit` 0.96 to 1.08; app: `lookup_rowid` 0.96, `scan_filter` 0.82, `group_by` 1.10, `insert_autocommit` 1.06). `order_by_sort` read 1.34 in the matrix and 1.01 when rerun alone, and `prepare_cold` 1.10 and 1.06: a change to a planner data structure that was part of this work showed no gain and a small allocation increase, and was backed out. arm64 (Apple M2, engine level, one run before the last two fixes): `insert_tx_100k` 2.20x to 1.47x, `insert_tx_10k` ratio 0.75 of base, `fts5_top10` 2.07x to 1.94x, every other row within 4%; the app level was not re-run on arm64.
+
+Worst rows now (x64; ratio to the reference, engine / app): `prepare_cold` 2.7 to 4x / 2.3x, `fts5_top10` 1.9x / 1.7x, `open_time` 1.4x / n/a, `insert_tx_10k` 1.4x / 1.1x, `range_scan` 1.4x, `scan_filter` 1.3x, `lookup_index` 1.3x, `insert_tx_100k` 1.2x / 0.9x. Engine geomean 0.80 over 15 rows (0.87 before).
+
+**ReadyToRun** (a precompiled core assembly) was measured and is not worth shipping: `prepare_cold` 21 ms with the JIT against 27 to 32 ms precompiled, `insert_tx_10k`, `lookup_rowid`, `scan_filter` and `group_by` the same, `open_time` 41 to 37 ms.
+
+Next levers (not done):
+
+- **`fts5_top10`**: about 650 KB per query, roughly half in the probe pages of the binary search over eight small segments and half in the doclist evaluation. Seek through the `%_idx` rows (the segment index of the FTS5 file format) instead of binary-searching leaf pages, and stream doclists through a merge iterator instead of materializing them.
+- **A cache of shadow-table pages across queries**, which needs a reliable data-version signal from the pager (`PRAGMA data_version` is a constant today).
+- **`prepare_cold`**: every `SELECT` is name-resolved by a dry code-generation pass and generated again, and a prepare allocates about 24 KB over many small collections; one resolution pass feeding one generation pass is a restructure of the compiler.
+
 ## Where OneLite is faster
 
 `join` (0.34× / 0.49×; the plan differs and the checksums agree), `vec0_knn` (0.46× / 0.79× at engine level, from the SIMD kernels), and on x64 `wal_commit_full` and `insert_autocommit` (see the `fsync` note above).
