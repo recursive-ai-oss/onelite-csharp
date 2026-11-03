@@ -7,7 +7,13 @@ namespace RecursiveAI.OneLite.SQLitePCLRaw.Tests;
 [Collection("provider")]
 public class MdsSmokeTests
 {
-    public MdsSmokeTests() => OneLiteBatteries.Init();
+    public MdsSmokeTests()
+    {
+        // This project references the full Microsoft.Data.Sqlite package (for the native comparison), whose type initializer installs the
+        // bundled native provider the first time it runs. Run it now so that it cannot replace ours later.
+        System.Runtime.CompilerServices.RuntimeHelpers.RunClassConstructor(typeof(SqliteConnection).TypeHandle);
+        OneLiteBatteries.Init();
+    }
 
     [Fact]
     public void RunsOnOneLite()
