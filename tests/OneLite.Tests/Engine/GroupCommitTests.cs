@@ -117,7 +117,6 @@ public sealed class GroupCommitTests : IDisposable
         using (Connection c = d.Connect())
         {
             string ic = All(c, "PRAGMA integrity_check");
-            if (ic != "ok") { File.WriteAllText("/x/alera/scratch/onelite/csharp/u53/tmp/ic.txt", ic); }
             Assert.Equal("ok", ic);
             Assert.Equal((writers * perWriter).ToString(), One(c, "SELECT count(*) FROM t"));
             for (int w = 1; w <= writers; w++)
