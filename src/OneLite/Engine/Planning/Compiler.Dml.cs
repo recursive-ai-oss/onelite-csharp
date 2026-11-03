@@ -478,6 +478,8 @@ internal sealed partial class Compiler
         }
     }
 
+    private bool _truncateDelete;
+
     private void EmitDeleteRow(WriteCtx w, bool count)
     {
         SetOldRowMode(w);
@@ -500,7 +502,7 @@ internal sealed partial class Compiler
             Mark(skip);
         }
 
-        Emit(Op.Delete, w.Cursor, 0, 0, count && !w.T.WithoutRowid ? w.T : null, count ? 1 | 4 : 0);
+        Emit(Op.Delete, w.Cursor, 0, 0, count && !w.T.WithoutRowid ? w.T : null, count ? (_truncateDelete ? 1 : 1 | 4) : 0);
         if (fkImg is not null)
         {
             EmitFkParent(w.T, fkImg, null, null, null, false);
@@ -1622,7 +1624,11 @@ internal sealed partial class Compiler
             }
         }
 
+        // lang_delete, "The Truncate Optimization": a DELETE with no WHERE on a table with no triggers, foreign keys or RETURNING empties it without
+        // visiting rows, so the update hook is not called for the rows.
+        _truncateDelete = del.Where is null && del.Returning is null && !tBefore && !tAfter && !FkInvolved(t);
         EmitDeleteRow(w, true);
+        _truncateDelete = false;
         if (tAfter)
         {
             EmitTriggers(t, TriggerTime.After, TriggerEvent.Delete, oldImg, 0, null, loop);

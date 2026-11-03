@@ -603,7 +603,7 @@ public sealed partial class OneLiteSqlite3Provider : ISQLite3Provider
 
         // Only the flag: loading itself is unsupported and says so when it is tried.
         d.ExtensionsEnabled = enable != 0;
-        return d.Ok();
+        return 0;
     }
 
     /// <inheritdoc />

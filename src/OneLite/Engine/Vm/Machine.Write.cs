@@ -1450,7 +1450,7 @@ internal sealed partial class Machine
     private RunResult DoDelete(ref Instr ins)
     {
         VmCursor c = _cur[ins.P1];
-        bool hook = (ins.P5 & 4) != 0 && _conn.UpdateHook is not null;
+        bool hook = (ins.P5 & 4) != 0 && ins.P4 is TableInfo && _conn.UpdateHook is not null;
         if (hook && !_delRowidSet)
         {
             _delRowid = c.Bt!.Rowid;

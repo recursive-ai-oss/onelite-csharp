@@ -287,6 +287,9 @@ public class ProviderParityTests
         Query(log, db, "select count(*) from t");
         Exec(log, db, "insert into t(v) values (1) /* fails */, ('x', 2)");
         Exec(log, db, "insert into t(id) values (2)");
+        Exec(log, db, "delete from w");
+        Exec(log, db, "insert into t(id, v) values (500, 1), (501, 2)");
+        Exec(log, db, "delete from t");
         raw.sqlite3_update_hook(db, (SQLitePCL.delegate_update?)null, null);
         Exec(log, db, "insert into t(v) values (50)");
         raw.sqlite3_close(db);
