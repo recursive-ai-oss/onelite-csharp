@@ -159,6 +159,7 @@ internal sealed class Fts5Store : IBlobSource
     public bool TryPage(int segid, int pgno, out SegPage? page)
     {
         long id = F5.DataId(segid, pgno);
+        page = null;
         bool overlay = _ovData.Count > 0 || _ovRemoved.Count > 0; // a plan in progress changes what a page reads as: never cache then
         if (!overlay && _pages.TryGetValue(id, out page))
         {
