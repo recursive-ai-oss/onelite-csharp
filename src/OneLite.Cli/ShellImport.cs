@@ -9,27 +9,42 @@ namespace RecursiveAI.OneLite.Cli;
 
 internal sealed partial class Shell
 {
-    /// <summary>Reads records from delimited text. CSV rules: a field may be quoted with double quotes (a doubled quote is one quote), quoted fields may hold separators and newlines, CRLF ends a record.</summary>
+    /// <summary>
+    /// Reads records from delimited text with CSV quoting whatever the separators are: a field that starts with a double quote runs to the closing
+    /// quote (a doubled quote is one quote), may hold separators and newlines, and a quote followed by anything else is kept and reported.
+    /// A newline ends a record (CRLF too when the record separator is a newline).
+    /// </summary>
     private sealed class DelimitedReader
     {
         private readonly string _text;
         private readonly string _colSep;
         private readonly string _rowSep;
-        private readonly bool _csv;
+        private readonly Action<string> _report;
         private int _pos;
+        private int _line = 1;
 
-        public DelimitedReader(string text, string colSep, string rowSep, bool csv)
+        public DelimitedReader(string text, string colSep, string rowSep, Action<string> report)
         {
             _text = text;
             _colSep = colSep;
             _rowSep = rowSep;
-            _csv = csv;
+            _report = report;
         }
 
         /// <summary>The 1-based line on which the last record read started.</summary>
         public int Line { get; private set; } = 1;
 
-        private int _line = 1;
+        private bool At(int i, string s) => s.Length > 0 && string.CompareOrdinal(_text, i, s, 0, s.Length) == 0;
+
+        private int RowEndLength(int i)
+        {
+            if (At(i, _rowSep))
+            {
+                return _rowSep.Length;
+            }
+
+            return _rowSep == "\n" && At(i, "\r\n") ? 2 : 0;
+        }
 
         public bool Next(List<string> fields)
         {
@@ -43,24 +58,38 @@ internal sealed partial class Shell
             while (true)
             {
                 var sb = new StringBuilder();
-                bool quoted = _csv && _pos < _text.Length && _text[_pos] == '"';
-                if (quoted)
+                if (_text[_pos] == '"')
                 {
                     _pos++;
-                    while (_pos < _text.Length)
+                    while (true)
                     {
+                        if (_pos >= _text.Length)
+                        {
+                            _report("unterminated \"-quoted field");
+                            break;
+                        }
+
                         char c = _text[_pos];
                         if (c == '"')
                         {
-                            if (_pos + 1 < _text.Length && _text[_pos + 1] == '"')
+                            int next = _pos + 1;
+                            if (next < _text.Length && _text[next] == '"')
                             {
                                 sb.Append('"');
                                 _pos += 2;
                                 continue;
                             }
 
+                            if (next >= _text.Length || At(next, _colSep) || RowEndLength(next) > 0)
+                            {
+                                _pos = next;
+                                break;
+                            }
+
+                            _report("unescaped \" character");
+                            sb.Append('"');
                             _pos++;
-                            break;
+                            continue;
                         }
 
                         if (c == '\n')
@@ -72,27 +101,13 @@ internal sealed partial class Shell
                         _pos++;
                     }
                 }
-
-                // Unquoted tail (or the whole field) up to the next separator or record end.
-                while (_pos < _text.Length)
+                else
                 {
-                    if (string.CompareOrdinal(_text, _pos, _colSep, 0, _colSep.Length) == 0)
+                    while (_pos < _text.Length && !At(_pos, _colSep) && RowEndLength(_pos) == 0)
                     {
-                        break;
+                        sb.Append(_text[_pos]);
+                        _pos++;
                     }
-
-                    if (string.CompareOrdinal(_text, _pos, _rowSep, 0, _rowSep.Length) == 0)
-                    {
-                        break;
-                    }
-
-                    if (_csv && _text[_pos] == '\r' && _pos + 1 < _text.Length && _text[_pos + 1] == '\n')
-                    {
-                        break;
-                    }
-
-                    sb.Append(_text[_pos]);
-                    _pos++;
                 }
 
                 fields.Add(sb.ToString());
@@ -101,7 +116,7 @@ internal sealed partial class Shell
                     return true;
                 }
 
-                if (string.CompareOrdinal(_text, _pos, _colSep, 0, _colSep.Length) == 0)
+                if (At(_pos, _colSep))
                 {
                     _pos += _colSep.Length;
                     if (_pos >= _text.Length)
@@ -113,15 +128,7 @@ internal sealed partial class Shell
                     continue;
                 }
 
-                if (_csv && _text[_pos] == '\r')
-                {
-                    _pos += 2;
-                }
-                else
-                {
-                    _pos += _rowSep.Length;
-                }
-
+                _pos += RowEndLength(_pos);
                 _line++;
                 return true;
             }
@@ -205,7 +212,8 @@ internal sealed partial class Shell
             return false;
         }
 
-        var reader = new DelimitedReader(text, colSep, rowSep, csv);
+        DelimitedReader? reader = null;
+        reader = new DelimitedReader(text, colSep, rowSep, msg => ErrLine($"{file}:{reader!.Line}: {msg}"));
         var fields = new List<string>();
         for (int i = 0; i < skip; i++)
         {

@@ -33,7 +33,8 @@ internal sealed partial class Shell
 
     private bool DotDump(string[] a)
     {
-        bool nosys = false, dataOnly = false, schemaOnly = false, rowids = false;
+        bool nosys = false, dataOnly = false, rowids = false;
+        bool schemaOnly = false;
         var pats = new List<string>();
         foreach (string s in a)
         {
@@ -45,9 +46,6 @@ internal sealed partial class Shell
                 case "--data-only":
                     dataOnly = true;
                     break;
-                case "--schema-only":
-                    schemaOnly = true;
-                    break;
                 case "--preserve-rowids":
                     rowids = true;
                     break;
@@ -56,7 +54,7 @@ internal sealed partial class Shell
                 default:
                     if (s.StartsWith('-'))
                     {
-                        return DotFail($"unknown option: {s}");
+                        return OptionError(Array.IndexOf(a, s) + 1, "unknown option");
                     }
 
                     pats.Add(s);
@@ -71,17 +69,7 @@ internal sealed partial class Shell
 
         try
         {
-            if (pats.Count == 0)
-            {
-                DumpOne(null, nosys, dataOnly, schemaOnly, rowids, true);
-            }
-            else
-            {
-                foreach (string p in pats)
-                {
-                    DumpOne(p, nosys, dataOnly, schemaOnly, rowids, false);
-                }
-            }
+            DumpOne(pats, nosys, dataOnly, schemaOnly, rowids);
         }
         catch (OneLiteException e)
         {
@@ -93,28 +81,21 @@ internal sealed partial class Shell
 
     private static string Like(string pat) => " LIKE " + SqlText.QuoteString(pat) + " ESCAPE '\\'";
 
-    private void DumpOne(string? pat, bool nosys, bool dataOnly, bool schemaOnly, bool rowids, bool all)
+    private void DumpOne(List<string> pats, bool nosys, bool dataOnly, bool schemaOnly, bool rowids)
     {
-        string where = pat is null ? "1" : "tbl_name" + Like(pat).Replace(" ESCAPE '\\'", string.Empty, StringComparison.Ordinal);
-        if (!dataOnly)
+        string where = pats.Count == 0 ? "1" : string.Join(" OR ", pats.Select(p => "name LIKE " + SqlText.QuoteString(p)));
+        bool anyVirtual = QueryCells($"SELECT 1 FROM sqlite_schema AS o WHERE ({where}) AND type='table' AND sql LIKE 'CREATE VIRTUAL TABLE%' LIMIT 1").Any();
+        if (anyVirtual)
         {
-            _out.Write("PRAGMA foreign_keys=OFF;\n");
+            _out.Write("/* WARNING: Script requires that SQLITE_DBCONFIG_DEFENSIVE be disabled */\n");
         }
 
         if (!dataOnly)
         {
-            _out.Write("BEGIN TRANSACTION;\n");
+            _out.Write("PRAGMA foreign_keys=OFF;\nBEGIN TRANSACTION;\n");
         }
 
         bool writable = false;
-        if (all && !dataOnly)
-        {
-            bool anyVirtual = QueryCells("SELECT 1 FROM sqlite_schema WHERE type='table' AND sql LIKE 'CREATE VIRTUAL TABLE%' LIMIT 1").Any();
-            if (anyVirtual)
-            {
-                _out.Write("/* WARNING: Script requires that SQLITE_DBCONFIG_DEFENSIVE be disabled */\n");
-            }
-        }
 
         var tables = QueryCells($"SELECT name, type, sql FROM sqlite_schema AS o WHERE ({where}) AND type=='table' AND sql NOT NULL ORDER BY tbl_name='sqlite_sequence', rowid").ToList();
         foreach (Cell[] t in tables)
@@ -180,7 +161,6 @@ internal sealed partial class Shell
             DumpRows(name, rowids);
         }
 
-        if (!schemaOnly || true)
         {
             if (!dataOnly)
             {
@@ -210,7 +190,7 @@ internal sealed partial class Shell
         if (sql.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
         {
             string after = sql[prefix.Length..];
-            if (after.StartsWith('"') || after.StartsWith('`') || after.StartsWith('['))
+            if (after.StartsWith('"') || after.StartsWith('\''))
             {
                 return prefix + "IF NOT EXISTS " + after;
             }
@@ -234,11 +214,10 @@ internal sealed partial class Shell
         if (preserveRowids)
         {
             bool aliasesRowid = cols.Count(c => c[5] != "0") == 1 && cols.First(c => c[5] != "0")[2]?.Equals("INTEGER", StringComparison.OrdinalIgnoreCase) == true;
-            bool withoutRowid = QueryCells($"SELECT 1 FROM pragma_index_list({SqlText.QuoteString(table)}) WHERE origin='pk' AND 0").Any();
-            if (!aliasesRowid && !withoutRowid && QueryCells($"SELECT 1 FROM sqlite_schema WHERE name={SqlText.QuoteString(table)} AND sql NOT LIKE '%WITHOUT ROWID%'").Any())
+            if (!aliasesRowid && QueryCells($"SELECT 1 FROM sqlite_schema WHERE name={SqlText.QuoteString(table)} AND sql NOT LIKE '%WITHOUT ROWID%'").Any())
             {
-                select = "_rowid_," + select;
-                names.Insert(0, "_rowid_");
+                select = "rowid," + select;
+                names.Insert(0, "rowid");
             }
 
             head += "(" + string.Join(",", names.Select(SqlText.QuoteIdent)) + ")";

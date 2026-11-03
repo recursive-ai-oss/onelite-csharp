@@ -324,16 +324,37 @@ internal sealed partial class Shell : IDisposable
         Fail();
         var sb = new StringBuilder();
         sb.Append("Parse error ").Append(Context(line)).Append(": ").Append(e.Message);
-        int errorOffset = e.ErrorOffset >= 0 ? e.ErrorOffset : e.Position?.ByteOffset ?? -1;
+        int errorOffset = e.ErrorOffset;
+        if (errorOffset < 0 && e.Position is { } pos && (e.Message.StartsWith("no such column", StringComparison.Ordinal) || e.Message.StartsWith("no such function", StringComparison.Ordinal) || e.Message.StartsWith("ambiguous column", StringComparison.Ordinal)))
+        {
+            errorOffset = pos.ByteOffset;
+        }
+
         if (errorOffset >= 0)
         {
+            // The statement is shown on one line, cut to a window of 78 characters that keeps the error within 50 of the left edge;
+            // the marker points up at the place when it is near the left edge and ends at it ("error here ---^") when it is not.
             byte[] bytes = Encoding.UTF8.GetBytes(sql);
             int off = Math.Min(errorOffset, bytes.Length);
-            string before = Encoding.UTF8.GetString(bytes, 0, off);
-            string flat = FlattenLine(sql);
-            string flatBefore = FlattenLine(before);
-            sb.Append('\n').Append("  ").Append(flat);
-            sb.Append('\n').Append("  ").Append(new string(' ', flatBefore.Length)).Append("^--- error here");
+            int charOff = Encoding.UTF8.GetString(bytes, 0, off).Length;
+            string flat = FlattenLine(sql).TrimEnd();
+            int start = Math.Max(0, charOff - 50);
+            string window = flat[Math.Min(start, flat.Length)..];
+            if (window.Length > 78)
+            {
+                window = window[..78];
+            }
+
+            int col = charOff - start;
+            sb.Append('\n').Append("  ").Append(window).Append('\n');
+            if (col >= 25)
+            {
+                sb.Append("  ").Append(' ', col - 14).Append("error here ---^");
+            }
+            else
+            {
+                sb.Append("  ").Append(' ', col).Append("^--- error here");
+            }
         }
 
         if (e.Suggestions.Count > 0)
@@ -351,7 +372,6 @@ internal sealed partial class Shell : IDisposable
         var timerWatch = _timer ? Stopwatch.StartNew() : null;
         TimeSpan cpu0 = _timer ? Process.GetCurrentProcess().UserProcessorTime : default;
         TimeSpan sys0 = _timer ? Process.GetCurrentProcess().PrivilegedProcessorTime : default;
-        long totalBefore = conn.TotalChangesCount;
         if (_eqp != "off")
         {
             PrintPlan(conn, sql, st);
@@ -397,9 +417,10 @@ internal sealed partial class Shell : IDisposable
             return false;
         }
 
-        if (_changes && conn.TotalChangesCount != totalBefore)
+        st.Reset();
+        if (_changes && conn.ChangesCount != 0)
         {
-            _out.Write($"changes: {conn.ChangesCount.ToString(CultureInfo.InvariantCulture),3}   total_changes: {conn.TotalChangesCount}\n");
+            _out.Write($"changes: {conn.ChangesCount}   total_changes: {conn.TotalChangesCount}\n");
         }
 
         if (timerWatch is not null)

@@ -96,7 +96,8 @@ internal sealed partial class Shell
         return words;
     }
 
-    private static bool BoolArg(string s, out bool value)
+    /// <summary>Reads an on/off argument. Anything else is reported and taken as off, as the reference shell does.</summary>
+    private bool BoolArg(string s, out bool value)
     {
         value = false;
         if (s.Equals("on", StringComparison.OrdinalIgnoreCase) || s.Equals("yes", StringComparison.OrdinalIgnoreCase) || s == "1" || s.Equals("true", StringComparison.OrdinalIgnoreCase))
@@ -105,7 +106,12 @@ internal sealed partial class Shell
             return true;
         }
 
-        return s.Equals("off", StringComparison.OrdinalIgnoreCase) || s.Equals("no", StringComparison.OrdinalIgnoreCase) || s == "0" || s.Equals("false", StringComparison.OrdinalIgnoreCase);
+        if (!(s.Equals("off", StringComparison.OrdinalIgnoreCase) || s.Equals("no", StringComparison.OrdinalIgnoreCase) || s == "0" || s.Equals("false", StringComparison.OrdinalIgnoreCase)))
+        {
+            ErrLine($"ERROR: Not a boolean value: \"{s}\". Assuming \"no\".");
+        }
+
+        return true;
     }
 
     private bool DotFail(string message)
@@ -115,7 +121,12 @@ internal sealed partial class Shell
         return false;
     }
 
-    private bool DotUsage(string cmd, string usage) => DotFail($"Usage: {cmd} {usage}");
+    private bool DotUsage(string cmd, string usage)
+    {
+        ErrLine($"Usage: {cmd} {usage}");
+        Fail();
+        return false;
+    }
 
     /// <summary>Runs one dot-command line. Returns false after an error.</summary>
     public bool RunDot(string line, int lineNo)
@@ -129,8 +140,11 @@ internal sealed partial class Shell
 
         string cmd = w[0].ToLowerInvariant();
         string[] a = [.. w.Skip(1)];
+        _dotLine = line;
+        _dotLineNo = lineNo;
+        _dotStarts = starts;
         bool ok = RunDotCore(cmd, a, line, lineNo, starts);
-        if (_onceActive && cmd is not "once")
+        if (_onceActive && cmd is not ".once")
         {
             EndOnce();
         }
@@ -294,6 +308,9 @@ internal sealed partial class Shell
                 return DotImport(a);
             case ".recover":
                 return DotRecover(a);
+            case ".shell":
+            case ".system":
+                return DotShell(a);
             case ".backup":
             case ".save":
                 return DotBackup(a);
@@ -302,14 +319,23 @@ internal sealed partial class Shell
         }
     }
 
-    private void ModeError(string line, int lineNo, int col, string what)
+    private string _dotLine = string.Empty;
+    private int _dotLineNo;
+    private List<int> _dotStarts = [];
+
+    /// <summary>Reports a bad option the way the reference shell does: the command line again, with a caret under the word, each line prefixed by where the command came from.</summary>
+    private bool OptionError(int word, string what, string? hint = null)
     {
-        int n = Math.Max(lineNo, 1);
-        string p = $"line {n}: ";
-        ErrLine(p + line.TrimEnd());
-        ErrLine(p + new string(' ', col) + "^--- " + what);
-        ErrLine(p + "Use \".help .mode\" for more info");
+        string p = _where == "in" ? $"argv[{_argIndex}]: " : $"line {Math.Max(_dotLineNo, 1)}: ";
+        ErrLine(p + _dotLine.TrimEnd());
+        ErrLine(p + new string(' ', _dotStarts[Math.Min(word, _dotStarts.Count - 1)]) + "^--- " + what);
+        if (hint is not null)
+        {
+            ErrLine(p + hint);
+        }
+
         Fail();
+        return false;
     }
 
     private bool DotMode(string[] a, string line, int lineNo, List<int> starts)
@@ -331,8 +357,7 @@ internal sealed partial class Shell
         };
         if (mode is null)
         {
-            ModeError(line, lineNo, starts.Count > 1 ? starts[1] + 0 : 0, "unknown mode");
-            return false;
+            return OptionError(1, "unknown mode", "Use \".help .mode\" for more info");
         }
 
         for (int i = 1; i < a.Length; i++)
@@ -349,8 +374,7 @@ internal sealed partial class Shell
             {
                 if (a[i] is not ("--ww" or "--quote" or "--noquote" or "-x" or "--align"))
                 {
-                    ModeError(line, lineNo, starts[i + 1], "bad option");
-                    return false;
+                    return OptionError(i + 1, "bad option", "Use \".help .mode\" for more info");
                 }
             }
             else if (mode == OutputMode.Insert)
@@ -481,7 +505,7 @@ internal sealed partial class Shell
     {
         foreach (string?[] r in Query("PRAGMA database_list"))
         {
-            string file = string.IsNullOrEmpty(r[2]) ? "\"\"" : r[2]!;
+            string file = string.IsNullOrEmpty(r[2]) || _dbPath is ":memory:" or "" && r[1] == "main" ? "\"\"" : r[2]!;
             _out.Write($"{r[1]}: {file} {(_readOnly ? "r/o" : "r/w")}\n");
         }
 
@@ -497,23 +521,37 @@ internal sealed partial class Shell
             return;
         }
 
-        int max = names.Max(n => SqlText.DisplayWidth(SqlText.Utf8(n)));
-        int cols = Math.Max(1, 80 / (max + 3));
-        int rows = (names.Count + cols - 1) / cols;
-        cols = (names.Count + rows - 1) / rows;
-        var widths = new int[cols];
-        for (int c = 0; c < cols; c++)
+        // Names go down the columns, in as few rows as leave a gap of at least 3 spaces between columns inside 80 columns; the gap is at most 5.
+        int rows = 1;
+        int cols;
+        int[] widths;
+        int gap;
+        while (true)
         {
-            for (int r = 0; r < rows; r++)
+            cols = (names.Count + rows - 1) / rows;
+            widths = new int[cols];
+            for (int c = 0; c < cols; c++)
             {
-                int i = c * rows + r;
-                if (i < names.Count)
+                for (int r = 0; r < rows; r++)
                 {
-                    widths[c] = Math.Max(widths[c], SqlText.DisplayWidth(SqlText.Utf8(names[i])));
+                    int i = c * rows + r;
+                    if (i < names.Count)
+                    {
+                        widths[c] = Math.Max(widths[c], SqlText.DisplayWidth(SqlText.Utf8(names[i])));
+                    }
                 }
             }
+
+            gap = cols > 1 ? Math.Min(5, (80 - widths.Sum()) / (cols - 1)) : 5;
+            if (gap >= 3 || rows >= names.Count)
+            {
+                break;
+            }
+
+            rows++;
         }
 
+        gap = Math.Max(gap, 1);
         for (int r = 0; r < rows; r++)
         {
             var sb = new StringBuilder();
@@ -525,16 +563,11 @@ internal sealed partial class Shell
                     break;
                 }
 
-                if (c > 0)
-                {
-                    sb.Append("   ");
-                }
-
                 string n = names[i];
                 sb.Append(n);
                 if (i + rows < names.Count)
                 {
-                    sb.Append(' ', widths[c] - SqlText.DisplayWidth(SqlText.Utf8(n)));
+                    sb.Append(' ', widths[c] - SqlText.DisplayWidth(SqlText.Utf8(n)) + gap);
                 }
             }
 
@@ -570,7 +603,7 @@ internal sealed partial class Shell
         {
             string schema = db[1]!;
             string master = schema == "temp" ? "sqlite_temp_schema" : SqlText.AlwaysQuoteIdent(schema) + ".sqlite_schema";
-            foreach (string?[] r in Query($"SELECT name FROM {master} WHERE type='index' AND tbl_name LIKE ?1", pat))
+            foreach (string?[] r in Query($"SELECT name FROM {master} WHERE type='index' AND name NOT LIKE 'sqlite\\_%' ESCAPE '\\' AND name LIKE ?1", pat))
             {
                 names.Add(schema is "main" ? r[0]! : schema + "." + r[0]!);
             }
@@ -639,17 +672,63 @@ internal sealed partial class Shell
         try
         {
             List<string?[]> cols = Query($"PRAGMA {SqlText.AlwaysQuoteIdent(schema)}.table_info({SqlText.AlwaysQuoteIdent(name)})");
-            if (cols.Count == 0)
+            var names = cols.Select(c => c[1]!).ToList();
+            if (names.Count == 0 && Conn() is { } conn)
+            {
+                // A virtual table's declared columns: read them off a statement that selects from it.
+                using Statement st = conn.Prepare($"SELECT * FROM {SqlText.AlwaysQuoteIdent(schema)}.{SqlText.AlwaysQuoteIdent(name)}");
+                for (int i = 0; i < st.ColumnCount; i++)
+                {
+                    names.Add(st.ColumnName(i));
+                }
+            }
+
+            if (names.Count == 0)
             {
                 return string.Empty;
             }
 
-            return "/* " + SqlText.QuoteIdent(name) + "(" + string.Join(",", cols.Select(c => SqlText.QuoteIdent(c[1]!))) + ") */";
+            return "/* " + SqlText.QuoteIdent(name) + "(" + string.Join(",", names.Select(SqlText.QuoteIdent)) + ") */";
         }
         catch (OneLiteException)
         {
             return string.Empty;
         }
+    }
+
+    private bool DotShell(string[] a)
+    {
+        if (a.Length == 0)
+        {
+            return DotUsage(".shell", "CMD ARGS...");
+        }
+
+        _out.Flush();
+        try
+        {
+            bool win = OperatingSystem.IsWindows();
+            var psi = new System.Diagnostics.ProcessStartInfo(win ? "cmd" : "/bin/sh") { UseShellExecute = false, RedirectStandardOutput = !ReferenceEquals(_out, _stdout) };
+            psi.ArgumentList.Add(win ? "/c" : "-c");
+            psi.ArgumentList.Add(string.Join(" ", a));
+            using System.Diagnostics.Process? p = System.Diagnostics.Process.Start(psi);
+            if (p is not null)
+            {
+                if (psi.RedirectStandardOutput)
+                {
+                    using var ms = new MemoryStream();
+                    p.StandardOutput.BaseStream.CopyTo(ms);
+                    _out.Write(ms.ToArray());
+                }
+
+                p.WaitForExit();
+            }
+        }
+        catch (Exception e) when (e is System.ComponentModel.Win32Exception or InvalidOperationException)
+        {
+            return DotFail("cannot run the command: " + e.Message);
+        }
+
+        return true;
     }
 
     private bool DotBackup(string[] a)

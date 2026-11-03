@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Text;
 
 namespace RecursiveAI.OneLite.Cli;
@@ -283,7 +284,14 @@ internal sealed class Renderer
                 for (int i = 0; i < cells.Length; i++)
                 {
                     _out.Write(i > 0 ? _st.ColSep : "");
-                    _out.Write(TclQuote(TextOf(cells[i])));
+                    if (cells[i].Data is null || cells[i].Type is ColumnType.Integral or ColumnType.Real)
+                    {
+                        _out.Write(TextOf(cells[i]));
+                    }
+                    else
+                    {
+                        _out.Write(TclQuote(TextOf(cells[i])));
+                    }
                 }
 
                 _out.Write(_st.RowSep);
@@ -747,16 +755,27 @@ internal sealed class Renderer
             }
         }
 
-        if (_st.Mode == OutputMode.Column)
+        // .width N fixes a column's width: longer text wraps onto further lines, N < 0 aligns right.
+        bool wrapped = false;
+        for (int c = 0; c < nc; c++)
         {
-            for (int c = 0; c < nc; c++)
+            if (c < _st.Widths.Count && _st.Widths[c] != 0)
             {
-                if (c < _st.Widths.Count && _st.Widths[c] != 0)
+                width[c] = Math.Abs(_st.Widths[c]);
+                for (int r = 0; r < lines.Length; r++)
                 {
-                    width[c] = Math.Abs(_st.Widths[c]);
+                    string[] wl = WrapLines(lines[r][c], width[c]);
+                    wrapped |= wl.Length != lines[r][c].Length;
+                    lines[r][c] = wl;
+                    multi |= wl.Length > 1;
                 }
+
+                string[] hl = WrapLines(headLines[c], width[c]);
+                headLines[c] = hl;
             }
         }
+
+        _ = wrapped;
 
         switch (_st.Mode)
         {
@@ -770,6 +789,40 @@ internal sealed class Renderer
                 BoxOut(lines, right, width, headLines, multi);
                 break;
         }
+    }
+
+    /// <summary>Cuts each line into pieces of at most <paramref name="w"/> display columns.</summary>
+    private static string[] WrapLines(string[] lines, int w)
+    {
+        var o = new List<string>();
+        foreach (string l in lines)
+        {
+            if (SqlText.DisplayWidth(SqlText.Utf8(l)) <= w)
+            {
+                o.Add(l);
+                continue;
+            }
+
+            var sb = new StringBuilder();
+            int used = 0;
+            foreach (Rune r in l.EnumerateRunes())
+            {
+                int cw = SqlText.DisplayWidth(SqlText.Utf8(r.ToString()));
+                if (used + cw > w && used > 0)
+                {
+                    o.Add(sb.ToString());
+                    sb.Clear();
+                    used = 0;
+                }
+
+                sb.Append(r.ToString());
+                used += cw;
+            }
+
+            o.Add(sb.ToString());
+        }
+
+        return [.. o];
     }
 
     private byte[] QuoteCellQbox(Cell c) => QuoteCell(c, _st.NullValue);
@@ -818,17 +871,23 @@ internal sealed class Renderer
         if (_st.Headers)
         {
             var sb = new StringBuilder();
-            for (int c = 0; c < nc; c++)
+            int hdepth = headLines.Max(h => h.Length);
+            for (int d = 0; d < hdepth; d++)
             {
-                if (c > 0)
+                sb.Clear();
+                for (int c = 0; c < nc; c++)
                 {
-                    sb.Append("  ");
+                    if (c > 0)
+                    {
+                        sb.Append("  ");
+                    }
+
+                    sb.Append(Pad(d < headLines[c].Length ? headLines[c][d] : string.Empty, width[c], false, true));
                 }
 
-                sb.Append(Pad(FitTo(headLines[c][0], width[c]), width[c], false, true));
+                _out.Write(sb.ToString().TrimEnd(' ') + "\n");
             }
 
-            _out.Write(sb.ToString().TrimEnd(' ') + "\n");
             sb.Clear();
             for (int c = 0; c < nc; c++)
             {
@@ -881,13 +940,19 @@ internal sealed class Renderer
         int nc = width.Length;
         if (_st.Headers)
         {
-            var sb = new StringBuilder("|");
-            for (int c = 0; c < nc; c++)
+            var sb = new StringBuilder();
+            int hdepth = headLines.Max(h => h.Length);
+            for (int d = 0; d < hdepth; d++)
             {
-                sb.Append(' ').Append(Pad(headLines[c][0], width[c], false, true)).Append(" |");
+                sb.Clear().Append('|');
+                for (int c = 0; c < nc; c++)
+                {
+                    sb.Append(' ').Append(Pad(d < headLines[c].Length ? headLines[c][d] : string.Empty, width[c], false, true)).Append(" |");
+                }
+
+                _out.Write(sb + "\n");
             }
 
-            _out.Write(sb + "\n");
             sb.Clear().Append('|');
             for (int c = 0; c < nc; c++)
             {
@@ -951,13 +1016,18 @@ internal sealed class Renderer
         _out.Write(top);
         if (_st.Headers)
         {
-            var sb = new StringBuilder(vbar);
-            for (int c = 0; c < nc; c++)
+            int hdepth = headLines.Max(h => h.Length);
+            for (int d = 0; d < hdepth; d++)
             {
-                sb.Append(' ').Append(Pad(headLines[c][0], width[c], false, true)).Append(' ').Append(vbar);
+                var sb = new StringBuilder(vbar);
+                for (int c = 0; c < nc; c++)
+                {
+                    sb.Append(' ').Append(Pad(d < headLines[c].Length ? headLines[c][d] : string.Empty, width[c], false, true)).Append(' ').Append(vbar);
+                }
+
+                _out.Write(sb + "\n");
             }
 
-            _out.Write(sb + "\n");
             _out.Write(head);
         }
 
