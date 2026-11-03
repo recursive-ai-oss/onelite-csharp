@@ -97,7 +97,7 @@ public sealed partial class Connection
         EnsureCatalogSync();
         Catalog cat = _catalog ?? new Catalog();
         TextEncoding enc = _ctx?.Encoding ?? TextEncoding.Utf8;
-        var compiler = new Compiler(cat, sql, enc) { ForeignKeysEnabled = ForeignKeysEnabled };
+        var compiler = new Compiler(cat, sql, enc) { ForeignKeysEnabled = ForeignKeysEnabled, NoCover = _noCover };
         if (mode != PlanMode.Off && stmt is Sql.InsertStatement or Sql.UpdateStatement or Sql.DeleteStatement)
         {
             compiler.StartPlan(stmt switch { Sql.InsertStatement => "INSERT", Sql.UpdateStatement => "UPDATE", _ => "DELETE" }, mode == PlanMode.Count);

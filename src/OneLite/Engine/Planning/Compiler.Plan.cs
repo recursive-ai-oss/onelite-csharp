@@ -26,6 +26,11 @@ internal enum PlanKind : byte
     IndexIn,
 }
 
+/// <summary>Code generation found it needed a column that the index a loop was covered by does not hold.</summary>
+internal sealed class CoverMissException : Exception
+{
+}
+
 /// <summary>A WHERE term of the form <c>column op constant</c>, with the column on the left.</summary>
 internal sealed record Term(int Column, BinaryOp Cmp, Expr Value, Expr Left, Expr Right);
 
@@ -44,6 +49,12 @@ internal sealed class AccessPlan
 
     /// <summary>Walk the whole index (or the table, for a rowid scan) from its last entry to its first.</summary>
     internal bool Reverse;
+
+    /// <summary>
+    /// Every column the query reads is held by <see cref="Index"/> (or is the rowid, which the entry ends with): the loop reads the index entry and never
+    /// opens the table. The rows visited, and their order, are those of the same plan without this flag.
+    /// </summary>
+    internal bool Covered;
 
     // What a query plan reports about the choice. Read only: nothing in the compiler reads these.
     /// <summary>Why this path was taken when the reason is not evident from its shape (a covering index, a GROUP BY order).</summary>
@@ -912,6 +923,7 @@ internal sealed partial class Compiler
                 // A secondary index of a WITHOUT ROWID table: each entry ends with the primary key columns the index does not hold already
                 // (fileformat2 §1.6), which locate the table row.
                 bool wrSecondary = t.WithoutRowid && !ReferenceEquals(idx, t.PrimaryKey);
+                bool covered = plan.Covered && !t.WithoutRowid && !NoCover;
                 if (t.WithoutRowid && !wrSecondary)
                 {
                     Emit(Op.OpenRead, cur);
@@ -919,7 +931,11 @@ internal sealed partial class Compiler
                 }
                 else
                 {
-                    Emit(Op.OpenRead, cur);
+                    if (!covered)
+                    {
+                        Emit(Op.OpenRead, cur);
+                    }
+
                     _cursors.Add(new CursorSpec { Table = t, Index = idx, IsIndexTree = true, Root = idx.Root });
                     icur = _cursors.Count - 1;
                     Emit(Op.OpenRead, icur);
@@ -1002,14 +1018,33 @@ internal sealed partial class Compiler
 
                     Emit(Op.IdxProbe, cur, next, pkBase, null, pkCols.Length);
                 }
-                else if (!t.WithoutRowid)
+                else if (!t.WithoutRowid && !covered)
                 {
                     int rid = NewReg();
                     Emit(Op.IdxRowid, icur, rid);
                     Emit(Op.SeekRowid, cur, next, rid);
                 }
 
-                body(next);
+                if (covered)
+                {
+                    // The columns come from the index entry the loop stands on (see EmitSourceColumnOnly).
+                    s.CoverCursor = icur;
+                    s.CoverIndex = idx;
+                    try
+                    {
+                        body(next);
+                    }
+                    finally
+                    {
+                        s.CoverCursor = -1;
+                        s.CoverIndex = null;
+                    }
+                }
+                else
+                {
+                    body(next);
+                }
+
                 Mark(next);
                 Emit(plan.Reverse ? Op.Prev : Op.Next, icur, loop);
                 if (isIn)

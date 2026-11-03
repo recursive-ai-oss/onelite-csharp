@@ -637,6 +637,7 @@ public sealed partial class Connection : IDisposable, IAsyncDisposable
 
     /// <summary>Set by the compiler when it reads connection state a kept program could not account for.</summary>
     internal bool CompileTaint;
+    private bool _noCover;
 
     /// <summary>The tables the compile in progress added to <see cref="StatsUsed"/>; a kept program adds them again when it is taken.</summary>
     internal readonly List<string> CompileStatsTables = [];
@@ -708,7 +709,23 @@ public sealed partial class Connection : IDisposable, IAsyncDisposable
     {
         try
         {
-            return CompileSqlCore(sql, out tail, out empty, mode);
+            try
+            {
+                return CompileSqlCore(sql, out tail, out empty, mode);
+            }
+            catch (CoverMissException)
+            {
+                // A loop that reads an index alone was asked for a column the index lacks: compile again, reading the table too.
+                _noCover = true;
+                try
+                {
+                    return CompileSqlCore(sql, out tail, out empty, mode);
+                }
+                finally
+                {
+                    _noCover = false;
+                }
+            }
         }
         catch (OneLiteException e) when (e.Code == ResultCode.Error && _catalog != null
             && (e.Message.StartsWith("no such ", StringComparison.Ordinal) || e.Message.Contains(" already exists", StringComparison.Ordinal)))
@@ -831,7 +848,7 @@ public sealed partial class Connection : IDisposable, IAsyncDisposable
 
         Catalog cat = _catalog ?? new Catalog();
         TextEncoding enc = _ctx?.Encoding ?? TextEncoding.Utf8;
-        var compiler = new Compiler(cat, sql, enc);
+        var compiler = new Compiler(cat, sql, enc) { NoCover = _noCover };
         if (mode != PlanMode.Off)
         {
             compiler.StartPlan("SELECT", mode == PlanMode.Count);
