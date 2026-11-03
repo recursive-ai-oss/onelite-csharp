@@ -91,6 +91,27 @@ internal sealed class Scope
     /// <summary>Result column aliases, visible in WHERE, GROUP BY, HAVING and ORDER BY (not in the result columns themselves).</summary>
     internal Dictionary<string, Expr> Aliases = new(AsciiComparer.Instance);
     internal bool AliasesVisible;
+
+    /// <summary>True while a clause that cannot hold aggregates is being resolved: WHERE and ON, or GROUP BY and the ORDER BY of a plain query.</summary>
+    internal AggClause NoAgg;
+
+    /// <summary>True while the result columns of a query not yet known to be an aggregate query are resolved: an aggregate of this query found inside a subquery makes it one.</summary>
+    internal bool CanBecomeAgg;
+
+    /// <summary>True for the query directly under EXISTS: the reference ignores the aggregates of an enclosing query in its result columns and ORDER BY.</summary>
+    internal bool IgnoreOuterAgg;
+
+    /// <summary>True when the query is an aggregate query (aggregates in its result columns or ORDER BY, or a GROUP BY).</summary>
+    internal bool IsAgg;
+}
+
+internal enum AggClause : byte { None, Filter, Other, Order }
+
+/// <summary>Raised when a subquery holds an aggregate that belongs to an enclosing query that was not yet planned as an aggregate query (lang_aggfunc).</summary>
+internal sealed class OuterAggregateException(Scope owner, string name) : Exception
+{
+    internal string Name { get; } = name;
+    internal Scope Owner { get; } = owner;
 }
 
 /// <summary>A name introduced by WITH.</summary>
@@ -628,7 +649,7 @@ internal sealed partial class Compiler
         int cols = meta0!.Names.Length;
         if (dest.UseOperandAff)
         {
-            dest.Aff = Values.CompareAffinity(dest.OperandAff, meta0.Aff[0]);
+            dest.Aff = Values.InSetAffinity(dest.OperandAff, meta0.Aff[0]);
         }
 
         EmitCompoundOutput(cur, meta0, order, dest, limReg, offReg, end);

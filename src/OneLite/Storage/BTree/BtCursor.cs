@@ -76,6 +76,12 @@ public sealed partial class BtCursor : IDisposable
     private bool _descendLeft;
     private int _skip;
 
+    /// <summary>
+    /// True when <see cref="Restore"/> could not find the saved entry and left the cursor on its neighbour (the next <see cref="Next"/> or
+    /// <see cref="Previous"/> must not skip over it). A reader of the row sees no row then, as for a row deleted under a pending statement.
+    /// </summary>
+    public bool IsOnNeighbour => State == CursorState.Valid && _skip != 0;
+
     // Payload gathering (overflow chains). Progress survives a Pending.
     private byte[] _scratch = Array.Empty<byte>();
     private bool _gActive, _gDone;

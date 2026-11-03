@@ -119,7 +119,7 @@ internal sealed partial class Compiler
 
             // The stored values were converted as the comparison would convert them (CompareAffinity of the column and the subquery's column).
             // Same rule as IsUsableValue for an index: a conversion of the stored column values cannot be answered by looking keys up.
-            Affinity cmp = Values.CompareAffinity(colAff, meta.Aff[0]);
+            Affinity cmp = Values.InSetAffinity(colAff, meta.Aff[0]);
             // The rowid column is never converted, so a subquery's values (converted to the comparison's affinity as they were stored) always work.
             bool ok = rowid || cmp switch
             {

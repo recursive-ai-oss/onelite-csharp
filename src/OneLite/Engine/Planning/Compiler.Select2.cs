@@ -128,17 +128,20 @@ internal sealed partial class Compiler
                 }
             }
 
-            bool hasAgg = cols.Any(c => ContainsAggregate(c.Expr)) || (!order.IsDefaultOrEmpty && order.Any(o => ContainsAggregate(o.Expr)))
-                || (core.Having is not null && ContainsAggregate(core.Having));
+            // An aggregate inside a subquery belongs to this query when its arguments read this query's columns, and to an enclosing query when
+            // they read only that query's (lang_aggfunc).
+            Func<FunctionCall, bool> owns = call => OwnerScope(call) is null;
+            // HAVING alone does not make a query an aggregate query (observed: "HAVING clause on a non-aggregate query").
+            bool hasAgg = cols.Any(c => FindAggregate(c.Expr, owns) is not null) || (!order.IsDefaultOrEmpty && order.Any(o => FindAggregate(o.Expr, owns) is not null));
             bool grouped = !core.GroupBy.IsDefaultOrEmpty;
-            if (core.Where is not null && FindAggregate(core.Where) is { } wa)
+            if (core.Where is not null && FindAggregate(core.Where, owns) is { } wa)
             {
                 throw Err(AggregateMisuse(wa.Name.Text, hasAgg || grouped));
             }
 
             foreach (Expr on in joinPool.Concat(scope.Sources.SelectMany(s => s.On)))
             {
-                if (FindAggregate(on) is { } oa)
+                if (FindAggregate(on, owns) is { } oa)
                 {
                     throw Err(AggregateMisuse(oa.Name.Text, hasAgg || grouped));
                 }
@@ -190,22 +193,35 @@ internal sealed partial class Compiler
                 }
             }
 
-            DryRun(() =>
+            void ResolveNames()
             {
                 _columnsAllowed = true;
+                scope.NoAgg = AggClause.None;
+                scope.CanBecomeAgg = false;
+                scope.IgnoreOuterAgg = dest.Kind == DestKind.Exists;
+                scope.IsAgg = hasAgg;
                 if (hasAgg)
                 {
                     PostDiscover(cols.Select(c => c.Expr), core.Having, order, cols, core, dry: true);
                 }
                 else
                 {
-                    foreach ((Expr e, _) in cols)
+                    scope.CanBecomeAgg = true;
+                    try
                     {
-                        Compile(e);
+                        foreach ((Expr e, _) in cols)
+                        {
+                            Compile(e);
+                        }
+                    }
+                    finally
+                    {
+                        scope.CanBecomeAgg = false;
                     }
                 }
 
                 scope.AliasesVisible = true;
+                scope.NoAgg = AggClause.Filter;
                 if (core.Where is not null)
                 {
                     Compile(core.Where);
@@ -229,6 +245,7 @@ internal sealed partial class Compiler
                     throw groupError;
                 }
 
+                scope.NoAgg = AggClause.Other;
                 foreach (Expr g in groupExprs)
                 {
                     Compile(g);
@@ -241,6 +258,7 @@ internal sealed partial class Compiler
 
                 if (!hasAgg)
                 {
+                    scope.NoAgg = AggClause.Order;
                     for (int k = 0; k < order.Length; k++)
                     {
                         if (ResolveOrderTerm(order[k].Expr, cols, k) < 0)
@@ -251,7 +269,30 @@ internal sealed partial class Compiler
                 }
 
                 scope.AliasesVisible = false;
-            });
+            }
+
+            // The first pass learns whether a subquery holds an aggregate of this query; if so the query is an aggregate query and the pass runs again.
+            try
+            {
+                DryRun(ResolveNames);
+            }
+            catch (OuterAggregateException ex) when (ReferenceEquals(ex.Owner, scope) && !hasAgg)
+            {
+                scope.NoAgg = AggClause.None;
+                hasAgg = true;
+                try
+                {
+                    DryRun(ResolveNames);
+                }
+                catch (OuterAggregateException again)
+                {
+                    throw Err("misuse of aggregate: " + again.Name + "()");
+                }
+            }
+            finally
+            {
+                scope.NoAgg = AggClause.None;
+            }
 
             if (_win is not null && !hasAgg)
             {
@@ -302,7 +343,7 @@ internal sealed partial class Compiler
             };
             if (dest.UseOperandAff && meta.Aff.Length > 0)
             {
-                dest.Aff = Values.CompareAffinity(dest.OperandAff, meta.Aff[0]);
+                dest.Aff = Values.InSetAffinity(dest.OperandAff, meta.Aff[0]);
             }
 
             var pipe = new Pipe { Cols = cols, N = cols.Count, Core = core, Dest = dest };
@@ -628,7 +669,7 @@ internal sealed partial class Compiler
         }
     }
 
-    private static Expr[] ResolveGroupTerms(SimpleSelect core, List<(Expr Expr, string Name)> cols)
+    private Expr[] ResolveGroupTerms(SimpleSelect core, List<(Expr Expr, string Name)> cols)
     {
         CheckLowPositionsFirst(core.GroupBy, cols.Count, "GROUP BY");
         var res = new Expr[core.GroupBy.Length];
@@ -644,7 +685,7 @@ internal sealed partial class Compiler
                     throw Err($"{Ordinal(k + 1)} GROUP BY term out of range - should be between 1 and {cols.Count}");
                 }
 
-                if (FindAggregate(cols[(int)n - 1].Expr) is not null)
+                if (FindAggregate(cols[(int)n - 1].Expr, call => OwnerScope(call) is null) is not null)
                 {
                     throw Err("aggregate functions are not allowed in the GROUP BY clause");
                 }
@@ -653,7 +694,7 @@ internal sealed partial class Compiler
                 continue;
             }
 
-            if (FindAggregate(e) is not null)
+            if (FindAggregate(e, call => OwnerScope(call) is null) is not null)
             {
                 throw Err("aggregate functions are not allowed in the GROUP BY clause");
             }
