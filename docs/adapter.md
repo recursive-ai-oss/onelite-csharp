@@ -64,14 +64,14 @@ Each of these returns a documented result, never a silent success.
 
 ### Results
 
-Run against `Microsoft.Data.Sqlite` 10.0.14's and EF Core 10.0.14's tests, with `SQLitePCLRaw` 3.0.5, on SQLite 3.53.4 compatibility. The EF suite is run serially, in three groups of at most 25 minutes (not-`Query`, `Query` for Northwind and Gears of War, the rest of `Query`).
+Run against `Microsoft.Data.Sqlite` 10.0.14's and EF Core 10.0.14's tests, with `SQLitePCLRaw` 3.0.5, on SQLite 3.53.4 compatibility. The EF suite is run serially, in three groups of at most 25 minutes (tests outside the `Microsoft.EntityFrameworkCore.Query` namespace, the ones in it for Northwind and Gears of War, the rest of that namespace).
 
 | Suite | Tests | Passed | Failed | Skipped by the suite |
 |---|---|---|---|---|
 | `Microsoft.Data.Sqlite` | 687 | 670 | 10 | 7 |
-| EF Core SQLite, not `Query` | 20,580 | 20,374 | 7 | 199 |
-| EF Core SQLite, `Query` Northwind and Gears of War | 8,313 | 8,290 | 2 | 21 |
-| EF Core SQLite, other `Query` | 8,525 | 8,453 | 3 | 69 |
+| EF Core SQLite, not `Query` | 20,564 | 20,358 | 7 | 199 |
+| EF Core SQLite, `Query` Northwind and Gears of War | 8,313 | 8,292 | 0 | 21 |
+| EF Core SQLite, other `Query` | 8,541 | 8,471 | 1 | 69 |
 
 Every failure, classified:
 
@@ -84,7 +84,6 @@ Every failure, classified:
 | 1 | `Functions_dont_bleed_across_connections` | Documented: `pragma_function_list` is not implemented. |
 | 1 | EF `SqliteComplianceTest.All_test_bases_must_be_implemented` | Not applicable: it checks the fetched subset of the test tree against the full one. |
 | 1 | EF `PrimitiveCollectionsQuerySqliteTest.Parameter_collection_Concat_column_collection` | The test asserts a wrong answer that the native library gives (a correlated `json_each` inside a compound subquery repeats the first row's array); OneLite returns the right count. |
-| 4 | EF `GroupBy_with_aggregate_containing_complex_where`, `Aggregate_over_subquery_in_group_by_projection_2` (sync and async) | Known difference: an aggregate in a subquery whose arguments are all outer columns (`select (select max(t0.id) ... where t0.v = max(t.id)) from t group by ...`) belongs to the outer query in SQLite; OneLite reports "misuse of aggregate". |
 
 One more EF failure seen in an earlier run, `EntitySplittingQuerySqliteTest.Tph_entity_owning_a_split_reference_on_middle_without` (an `ArgumentOutOfRangeException` when a statement handle was released by the finalizer thread while the connection's statement list changed), is fixed by guarding that list.
 
