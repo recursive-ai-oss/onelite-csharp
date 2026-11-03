@@ -260,6 +260,9 @@ internal sealed class VmProgram
     internal CursorSpec[] Cursors = [];
     internal string[] ColumnNames = [];
 
+    /// <summary>Per result column, the declared type of the table column it is a plain reference to; null for an expression (sqlite3_column_decltype).</summary>
+    internal string?[] ColumnDecl = [];
+
     /// <summary>The statement writes the temp database, so the temp database must exist when it starts.</summary>
     internal bool ForceTemp;
 

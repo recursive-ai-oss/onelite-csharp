@@ -175,6 +175,9 @@ internal sealed class FuncDef
     internal int MaxArgs { get; }
 
     internal FuncId Id { get; }
+
+    /// <summary>The implementation of a function registered through Connection.CreateFunction; null for a built-in.</summary>
+    internal UserScalarFunction? User { get; init; }
 }
 
 /// <summary>The function table (lang_corefunc). A static table: no reflection, nothing registered at run time.</summary>

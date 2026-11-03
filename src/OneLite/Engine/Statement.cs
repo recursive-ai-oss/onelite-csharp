@@ -214,6 +214,11 @@ public sealed class Statement : IDisposable, IAsyncDisposable
     /// <summary>Number of result columns.</summary>
     public int ColumnCount => _prog.ResultCount;
 
+    /// <summary>The declared type of the table column that result column <paramref name="index"/> is a plain reference to (<c>sqlite3_column_decltype</c>); null for an expression.</summary>
+    /// <param name="index">0-based column index.</param>
+    /// <returns>The type text as written in CREATE TABLE (empty for a column declared without a type), or null.</returns>
+    public string? ColumnDeclaredType(int index) => (uint)index < (uint)_prog.ColumnDecl.Length ? _prog.ColumnDecl[index] : null;
+
     /// <summary>The name of result column <paramref name="index"/> as SQLite names it (the alias, the column name, or the expression text).</summary>
     /// <param name="index">0-based column index.</param>
     /// <returns>The name.</returns>

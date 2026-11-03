@@ -13,6 +13,9 @@ internal enum AggKind : byte
     Min,
     Max,
     GroupConcat,
+
+    /// <summary>An aggregate registered through Connection.CreateAggregate.</summary>
+    User,
     JsonGroupArray,
     JsonbGroupArray,
     JsonGroupObject,
@@ -26,6 +29,9 @@ internal sealed class AggSpec
     internal bool Distinct;
     internal CollKind Coll;
     internal int NArgs;
+
+    /// <summary>For AggKind.User, makes the state of one group.</summary>
+    internal Func<IUserAggregate>? UserFactory;
 
     /// <summary>Terms of <c>f(x ORDER BY ...)</c>; empty when the call has no ORDER BY. The sorted input is [keys..., args...].</summary>
     internal SortTerm[] Order = [];
@@ -55,6 +61,7 @@ internal sealed class AggState
     private SetStore? _seen;
     private List<byte[]>? _ordered;
     private bool _bestSet;
+    private IUserAggregate? _user;
 
     internal AggState(AggSpec spec, TextEncoding enc)
     {
@@ -74,6 +81,7 @@ internal sealed class AggState
         _rerr = 0;
         _any = false;
         _bestSet = false;
+        _user = null;
         _best = default;
         _concat?.Clear();
         _sepNext = false;
@@ -207,6 +215,25 @@ internal sealed class AggState
 
     private bool Apply(ReadOnlySpan<Mem> args)
     {
+        if (_spec.Kind == AggKind.User)
+        {
+            _user ??= _spec.UserFactory!();
+            try
+            {
+                _user.Accumulate(args);
+            }
+            catch (OneLiteException)
+            {
+                throw;
+            }
+            catch (Exception e) when (e is not OutOfMemoryException)
+            {
+                throw new OneLiteException(ResultCode.Error, e.Message, e);
+            }
+
+            return false;
+        }
+
         if (_spec.Kind >= AggKind.JsonGroupArray)
         {
             return ApplyJson(args);
@@ -537,6 +564,43 @@ internal sealed class AggState
                 }
 
                 return;
+            case AggKind.User:
+            {
+                _user ??= _spec.UserFactory!();
+                Mem res;
+                try
+                {
+                    res = _user.GetResult();
+                }
+                catch (OneLiteException)
+                {
+                    throw;
+                }
+                catch (Exception e) when (e is not OutOfMemoryException)
+                {
+                    throw new OneLiteException(ResultCode.Error, e.Message, e);
+                }
+
+                switch (res.Kind)
+                {
+                    case StorageClass.Integral:
+                        Values.SetInt(ref dst, res.IntValue);
+                        break;
+                    case StorageClass.Real:
+                        Values.SetReal(ref dst, res.RealValue);
+                        break;
+                    case StorageClass.Text:
+                    case StorageClass.Blob:
+                        Values.SetBytes(ref dst, ref own, res.Kind, res.Bytes);
+                        break;
+                    default:
+                        Values.SetNull(ref dst);
+                        break;
+                }
+
+                return;
+            }
+
             case AggKind.Min:
             case AggKind.Max:
                 if (!_bestSet)

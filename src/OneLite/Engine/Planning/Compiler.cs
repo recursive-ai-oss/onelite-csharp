@@ -28,8 +28,13 @@ internal sealed partial class Compiler
 
     private bool _columnsAllowed;
 
+    /// <summary>The connection whose user-defined aggregates the compile in progress on this thread may call.</summary>
+    [ThreadStatic]
+    private static Connection? t_owner;
+
     internal Compiler(Catalog cat, string sql, TextEncoding enc)
     {
+        t_owner = cat.Owner;
         _cat = cat;
         _sql = sql;
         _enc = enc;
@@ -506,6 +511,11 @@ internal sealed partial class Compiler
             return CollKind.RTrim;
         }
 
+        if (t_owner?.UserCollationSlot(name) is >= 3 and var slot)
+        {
+            return (CollKind)slot;
+        }
+
         throw new OneLiteException(ResultCode.ErrorMissingCollSeq, "no such collation sequence: " + name);
     }
 
@@ -642,6 +652,11 @@ internal sealed partial class Compiler
 
         string n = f.Name.Text;
         int args = f.Args.IsDefaultOrEmpty ? 0 : f.Args.Length;
+        if (t_owner?.FindUserAggregate(n, args) is not null)
+        {
+            return AggKind.User;
+        }
+
         if (AsciiComparer.Instance.Equals(n, "count"))
         {
             return f.Star || args == 0 ? AggKind.CountStar : AggKind.Count;
@@ -1766,7 +1781,7 @@ internal sealed partial class Compiler
             throw Unsupported("aggregate syntax in " + name + "()");
         }
 
-        FuncDef? def = FunctionTable.Find(name);
+        FuncDef? def = _cat.Owner?.FindUserFunction(name, f.Args.IsDefaultOrEmpty ? 0 : f.Args.Length) ?? FunctionTable.Find(name);
         if (def is null)
         {
             if (FunctionTable.IsKnownUnsupported(name))
