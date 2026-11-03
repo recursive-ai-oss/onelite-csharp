@@ -16,7 +16,7 @@ using RecursiveAI.OneLite.Storage.Vfs;
 //   render <db>   the canonical rendering of the whole database (the format tools/OneLite.Oracle defines), for the interop runner's --reader
 //   check <db>    the structural integrity check; prints "ok" or the problems, then a line of counts
 // The file is opened through the pager, so a hot rollback journal next to it is recovered first (the file set is modified: give it a copy).
-// A database in WAL mode cannot be opened through the pager yet; it is read as a plain image of the main file (no log).
+// A database in WAL mode is read through its log (recovering it first when there is no usable -shm), as the shell reads it.
 // ONELITE_YIELD=n turns every n-th page request into Pending, to run the restart paths; ONELITE_READER=image forces the plain image reader.
 return Run(args);
 
@@ -31,7 +31,7 @@ static int Run(string[] args)
     int yield = int.Parse(Environment.GetEnvironmentVariable("ONELITE_YIELD") ?? "0", CultureInfo.InvariantCulture);
     try
     {
-        bool image = Environment.GetEnvironmentVariable("ONELITE_READER") == "image" || IsWal(args[1]);
+        bool image = Environment.GetEnvironmentVariable("ONELITE_READER") == "image";
         StorageEngine? engine = null;
         IBtPageSource src;
         Action pump;
@@ -74,13 +74,6 @@ static int Run(string[] args)
         Console.Error.WriteLine(e + " [" + e.Detail + "]");
         return 1;
     }
-}
-
-static bool IsWal(string path)
-{
-    using FileStream f = File.OpenRead(path);
-    var h = new byte[20];
-    return f.Read(h, 0, 20) == 20 && h[18] == 2 && h[19] == 2;
 }
 
 internal static class Renderer
