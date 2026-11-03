@@ -116,6 +116,22 @@ public sealed partial class Pager
                 continue;
             }
 
+            // After a generation the write lock stays free for a moment, so that a plain writer (or another process) polling for it can get in; without the gap
+            // a steady stream of grouped commits would hand the lock from one generation to the next and starve them.
+            long coolTicks = g.NoAnchorBefore - Stopwatch.GetTimestamp();
+            if (coolTicks > 0)
+            {
+                int coolMs = (int)Math.Max(1, coolTicks * 1000 / Stopwatch.Frequency);
+                yield return GroupWaitRq(Task.Delay(coolMs), cancellable: true);
+                if (_comp.Status != 0)
+                {
+                    WFail(_comp.Status, "waiting for the group commit failed");
+                    yield break;
+                }
+
+                continue;
+            }
+
             foreach (IoRequest r in WalLock(WalIndex.WriteLock, 1, true, false))
             {
                 yield return r;
@@ -474,6 +490,11 @@ public sealed partial class Pager
             {
                 g.Open = false;
                 g.Closing = false;
+                // A gap of an eighth of a sync (at most 2 ms) when syncs are slow enough for it to matter: about 10% of throughput at most.
+                if (g.LastSyncTicks >= Stopwatch.Frequency / 1000)
+                {
+                    g.NoAnchorBefore = Stopwatch.GetTimestamp() + Math.Min(g.LastSyncTicks / 8, Stopwatch.Frequency / 500);
+                }
             }
 
             g.Wake();

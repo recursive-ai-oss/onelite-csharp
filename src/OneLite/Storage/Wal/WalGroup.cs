@@ -48,6 +48,9 @@ internal sealed class WalGroup
     /// <summary>How long the last sync took, in <see cref="System.Diagnostics.Stopwatch"/> ticks.</summary>
     public long LastSyncTicks;
 
+    /// <summary>Stopwatch timestamp before which a new generation does not take the write lock (a gap for other writers).</summary>
+    public long NoAnchorBefore;
+
     /// <summary>For each committer that appended recently, the value of <see cref="SyncSeq"/> when it last did: the writers a sync may expect to cover.</summary>
     public readonly Dictionary<int, long> Active = [];
 

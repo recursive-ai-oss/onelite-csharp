@@ -59,7 +59,7 @@ public static class ConcKill
 
     private static void WriterLoop(string db, FileStream ledger, object gate, int src, SynchronousMode sync, CountdownEvent ready, bool announce = false)
     {
-        var opts = new DatabaseOptions { JournalMode = JournalMode.Wal, ConcurrentWrites = true, Synchronous = sync, BusyTimeoutMs = 20000, WalAutoCheckpoint = 200 };
+        var opts = new DatabaseOptions { JournalMode = JournalMode.Wal, ConcurrentWrites = true, Synchronous = sync, BusyTimeoutMs = 20000, WalAutoCheckpoint = 200, ConcurrentGroupCommit = Environment.GetEnvironmentVariable("ONELITE_CONC_GROUP") != "off" };
         using Database database = Database.Open(db, opts);
         using Connection c = database.Connect();
         Exec(c, "PRAGMA journal_mode=WAL");
@@ -198,18 +198,28 @@ public static class ConcKill
             }
 
             bool allReady = true;
+            string notReady = "";
             foreach (Process p in procs)
             {
                 Task<string?> line = p.StandardOutput.ReadLineAsync();
                 if (!line.Wait(TimeSpan.FromSeconds(90)) || line.Result != "READY")
                 {
                     allReady = false;
+                    // Say what happened to it: still running (a hang) or gone (with what it printed).
+                    string err = "";
+                    if (p.WaitForExit(500))
+                    {
+                        string e = p.StandardError.ReadToEnd();
+                        err = e.Substring(0, Math.Min(e.Length, 1800)).Replace('\n', ' ');
+                    }
+
+                    notReady += p.HasExited ? $" [exited {p.ExitCode}: {err}]" : " [still running]";
                 }
             }
 
             if (!allReady)
             {
-                failures.Add($"kill {k}: a writer did not report READY");
+                failures.Add($"kill {k}: a writer did not report READY{notReady}");
             }
 
             System.Threading.Thread.Sleep(rnd.Next(4) == 0 ? rnd.Next(0, 10) : rnd.Next(0, maxDelay + 1));

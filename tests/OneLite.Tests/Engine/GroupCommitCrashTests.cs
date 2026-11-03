@@ -28,8 +28,10 @@ public sealed class GroupCommitCrashTests(ITestOutputHelper output) : IDisposabl
         }
     }
 
-    private const int Writers = 4;
-    private const int PerWriter = 5;
+    // ONELITE_GROUP_SWEEP=wide runs more writers, more commits and a cut every 1/250 of the calls (a longer sweep for the worker).
+    private static readonly bool Wide = Environment.GetEnvironmentVariable("ONELITE_GROUP_SWEEP") == "wide";
+    private static readonly int Writers = Wide ? 8 : 4;
+    private static readonly int PerWriter = Wide ? 10 : 5;
 
     private static DatabaseOptions Opts(IVfs vfs) => new()
     {
@@ -190,7 +192,7 @@ public sealed class GroupCommitCrashTests(ITestOutputHelper output) : IDisposabl
         Assert.Equal(Writers * PerWriter, acks.Count);
 
         int images = 0;
-        long step = Math.Max(1, (end - start) / 80);
+        long step = Math.Max(1, (end - start) / (Wide ? 250 : 80));
         for (long k = start; k <= end; k = k == end ? end + 1 : Math.Min(end, k + step))
         {
             var must = new HashSet<(int, int)>(acks.Where(a => a.Ops <= k).Select(a => (a.W, a.I)));

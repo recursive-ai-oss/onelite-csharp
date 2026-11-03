@@ -66,7 +66,7 @@ The write lock is held while a commit replays, so its hold time grows with the s
 
 ## Durability and throughput
 
-A commit has the cost of an ordinary WAL commit, and with `synchronous=FULL` the WAL write lock is held through the sync, so commits are bounded by one sync each whatever the number of writers (group commit is not implemented). Concurrent writers help when transactions spend their time in the statements rather than in the commit; very short transactions on one machine gain nothing, and replay adds a little work to every commit that follows another.
+A commit has the cost of an ordinary WAL commit. With `synchronous=FULL`, concurrent commits of one process share WAL syncs (group commit, `docs/wal.md`): a commit is acknowledged only after a sync that covers it, and readers see it only after that sync. Commits of different processes still take the write lock in turn and cost one sync each. `DatabaseOptions.ConcurrentGroupCommit = false` turns the sharing off. It has no effect on plain `BEGIN`, `BEGIN IMMEDIATE`, autocommit or `synchronous=NORMAL`. Concurrent writers help when transactions spend their time in the statements rather than in the commit; very short transactions on one machine gain nothing, and replay adds a little work to every commit that follows another.
 
 ## When it helps
 
@@ -82,8 +82,21 @@ Indicative numbers from one 16-core x64 machine (Linux, local NVMe, WAL, 4 KiB p
 - With no work in the body (B = 0) concurrent is 7% to 19% slower: every commit that follows another also replays its trace.
 - With writers in separate processes the ratios are the same within noise (B = 100 µs: 2.4x at four writers, 3.6x at eight; B = 1 ms: 2.9x and 6.4x).
 - When 20% of the transactions also update one shared row, eight writers at 1 ms still gain 5.6x, with 11% of the attempts aborting and retried.
-- **With `synchronous=FULL` there is no gain yet**: the write lock is held through the sync, so both modes commit at one sync per commit (50 to 150 commits per second on the disk used here, depending on its load) whatever the number of writers.
+- **With `synchronous=FULL`, threads of one process gain from group commit** (table below); separate processes do not (they commit at one sync per lock hold in turn, 130 to 155 commits per second with four or eight writers, the same as `BEGIN IMMEDIATE`).
 - A commit that finds the write lock busy first retries it for up to a millisecond with only a yield between tries, because the holder is usually a replay of a few microseconds; only then does the usual busy schedule (1, 2, 5, ... ms) apply. The spin counts against `busy_timeout`, and without a timeout or a busy handler a busy lock still fails at once. Plain `BEGIN IMMEDIATE` and every other wait use the schedule alone.
+
+`synchronous=FULL`, threads of one process, the same workloads: `BEGIN CONCURRENT` commits per second divided by `BEGIN IMMEDIATE` commits per second (the disk's sync took 7 to 20 ms during these runs, so `BEGIN IMMEDIATE` made 50 to 150 commits per second; one run per cell, so cells are noisy).
+
+| `synchronous=FULL` | W=2 | W=4 | W=8 |
+|---|---|---|---|
+| update, B = 0 | 1.8 | 2.5 | 3.6 |
+| update, B = 100 µs | 2.0 | 1.9 | 3.7 |
+| update, B = 1000 µs | 1.9 | 3.7 | 3.6 |
+| insert, B = 0 | 1.6 | 1.5 | 3.6 |
+| insert, B = 100 µs | 1.5 | 1.4 | 3.7 |
+| insert, B = 1000 µs | 1.5 | 1.6 | 3.4 |
+
+One writer is unchanged (about 1.0), and `synchronous=NORMAL` is unchanged by group commit (the NORMAL table above is the same with it on or off, within 3%). Writers fall into groups that take turns, so with two or four writers a sync often covers only part of them; eight writers share most syncs.
 
 The workloads are `conc-shapes` in `OneLite.Durability`; they say nothing about other hardware, and the publishable comparison is the benchmark suite's.
 
