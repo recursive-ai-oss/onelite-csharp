@@ -397,9 +397,19 @@ internal sealed partial class Machine
                 // foreignkeys: an immediate constraint is checked when the statement ends (a deferred one, too, outside a transaction).
                 if (!Nested && (_conn.FkImm != 0 || (_conn.AutoCommit && _conn.FkDeferred != 0)))
                 {
+                    if (ins.P3 != 0)
+                    {
+                        // A one-row INSERT ... VALUES is checked before the row is written in the reference, so its rowid never reaches last_insert_rowid().
+                        _conn.LastInsertRowid = R[ins.P3 - 1].IntValue;
+                    }
+
                     throw ConstraintError(ConstraintCodes.ForeignKey, "FOREIGN KEY constraint failed", ErrorAction.Abort);
                 }
 
+                _pc++;
+                return RunResult.Done;
+            case Op.SaveRowid:
+                Values.SetInt(ref R[ins.P1], _conn.LastInsertRowid);
                 _pc++;
                 return RunResult.Done;
             case Op.FkAdd:

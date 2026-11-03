@@ -60,6 +60,9 @@ internal sealed partial class Compiler
 
     private bool _fkUsed;
 
+    // The register holding last_insert_rowid() from before a one-row INSERT, or 0.
+    private int _fkRestoreRowid;
+
     private sealed class FkKey
     {
         internal TableInfo Parent = null!;
