@@ -65,7 +65,9 @@ public sealed class GroupCommitTests : IDisposable
     private (int Commits, int WalSyncs) Workload(string name, bool group, int writers, int perWriter)
     {
         string path = Path.Combine(_dir, name);
-        var vfs = new FaultVfs(FileVfs.Instance);
+        // A sync of a few milliseconds, as on most disks, so that commits arrive while one is running. A fast sync (some CI machines) gives
+        // each commit its own and makes the sharing claim depend on the machine.
+        var vfs = new FaultVfs(FileVfs.Instance, new FaultOptions { SyncLatencyMs = 2 });
         using (Database d0 = Database.Open(path, Opts(vfs, group)))
         using (Connection c0 = d0.Connect())
         {

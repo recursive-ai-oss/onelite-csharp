@@ -53,6 +53,11 @@ internal static class SqliteOracle
 
     private static Process Start(string db, string? sql)
     {
+        if (OperatingSystem.IsWindows())
+        {
+            return StartWindows(db, sql);
+        }
+
         // stderr is folded into stdout by the shell so the order of messages is kept.
         var psi = new ProcessStartInfo("/bin/sh")
         {
@@ -70,6 +75,27 @@ internal static class SqliteOracle
         }
 
         return Process.Start(psi)!;
+    }
+
+    // Windows has no /bin/sh: cmd.exe folds stderr into stdout instead, and the SQL goes in on stdin so no statement text passes through
+    // cmd.exe's quoting. Only the "database is locked" style outcomes are compared on Windows, which read the same either way.
+    private static Process StartWindows(string db, string? sql)
+    {
+        var psi = new ProcessStartInfo("cmd.exe")
+        {
+            Arguments = "/d /s /c \"\"" + Require() + "\" \"" + db + "\" 2>&1\"",
+            RedirectStandardOutput = true,
+            RedirectStandardInput = true,
+            UseShellExecute = false,
+        };
+        Process p = Process.Start(psi)!;
+        if (sql != null)
+        {
+            p.StandardInput.WriteLine(sql);
+            p.StandardInput.Close();
+        }
+
+        return p;
     }
 
     public static bool IsBusy(string output) => output.Contains("database is locked", StringComparison.Ordinal);
