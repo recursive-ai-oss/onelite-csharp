@@ -50,7 +50,7 @@ check reports that difference whatever the oracle. A metamorphic check where bot
 Each check carries the families of what it uses. `--families` restricts a run.
 
 - **Shapes:** `select`, `orderlimit`, `distinct`, `aggregate`, `join`, `subquery`, `cte`, `window`, `compound`, `view`, `series`
-  (`generate_series`), `pragma`.
+  (`generate_series`), `pragma`, and `inseek` (`x IN (list)` / `x IN (SELECT ...)` on the rowid, indexed and plain columns; only generated when named, so other seeds are unchanged).
 - **Expressions:** `affinity`, `collation`, `cast`, `string`, `math`, `datetime`, `function` (core functions), `json`, `like`.
   `expr` marks every check.
 - **Setup:** `ddl`, `dml`, `upsert`, `returning`, `trigger`, `generated`.

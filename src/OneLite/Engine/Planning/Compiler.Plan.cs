@@ -18,6 +18,12 @@ internal enum PlanKind : byte
 
     /// <summary>A range of one index (or of a WITHOUT ROWID table's primary key): equality on leading columns, then an optional range.</summary>
     Index,
+
+    /// <summary>One rowid seek for each distinct value of <c>rowid IN (list or subquery)</c>, in ascending order.</summary>
+    RowidIn,
+
+    /// <summary>One index seek for each distinct value of <c>leading-column IN (list or subquery)</c>, in ascending order.</summary>
+    IndexIn,
 }
 
 /// <summary>A WHERE term of the form <c>column op constant</c>, with the column on the left.</summary>
@@ -31,6 +37,10 @@ internal sealed class AccessPlan
     internal List<Term> Equal = [];
     internal Term? Lower;
     internal Term? Upper;
+
+    /// <summary>For <see cref="PlanKind.RowidIn"/> and <see cref="PlanKind.IndexIn"/>: the <c>IN</c> term whose values are looked up, and the table column it tests.</summary>
+    internal Expr? In;
+    internal int InColumn;
 
     /// <summary>Walk the whole index (or the table, for a rowid scan) from its last entry to its first.</summary>
     internal bool Reverse;
@@ -140,7 +150,8 @@ internal sealed partial class Compiler
                 }
             }
 
-            if (terms.Count == 0)
+            List<(Expr Term, int Column)> ins = InTerms(s, where, bound);
+            if (terms.Count == 0 && ins.Count == 0)
             {
                 return scan;
             }
@@ -234,6 +245,27 @@ internal sealed partial class Compiler
             if (best is not null && best.Equal.Count > 0)
             {
                 return best;
+            }
+
+            // x IN (...) on the rowid or on the first column of an index: one seek per distinct value (optoverview "The IN-early-out optimization"
+            // and queryplanner). An index in descending order is left out: the reference walks its values the other way round.
+            if (ins.Count > 0)
+            {
+                if (!table.WithoutRowid && ins.Find(x => x.Column == -1 || x.Column == table.RowidAlias) is { Term: not null } rw)
+                {
+                    return new AccessPlan { Kind = PlanKind.RowidIn, In = rw.Term, InColumn = -1 };
+                }
+
+                foreach (IndexInfo idx in candidates)
+                {
+                    foreach ((Expr term, int column) in ins)
+                    {
+                        if (column == idx.Columns[0] && !(idx.Desc.Length > 0 && idx.Desc[0]) && InCollationMatches(term, s, idx.Collations[0]))
+                        {
+                            return new AccessPlan { Kind = PlanKind.IndexIn, Index = idx, In = term, InColumn = column };
+                        }
+                    }
+                }
             }
 
             if (!table.WithoutRowid)
@@ -804,6 +836,22 @@ internal sealed partial class Compiler
                 return;
             }
 
+            case PlanKind.RowidIn:
+            {
+                if (!EmitInLoop(s, plan, lend, out InLoop inLoop))
+                {
+                    EmitSourceLoopCore(s, new AccessPlan { Kind = PlanKind.Scan }, lend, body);
+                    return;
+                }
+
+                Emit(Op.OpenRead, cur);
+                Emit(Op.SeekRowid, cur, inLoop.Next, inLoop.Value);
+                body(inLoop.Next);
+                Mark(inLoop.Next);
+                Emit(Op.ENext, inLoop.Cursor, inLoop.Top);
+                return;
+            }
+
             case PlanKind.RowidRange:
             {
                 Emit(Op.OpenRead, cur);
@@ -849,6 +897,16 @@ internal sealed partial class Compiler
             {
                 IndexInfo idx = plan.Index!;
                 int icur;
+                bool isIn = plan.Kind == PlanKind.IndexIn;
+                InLoop inLoop = default;
+                if (isIn && !EmitInLoop(s, plan, lend, out inLoop))
+                {
+                    EmitSourceLoopCore(s, new AccessPlan { Kind = PlanKind.Scan }, lend, body);
+                    return;
+                }
+
+                // With IN, running out of entries for one value moves on to the next value; otherwise it ends the loop.
+                int stop = isIn ? NewLabel() : lend;
 
                 // A secondary index of a WITHOUT ROWID table: each entry ends with the primary key columns the index does not hold already
                 // (fileformat2 §1.6), which locate the table row.
@@ -866,15 +924,15 @@ internal sealed partial class Compiler
                     Emit(Op.OpenRead, icur);
                 }
 
-                int k = plan.Equal.Count;
+                int k = isIn ? 1 : plan.Equal.Count;
                 int nLow = k + (plan.Lower is not null ? 1 : 0);
                 int nUp = k + (plan.Upper is not null ? 1 : 0);
                 int lowBlock = NewRegs(Math.Max(nLow, 1));
                 int upBlock = NewRegs(Math.Max(nUp, 1));
                 for (int i = 0; i < k; i++)
                 {
-                    int r = KeyReg(plan.Equal[i].Value, t.Columns[idx.Columns[i]].Affinity, true);
-                    Emit(Op.IfNull, r, lend);
+                    int r = isIn ? inLoop.Value : KeyReg(plan.Equal[i].Value, t.Columns[idx.Columns[i]].Affinity, true);
+                    Emit(Op.IfNull, r, stop);
                     Emit(Op.Copy, r, lowBlock + i);
                     Emit(Op.Copy, r, upBlock + i);
                 }
@@ -882,14 +940,14 @@ internal sealed partial class Compiler
                 if (plan.Lower is not null)
                 {
                     int r = KeyReg(plan.Lower.Value, t.Columns[idx.Columns[k]].Affinity, true);
-                    Emit(Op.IfNull, r, lend);
+                    Emit(Op.IfNull, r, stop);
                     Emit(Op.Copy, r, lowBlock + k);
                 }
 
                 if (plan.Upper is not null)
                 {
                     int r = KeyReg(plan.Upper.Value, t.Columns[idx.Columns[k]].Affinity, true);
-                    Emit(Op.IfNull, r, lend);
+                    Emit(Op.IfNull, r, stop);
                     Emit(Op.Copy, r, upBlock + k);
                 }
 
@@ -903,15 +961,15 @@ internal sealed partial class Compiler
                 bool endStrict = endBound is { Cmp: BinaryOp.Gt or BinaryOp.Lt };
                 if (plan.Reverse)
                 {
-                    Emit(Op.Last, icur, lend);
+                    Emit(Op.Last, icur, stop);
                 }
                 else if (startN == 0)
                 {
-                    Emit(Op.Rewind, icur, lend);
+                    Emit(Op.Rewind, icur, stop);
                 }
                 else
                 {
-                    Emit(startStrict ? Op.SeekGT : Op.SeekGE, icur, lend, startBlock, null, startN);
+                    Emit(startStrict ? Op.SeekGT : Op.SeekGE, icur, stop, startBlock, null, startN);
                 }
 
                 int loop = NewLabel(), next = NewLabel();
@@ -919,7 +977,7 @@ internal sealed partial class Compiler
                 if (endN > 0)
                 {
                     // Leave the loop once the entry is past the end key: >= for a strict bound, > otherwise.
-                    Emit(descRange ? (endStrict ? Op.IdxGE : Op.IdxGT) : (plan.Upper is { Cmp: BinaryOp.Lt } ? Op.IdxGE : Op.IdxGT), icur, lend, endBlock, null, endN);
+                    Emit(descRange ? (endStrict ? Op.IdxGE : Op.IdxGT) : (plan.Upper is { Cmp: BinaryOp.Lt } ? Op.IdxGE : Op.IdxGT), icur, stop, endBlock, null, endN);
                 }
 
                 if (wrSecondary)
@@ -953,6 +1011,13 @@ internal sealed partial class Compiler
                 body(next);
                 Mark(next);
                 Emit(plan.Reverse ? Op.Prev : Op.Next, icur, loop);
+                if (isIn)
+                {
+                    Mark(stop);
+                    Mark(inLoop.Next);
+                    Emit(Op.ENext, inLoop.Cursor, inLoop.Top);
+                }
+
                 return;
             }
         }

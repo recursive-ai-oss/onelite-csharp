@@ -85,7 +85,13 @@ public sealed partial class Database : ISession
     private Connection Primary()
     {
         ObjectDisposedException.ThrowIf(_closed, this);
-        return _primary ?? throw new InvalidOperationException("this Database was opened with Open; use OpenAsync or OpenDefault for the happy-path methods");
+        if (_primary is null && _readOnly)
+        {
+            // OpenReadOnly connects lazily; OpenReadOnlyAsync has already connected.
+            _primary = Connect();
+        }
+
+        return _primary ?? throw new InvalidOperationException("this Database was opened with Open; use OpenAsync, OpenDefault, OpenReadOnly or OpenReadOnlyAsync for the happy-path methods");
     }
 
     private void NotInsideWrite()

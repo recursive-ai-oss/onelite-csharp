@@ -189,7 +189,7 @@ public sealed class OneLiteCommand : DbCommand
     public override object? ExecuteScalar()
     {
         using var r = (OneLiteDataReader)ExecuteDbDataReader(CommandBehavior.Default);
-        return r.Read() ? r.GetValue(0) : null;
+        return r.Read() && r.FieldCount > 0 ? r.GetValue(0) : null;
     }
 
     /// <inheritdoc />
@@ -198,7 +198,7 @@ public sealed class OneLiteCommand : DbCommand
         var r = (OneLiteDataReader)await ExecuteDbDataReaderAsync(CommandBehavior.Default, cancellationToken).ConfigureAwait(false);
         await using (r.ConfigureAwait(false))
         {
-            return await r.ReadAsync(cancellationToken).ConfigureAwait(false) ? r.GetValue(0) : null;
+            return await r.ReadAsync(cancellationToken).ConfigureAwait(false) && r.FieldCount > 0 ? r.GetValue(0) : null;
         }
     }
 }

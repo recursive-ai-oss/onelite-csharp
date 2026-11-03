@@ -20,6 +20,7 @@ internal static class Fam
     internal const string View = "view";
     internal const string Series = "series";
     internal const string Pragma = "pragma";
+    internal const string InSeek = "inseek";
 
     // What expressions use.
     internal const string Expr = "expr";
@@ -45,7 +46,7 @@ internal static class Fam
     internal const string Temp = "temp";
     internal const string Vacuum = "vacuum";
 
-    internal static readonly string[] Shapes = [Select, OrderLimit, Distinct, Aggregate, Join, Subquery, Cte, Window, Compound, View, Series, Pragma];
+    internal static readonly string[] Shapes = [Select, OrderLimit, Distinct, Aggregate, Join, Subquery, Cte, Window, Compound, View, Series, Pragma, InSeek];
     internal static readonly string[] ExprGroups = [Affinity, Collation, Cast, Str, Math, DateTime, Core, Json, Jsonb, Like];
     internal static readonly string[] SetupGroups = [Ddl, Dml, Upsert, Returning, Trigger, Generated, Alter, Temp, Vacuum];
 

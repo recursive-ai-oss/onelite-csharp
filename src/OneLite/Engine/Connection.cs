@@ -147,12 +147,15 @@ public sealed partial class Database : IDisposable, IAsyncDisposable
         return db;
     }
 
-    /// <summary>Asynchronous twin of <see cref="OpenReadOnly"/>: awaits the backend for the existence check, so it works on a backend that has only asynchronous calls.</summary>
+    /// <summary>
+    /// Asynchronous twin of <see cref="OpenReadOnly"/>: awaits the backend for the existence check and opens the connection the happy-path methods use
+    /// (<c>QueryAsync</c>, <c>ScalarAsync</c>, <c>Table&lt;T&gt;</c>, <c>SearchAsync</c>), so it works on a backend that has only asynchronous calls.
+    /// </summary>
     /// <param name="path">The database file.</param>
     /// <param name="options">Settings; null means the defaults.</param>
     /// <param name="ct">Observed while the check waits for I/O.</param>
     /// <returns>The database.</returns>
-    /// <exception cref="OneLiteException">SQLITE_CANTOPEN if the file does not exist.</exception>
+    /// <exception cref="OneLiteException">SQLITE_CANTOPEN if the file does not exist or the backend cannot open it.</exception>
     public static async ValueTask<Database> OpenReadOnlyAsync(string path, DatabaseOptions? options = null, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(path);
@@ -160,6 +163,17 @@ public sealed partial class Database : IDisposable, IAsyncDisposable
         if (!await db.ExistsAsync(ct).ConfigureAwait(false))
         {
             throw new OneLiteException(ResultCode.CantOpen, "unable to open database file");
+        }
+
+        try
+        {
+            // The happy-path methods run on this connection; opening it here lets them work over a backend that has only asynchronous calls.
+            db._primary = await db.ConnectAsync(ct).ConfigureAwait(false);
+        }
+        catch
+        {
+            db.Dispose();
+            throw;
         }
 
         return db;

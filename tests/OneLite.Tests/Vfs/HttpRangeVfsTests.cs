@@ -290,6 +290,27 @@ public sealed class HttpRangeVfsTests : IDisposable
     }
 
     [Fact]
+    public async Task HappyPathReadsAndInSeeksOverRanges()
+    {
+        byte[] bytes = BuildDatabase("h.db", 6000);
+        string url = Serve("h.db", bytes);
+        var vfs = new HttpRangeVfs(_client, new HttpRangeOptions { BlockSize = 4096, CachedBlocks = 4096 });
+        await using Database db = await Database.OpenReadOnlyAsync(url, new DatabaseOptions { Vfs = vfs }, Ct);
+
+        // The happy path works on a read-only Database.
+        Assert.Equal("row 1234", await db.ScalarAsync<string>($"select b from t where a = {1234}", Ct));
+        long afterOne = vfs.BytesFetched;
+
+        // IN on the integer primary key and on an indexed column seeks for each value instead of fetching the table.
+        Assert.Equal([7L, 5990L], await db.QueryAsync<long>($"select a from t where a in (5990, 7, 7)", Ct));
+        Assert.Equal([5L], await db.QueryAsync<long>($"select a from t where b in ('row 5', 'nope')", Ct));
+        Assert.True(vfs.BytesFetched - afterOne < bytes.Length / 8, $"fetched {vfs.BytesFetched - afterOne} more of {bytes.Length}");
+
+        OneLiteException e = await Assert.ThrowsAsync<OneLiteException>(async () => await db.ExecuteAsync($"delete from t", Ct));
+        Assert.Equal(ResultCode.ReadOnly, e.Code);
+    }
+
+    [Fact]
     public void SyncReadOnlyOpenWorksWhereBlockingIsAllowed()
     {
         byte[] bytes = BuildDatabase("s.db", 300);
@@ -535,8 +556,8 @@ public sealed class HttpRangeVfsTests : IDisposable
         Assert.Equal(5, st.GetFieldValue<long>(0));
 
         string big = Serve("big.db", BuildDatabase("big.db", 2000));
-        OneLiteException e = await Assert.ThrowsAsync<OneLiteException>(async () => await Database.OpenReadOnlyAsync(big, new DatabaseOptions { Vfs = new HttpRangeVfs(_client) }, Ct).AsTask()
-            .ContinueWith(async t => { using Database d = t.Result; await using Connection cc = await d.ConnectAsync(Ct); await using Statement s = await cc.PrepareAsync("select 1 from t", Ct); await s.StepAsync(Ct); }, Ct, TaskContinuationOptions.None, TaskScheduler.Default).Unwrap());
+        // The read-only open connects, so the refusal surfaces there.
+        OneLiteException e = await Assert.ThrowsAsync<OneLiteException>(async () => await Database.OpenReadOnlyAsync(big, new DatabaseOptions { Vfs = new HttpRangeVfs(_client) }, Ct).AsTask());
         Assert.Equal(ResultCode.CantOpen, e.Code);
     }
 

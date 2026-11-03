@@ -4,6 +4,12 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Fixed
+
+- The happy path now works on a database opened with `Database.OpenReadOnlyAsync` / `OpenReadOnly`, over any storage backend including `HttpRangeVfs`: `QueryAsync`, `ScalarAsync`, `Table<T>().GetAsync/WhereAsync`, `SearchAsync` and their sync twins read as usual, and a write fails with `SQLITE_READONLY` ("attempt to write a readonly database"). The error for calling them on a `Database.Open` database now names the right methods. `OpenReadOnlyAsync` connects before it returns, so a backend that cannot open the file is reported there.
+- `WHERE x IN (list)` and `WHERE x IN (SELECT ...)` on the rowid / `INTEGER PRIMARY KEY`, and on the first column of an index (a `WITHOUT ROWID` primary key included), now seek once for each distinct value instead of scanning the table, in ascending value order with duplicates and NULLs dropped, as SQLite does. Over `HttpRangeVfs` this fetches a few blocks instead of the whole table.
+- `PRAGMA incremental_vacuum(N)` through `OneLiteDataReader` now returns its N column-less rows, as `Statement.Step` and the shell do, instead of an empty result; `ExecuteNonQuery` drains them.
+
 ## [0.3.0-preview.1]
 
 ### Added

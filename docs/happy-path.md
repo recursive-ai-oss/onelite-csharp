@@ -27,6 +27,13 @@ file, as `PRAGMA journal_mode=WAL` is in SQLite), so other programs that open it
 directory for the `-wal` and `-shm` files; pass `DatabaseOptions` to keep the file's journal mode. `Database.Open` is unchanged and keeps the reference defaults. Because the switch to WAL initialises a new file, `PRAGMA auto_vacuum` set afterwards has no effect until a `VACUUM` (as in SQLite; see [engine.md](engine.md)). One `Database` serializes its calls on one connection; open more connections with `Connect()` for
 parallel readers.
 
+**Read-only.** `Database.OpenReadOnlyAsync(path)` / `Database.OpenReadOnly(path)` give a `Database` that serves the same query methods (`QueryAsync`, `ScalarAsync`,
+`Table<T>().GetAsync/WhereAsync`, `SearchAsync` and their sync twins) over any VFS, `HttpRangeVfs` included; it changes nothing on open (no WAL switch, no
+`foreign_keys` pragma). A write through it (`ExecuteAsync`, `WriteAsync`, `Table<T>` inserts) fails as SQLite does on a read-only database:
+`SQLITE_READONLY`, "attempt to write a readonly database". `OpenReadOnlyAsync` connects before it returns, so it works on a backend with only asynchronous
+calls and reports a backend that cannot open the file there. `Database.Open` (the engine-layer open) gives a `Database` for `Connect()` only; its happy-path
+methods throw `InvalidOperationException` naming `OpenAsync`, `OpenDefault`, `OpenReadOnly` and `OpenReadOnlyAsync`.
+
 ## Queries
 
 `QueryAsync<T>` returns a `List<T>`. `T` is a type marked `[OneLiteRow]` or a single value type (`long`, `string`, `Guid`...), read from the first column. `ScalarAsync<T>` returns

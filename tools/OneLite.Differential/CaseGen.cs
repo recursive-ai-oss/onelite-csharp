@@ -156,7 +156,7 @@ internal sealed class CaseGen
 
     // ---- plain differential queries, by shape ----
 
-    private static readonly string[] ShapeNames = [Fam.Select, Fam.OrderLimit, Fam.Distinct, Fam.Aggregate, Fam.Join, Fam.Subquery, Fam.Cte, Fam.Window, Fam.Compound, Fam.View, Fam.Series, Fam.Pragma];
+    private static readonly string[] ShapeNames = [Fam.Select, Fam.OrderLimit, Fam.Distinct, Fam.Aggregate, Fam.Join, Fam.Subquery, Fam.Cte, Fam.Window, Fam.Compound, Fam.View, Fam.Series, Fam.Pragma, Fam.InSeek];
 
     private string PickShape()
     {
@@ -221,6 +221,7 @@ internal sealed class CaseGen
             case Fam.Compound: return Compound(tags);
             case Fam.Series: return Series(tags);
             case Fam.Pragma: return Pragma();
+            case Fam.InSeek: return InSeek(tags);
             default: return Simple(tags, orderLimit: false, distinct: false, view: false);
         }
     }
@@ -436,6 +437,55 @@ internal sealed class CaseGen
         }
 
         Absorb(tags, g);
+        return (q, null, ordered);
+    }
+
+    // x IN (list) and x IN (SELECT ...) on the rowid, indexed and plain columns: duplicates, NULLs, mixed storage classes and a second predicate.
+    // Without an ORDER BY the row order is compared too, because seeking walks the distinct values in ascending order.
+    private (Select?, string?, bool) InSeek(HashSet<string> tags)
+    {
+        TableDef t = BaseTable();
+        ColDef c = HasId(t) && _r.Chance(45) ? t.Find("id")! : _r.Pick(t.Cols);
+        var items = new List<string>();
+        int n = _r.Range(1, 6);
+        for (int i = 0; i < n; i++)
+        {
+            if (items.Count > 0 && _r.Chance(15))
+            {
+                items.Add(_r.Pick(items));
+            }
+            else if (_r.Chance(8))
+            {
+                items.Add("NULL");
+            }
+            else
+            {
+                items.Add(SchemaGen.Literal(_r, _r.Chance(65) ? c.Affinity : _r.Pick(new[] { Affin.Integer, Affin.Text, Affin.Real, Affin.Numeric })));
+            }
+        }
+
+        string rhs = _r.Next(3) switch
+        {
+            0 => "SELECT " + string.Join(" UNION ALL SELECT ", items),
+            1 => $"SELECT {_r.Pick(t.Cols).Name} FROM {t.Name}",
+            _ => string.Join(", ", items),
+        };
+        Expr where = Expr.Raw($"{c.Name} IN ({rhs})");
+        if (_r.Chance(30))
+        {
+            var g = new ExprGen(_r, _f, Scope(t, "")) { MaxDepth = 2 };
+            where = Expr.Raw($"({where}) AND ({g.Predicate()})");
+            Absorb(tags, g);
+        }
+
+        var q = new Select { From = t.Name, Cols = [Expr.Raw(HasId(t) ? "id" : c.Name), Expr.Raw(c.Name)], Where = where };
+        bool ordered = _r.Chance(60);
+        if (!ordered && HasId(t))
+        {
+            q.Order = [Expr.Raw("id")];
+            ordered = true;
+        }
+
         return (q, null, ordered);
     }
 

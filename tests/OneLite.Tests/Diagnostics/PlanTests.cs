@@ -118,7 +118,7 @@ public sealed class PlanTests : IDisposable
             new[] { "select count(*) from users where city = 'c2'",
                 "select count(*) from users u join orders o on o.user_id = u.id where u.city = 'c2'",
                 "select count(*) from users u join orders o on o.user_id = u.id join items i on i.order_id = o.id where u.city = 'c2'" }],
-        ["select * from users where id in (select user_id from orders where total > 50)", "Scan:users:- > Subquery > Scan:orders:-", new[] { "select count(*) from users", "select count(*) from orders" }],
+        ["select * from users where id in (select user_id from orders where total > 50)", "Search:users:- > Subquery > Scan:orders:- > Subquery > Scan:orders:-", new[] { "select count(*) from users where id in (select user_id from orders where total > 50)", "select count(*) from orders" }],
         ["select name, (select count(*) from orders where user_id = users.id) from users", "Scan:users:- > Subquery > Search:orders:orders_user > Aggregate",
             new[] { "select count(*) from users", "select count(*) from orders where user_id in (select id from users)" }],
         ["with big as (select * from orders where total > 90) select * from big where id > 95", "Materialize > Scan:orders:- > Scan:big:-",

@@ -35,6 +35,32 @@ public sealed class OneLiteDataReader : DbDataReader
 
     // ------------------------------------------------------------------ moving between statements
 
+    // A statement without columns that still has rows (PRAGMA incremental_vacuum) does its work as it is stepped, and leaving it early would
+    // abandon the work; closing a result set or moving past it runs it to the end, as it did before such rows were visible.
+    private void DrainColumnless(Statement st)
+    {
+        if (st.ColumnCount == 0 && !_exhausted)
+        {
+            while (st.Step())
+            {
+            }
+
+            _exhausted = true;
+        }
+    }
+
+    private async ValueTask DrainColumnlessAsync(Statement st)
+    {
+        if (st.ColumnCount == 0 && !_exhausted)
+        {
+            while (await st.StepAsync(CancellationToken.None).ConfigureAwait(false))
+            {
+            }
+
+            _exhausted = true;
+        }
+    }
+
     private void Finish(Statement st)
     {
         Count(st);
@@ -69,15 +95,26 @@ public sealed class OneLiteDataReader : DbDataReader
                     return;
                 }
 
-                if (st.ColumnCount == 0)
+                if (st.ColumnCount == 0 && (_behavior & CommandBehavior.SchemaOnly) == 0)
                 {
-                    if ((_behavior & CommandBehavior.SchemaOnly) == 0)
+                    // A statement without columns normally finishes on its first step. PRAGMA incremental_vacuum(N) instead returns one
+                    // column-less row per page freed (as the shell does), so a first row makes this a result set of N rows and no columns.
+                    _hasRow = st.Step();
+                    if (!_hasRow)
                     {
-                        while (st.Step())
-                        {
-                        }
+                        Finish(st);
+                        continue;
                     }
 
+                    _st = st;
+                    _hadRows = true;
+                    _firstRowPending = true;
+                    _exhausted = false;
+                    return;
+                }
+
+                if (st.ColumnCount == 0)
+                {
                     Finish(st);
                     continue;
                 }
@@ -119,15 +156,26 @@ public sealed class OneLiteDataReader : DbDataReader
                     return;
                 }
 
-                if (st.ColumnCount == 0)
+                if (st.ColumnCount == 0 && (_behavior & CommandBehavior.SchemaOnly) == 0)
                 {
-                    if ((_behavior & CommandBehavior.SchemaOnly) == 0)
+                    // A statement without columns normally finishes on its first step. PRAGMA incremental_vacuum(N) instead returns one
+                    // column-less row per page freed (as the shell does), so a first row makes this a result set of N rows and no columns.
+                    _hasRow = await st.StepAsync(ct).ConfigureAwait(false);
+                    if (!_hasRow)
                     {
-                        while (await st.StepAsync(ct).ConfigureAwait(false))
-                        {
-                        }
+                        await FinishAsync(st).ConfigureAwait(false);
+                        continue;
                     }
 
+                    _st = st;
+                    _hadRows = true;
+                    _firstRowPending = true;
+                    _exhausted = false;
+                    return;
+                }
+
+                if (st.ColumnCount == 0)
+                {
                     await FinishAsync(st).ConfigureAwait(false);
                     continue;
                 }
@@ -192,6 +240,7 @@ public sealed class OneLiteDataReader : DbDataReader
 
         Statement done = _st;
         _st = null;
+        DrainColumnless(done);
         Finish(done);
         Start();
         return _st is not null;
@@ -208,6 +257,7 @@ public sealed class OneLiteDataReader : DbDataReader
 
         Statement done = _st;
         _st = null;
+        await DrainColumnlessAsync(done).ConfigureAwait(false);
         await FinishAsync(done).ConfigureAwait(false);
         await StartAsync(cancellationToken).ConfigureAwait(false);
         return _st is not null;
@@ -579,6 +629,7 @@ public sealed class OneLiteDataReader : DbDataReader
             if (_st is { } st)
             {
                 _st = null;
+                DrainColumnless(st);
                 Finish(st);
             }
 
@@ -624,6 +675,7 @@ public sealed class OneLiteDataReader : DbDataReader
             if (_st is { } st)
             {
                 _st = null;
+                await DrainColumnlessAsync(st).ConfigureAwait(false);
                 await FinishAsync(st).ConfigureAwait(false);
             }
 

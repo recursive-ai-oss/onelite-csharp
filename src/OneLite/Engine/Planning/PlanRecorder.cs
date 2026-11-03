@@ -124,7 +124,7 @@ internal sealed class PlanRecorder
     {
         TableInfo t = s.Table;
         string title = string.Equals(s.Alias, t.Name, StringComparison.OrdinalIgnoreCase) || s.Alias.Length == 0 ? t.Name : t.Name + " " + s.Alias;
-        bool searching = plan.Kind is PlanKind.RowidEq or PlanKind.RowidRange || plan.Equal.Count > 0 || plan.Lower is not null || plan.Upper is not null;
+        bool searching = plan.Kind is PlanKind.RowidEq or PlanKind.RowidRange or PlanKind.RowidIn or PlanKind.IndexIn || plan.Equal.Count > 0 || plan.Lower is not null || plan.Upper is not null;
         PlanNode n = Push(searching ? PlanNodeKind.Search : PlanNodeKind.Scan, title);
         n.Table = t.Name;
         var reasons = new List<string>();
@@ -137,6 +137,21 @@ internal sealed class PlanRecorder
                 reasons.Add($"a WHERE term fixes {rowidName}, so one row is read directly");
                 rows = 1;
                 break;
+            case PlanKind.RowidIn:
+                n.Detail = $"USING INTEGER PRIMARY KEY ({rowidName}=?)";
+                reasons.Add($"{rowidName} IN (...) is answered by one row lookup per distinct value");
+                rows = 10;
+                break;
+            case PlanKind.IndexIn:
+            {
+                IndexInfo ix = plan.Index!;
+                n.Index = ix.Name;
+                n.Detail = "USING " + (t.WithoutRowid && ix.IsPrimaryKey ? "PRIMARY KEY" : "INDEX " + ix.Name) + $" ({ColName(t, ix, 0)}=?)";
+                reasons.Add($"{ix.Name} answers {ColName(t, ix, 0)} IN (...) with one lookup per distinct value");
+                rows = 10;
+                break;
+            }
+
             case PlanKind.RowidRange:
             {
                 var parts = new List<string>();
