@@ -46,6 +46,9 @@ internal sealed partial class Compiler
         internal Expr? StartOff, EndOff;
         internal FrameExclude Exclude;
         internal int[] ArgSlots = [];
+
+        /// <summary>For json_group_array and friends: a slot per argument that carries its subtype through the sorter, which stores only values.</summary>
+        internal int[] FlagSlots = [];
         internal int FilterSlot = -1, StartOffSlot = -1, EndOffSlot = -1, ResultSlot;
     }
 
@@ -519,6 +522,26 @@ internal sealed partial class Compiler
                 kind = AggKind.GroupConcat;
                 arity = !f.Star && (AsciiComparer.Instance.Equals(name, "string_agg") ? nargs == 2 : nargs is 1 or 2);
             }
+            else if (AsciiComparer.Instance.Equals(name, "median"))
+            {
+                kind = AggKind.Median;
+                arity = !f.Star && nargs == 1;
+            }
+            else if (AsciiComparer.Instance.Equals(name, "percentile") || AsciiComparer.Instance.Equals(name, "percentile_cont") || AsciiComparer.Instance.Equals(name, "percentile_disc"))
+            {
+                kind = AsciiComparer.Instance.Equals(name, "percentile") ? AggKind.Percentile : AsciiComparer.Instance.Equals(name, "percentile_cont") ? AggKind.PercentileCont : AggKind.PercentileDisc;
+                arity = !f.Star && nargs == 2;
+            }
+            else if (AsciiComparer.Instance.Equals(name, "json_group_array") || AsciiComparer.Instance.Equals(name, "jsonb_group_array"))
+            {
+                kind = AsciiComparer.Instance.Equals(name, "json_group_array") ? AggKind.JsonGroupArray : AggKind.JsonbGroupArray;
+                arity = !f.Star && nargs == 1;
+            }
+            else if (AsciiComparer.Instance.Equals(name, "json_group_object") || AsciiComparer.Instance.Equals(name, "jsonb_group_object"))
+            {
+                kind = AsciiComparer.Instance.Equals(name, "json_group_object") ? AggKind.JsonGroupObject : AggKind.JsonbGroupObject;
+                arity = !f.Star && nargs == 2;
+            }
             else
             {
                 known = FunctionTable.Find(name) is not null || FunctionTable.IsKnownUnsupported(name);
@@ -825,6 +848,15 @@ internal sealed partial class Compiler
                     c.ArgSlots[i] = slot++;
                 }
 
+                if (c.Agg is AggKind.JsonGroupArray or AggKind.JsonbGroupArray or AggKind.JsonGroupObject or AggKind.JsonbGroupObject)
+                {
+                    c.FlagSlots = new int[c.ArgSlots.Length];
+                    for (int i = 0; i < c.FlagSlots.Length; i++)
+                    {
+                        c.FlagSlots[i] = slot++;
+                    }
+                }
+
                 c.FilterSlot = c.Call.Filter is null ? -1 : slot++;
                 c.StartOffSlot = c.StartOff is null ? -1 : slot++;
                 c.EndOffSlot = c.EndOff is null ? -1 : slot++;
@@ -880,6 +912,7 @@ internal sealed partial class Compiler
         {
             Fn = c.Fn,
             ArgFields = c.ArgSlots,
+            FlagFields = c.FlagSlots,
             FilterField = c.FilterSlot,
             Unit = c.Unit switch { FrameUnit.Rows => WinUnit.Rows, FrameUnit.Groups => WinUnit.Groups, _ => WinUnit.Range },
             Start = ToBound(c.Start),
@@ -984,6 +1017,10 @@ internal sealed partial class Compiler
                     for (int i = 0; i < c.ArgSlots.Length; i++)
                     {
                         CompileInto(c.Call.Args[i], win.C + c.ArgSlots[i]);
+                        if (c.FlagSlots.Length > 0)
+                        {
+                            Emit(Op.Function, win.C + c.ArgSlots[i], 1, win.C + c.FlagSlots[i], FunctionTable.Find("subtype"));
+                        }
                     }
 
                     if (c.FilterSlot >= 0)

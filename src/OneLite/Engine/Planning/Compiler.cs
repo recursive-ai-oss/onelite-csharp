@@ -377,6 +377,7 @@ internal sealed partial class Compiler
             _code.RemoveRange(code, _code.Count - code);
             _labels.RemoveRange(labels, _labels.Count - labels);
             _nReg = regs;
+            _setRows = null;
             _params.RemoveRange(pars, _params.Count - pars);
             foreach (VariableExpr stale in _anonymous.Where(kv => kv.Value > pars).Select(kv => kv.Key).ToList())
             {
@@ -720,6 +721,27 @@ internal sealed partial class Compiler
             return f.Star || args == 0 ? AggKind.CountStar : AggKind.Count;
         }
 
+        // The percentile extension (percent.html); a star argument is refused by the arity check.
+        if (AsciiComparer.Instance.Equals(n, "median"))
+        {
+            return AggKind.Median;
+        }
+
+        if (AsciiComparer.Instance.Equals(n, "percentile"))
+        {
+            return AggKind.Percentile;
+        }
+
+        if (AsciiComparer.Instance.Equals(n, "percentile_cont"))
+        {
+            return AggKind.PercentileCont;
+        }
+
+        if (AsciiComparer.Instance.Equals(n, "percentile_disc"))
+        {
+            return AggKind.PercentileDisc;
+        }
+
         if (f.Star)
         {
             return null;
@@ -943,9 +965,24 @@ internal sealed partial class Compiler
 
             case BetweenExpr bt:
             {
-                if (!IsRow(bt.Operand) && (IsRow(bt.Low) || IsRow(bt.High)))
+                if (!IsRowish(bt.Operand) && (IsRowish(bt.Low) || IsRowish(bt.High)))
                 {
                     throw ErrAt("row value misused", bt);   // black-box: this one is positioned at the start of the BETWEEN
+                }
+
+                if (IsRowish(bt.Operand))
+                {
+                    // Row values: x BETWEEN lo AND hi is x >= lo AND x <= hi, each a row comparison.
+                    int r1 = NewReg(), r2 = NewReg();
+                    CompileRowCompare(BinaryOp.Ge, bt.Operand, bt.Low, r1);
+                    CompileRowCompare(BinaryOp.Le, bt.Operand, bt.High, r2);
+                    Emit(Op.And, r1, r2, dest);
+                    if (bt.Negated)
+                    {
+                        Emit(Op.Not, dest, dest);
+                    }
+
+                    return;
                 }
 
                 int x = Compile(bt.Operand);
@@ -1520,7 +1557,7 @@ internal sealed partial class Compiler
             return;
         }
 
-        if (IsRow(b.Left) || IsRow(b.Right))
+        if (IsRow(StripParens(b.Left)) || IsRow(StripParens(b.Right)) || IsSubqueryRowCompare(b))
         {
             if (b.Op is BinaryOp.Eq or BinaryOp.Ne or BinaryOp.Is or BinaryOp.IsNot or BinaryOp.Lt or BinaryOp.Le or BinaryOp.Gt or BinaryOp.Ge)
             {
@@ -1650,7 +1687,8 @@ internal sealed partial class Compiler
         catch (OneLiteException ex) when (ex.Message.StartsWith("sub-select returns", StringComparison.Ordinal) && StripParens(operand) is SubqueryExpr
             && b.Op is BinaryOp.Eq or BinaryOp.Ne or BinaryOp.Lt or BinaryOp.Le or BinaryOp.Gt or BinaryOp.Ge or BinaryOp.Is or BinaryOp.IsNot)
         {
-            throw ErrAt("row value misused", b);
+            // Observed: no position when the left operand is itself a subquery.
+            throw StripParens(b.Left) is SubqueryExpr ? Err("row value misused") : ErrAt("row value misused", b.Left is ParenExpr ? StripParens(b.Left) : b);
         }
     }
 
@@ -1664,6 +1702,12 @@ internal sealed partial class Compiler
 
         if (il.Items.Any(IsRow))
         {
+            if (StripParens(il.Operand) is SubqueryExpr)
+            {
+                // A subquery of several columns is refused for what it is before the row values in the list are.
+                DryRun(() => Compile(il.Operand));
+            }
+
             throw Err("row value misused");
         }
 

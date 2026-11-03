@@ -1162,12 +1162,18 @@ internal sealed partial class Compiler
                 Emit(Op.SetAdd, d.Set, bas, n, null, d.Replace ? 1 : 0);
                 break;
             case DestKind.Scalar:
-                Emit(Op.Copy, bas, d.Reg);
-                Emit(Op.Goto, 0, end != 0 ? end : d.End);
+                for (int i = 0; i < Math.Min(n, d.Width); i++)
+                {
+                    Emit(Op.Copy, bas + i, d.Reg + i);
+                }
+
+                // the first row is enough: leave the whole compound select, not just the arm that produced it
+                Emit(Op.Goto, 0, d.End != 0 ? d.End : end);
                 break;
             case DestKind.Exists:
                 Emit(Op.Integer, 0, d.Reg, 0, 1L);
-                Emit(Op.Goto, 0, end != 0 ? end : d.End);
+                // the first row is enough: leave the whole compound select, not just the arm that produced it
+                Emit(Op.Goto, 0, d.End != 0 ? d.End : end);
                 break;
         }
 

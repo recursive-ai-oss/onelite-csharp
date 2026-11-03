@@ -301,7 +301,18 @@ internal static class ErrorDiagnostics
         e.Suggestions = Closest(col, pool.Distinct(StringComparer.OrdinalIgnoreCase));
     }
 
+    // These accept any number of arguments when they are prepared (the reference reports the count only when they run); the hint says what they take.
     private static string Arity(FuncDef d)
+        => d.Name switch
+        {
+            "bm25" => "bm25() takes at least 1 argument",
+            "highlight" => "highlight() takes 4 arguments",
+            "snippet" => "snippet() takes 1 to 6 arguments",
+            "rtreecheck" => "rtreecheck() takes 1 to 2 arguments",
+            _ => ArityOf(d),
+        };
+
+    private static string ArityOf(FuncDef d)
         => d.MinArgs == d.MaxArgs ? $"{d.Name}() takes {d.MinArgs} argument{(d.MinArgs == 1 ? "" : "s")}"
             : d.MaxArgs >= 1000 ? $"{d.Name}() takes at least {d.MinArgs} argument{(d.MinArgs == 1 ? "" : "s")}"
             : $"{d.Name}() takes {d.MinArgs} to {d.MaxArgs} arguments";

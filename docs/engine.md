@@ -117,7 +117,9 @@ aggregates, `ORDER BY`/`LIMIT`, and `SELECT <exprs>` with no FROM (which never t
   `+ - * / % || & | << >>`; comparisons with datatype3 affinity and collation (`BINARY`, `NOCASE`, `RTRIM`, declared on columns
   or given with `COLLATE`); `AND OR NOT`; `IS [NOT]`, `IS [NOT] NULL`, `ISNULL`, `NOTNULL`; `[NOT] IN (list)` (items carry no
   affinity of their own); `[NOT] BETWEEN`; `[NOT] LIKE ... ESCAPE`, `GLOB`; `CASE`; `CAST`; row values (`(a, b) = (1, 2)`,
-  ordering forms, `IN`).
+  ordering forms, `IN`, `BETWEEN`), also against a subquery of several columns (`(a, b) < (SELECT x, y ...)`, `(a, b) IN (SELECT x, y
+  ...)`, `(SELECT x, y) = (a, b)`): the subquery's first row is used, all NULL when it has none, and its columns take part with the affinity
+  and collation of their result expressions, as in the reference.
 - Functions, as in lang_corefunc, lang_mathfunc and lang_datefunc: `abs changes char coalesce concat concat_ws format glob hex if
   iif ifnull instr last_insert_rowid length like likelihood likely lower ltrim max min nullif octet_length printf quote random
   randomblob replace round rtrim sign sqlite_compileoption_get/used sqlite_source_id sqlite_version substr substring
@@ -161,6 +163,13 @@ one side the first of equal rows is kept, in the order the reference reads that 
 `EXCEPT` by all its columns, so a side whose columns lead an index is read through that index, backwards for a descending one. When
 several sides are wrong the error reported is the last one's.
 `VALUES` lists and `DISTINCT` use the same ordered sets.
+
+`median`, `percentile`, `percentile_cont` and `percentile_disc` (the percentile extension built into the pinned shell) are aggregates and window
+functions: inputs are sorted as doubles, the result is the point of the line through them at P*(N-1)/100 (`percentile_disc`: the value at or below
+it), always REAL or NULL. A non-numeric input, an infinite input, a fraction outside its range and fractions that differ by more than 0.001 of the
+range from the first row's all raise the reference's errors (the fraction is checked on every row, even one whose value is NULL). They slide with an
+inverse step as window functions, and the first fraction is kept when its row leaves the frame, as observed. `json_group_array`,
+`json_group_object` and their `jsonb_` forms are window functions too (the frame is built again for each row).
 
 `GROUP BY`/`HAVING` with `count sum total avg min max group_concat string_agg`, each with `DISTINCT`, `FILTER (WHERE ...)` and an
 aggregate `ORDER BY`. `sum`, `total` and `avg` use compensated (Kahan-Babuska-Neumaier) summation like the reference. Bare

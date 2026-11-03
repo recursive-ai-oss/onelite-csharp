@@ -41,3 +41,9 @@ insert into nope values(1);\n
 .show\n
 .tables\n.indexes\n.schema\n.databases\n
 .width 8 6\n.mode column\nselect 1,2;\nselect 'abc', 'x';\n.width -8 -8\nselect 1,'abc';\n
+select 1; select abs(-9223372036854775808); select 2;\nselect 3;\n
+create table t(a unique); insert into t values(1); insert into t values(1); select 'after'; select * from t;\n
+select 1;\nselect nope;\nselect 2; select 3\n
+select 1;\nselect 'abc;\nselect 2;\n
+select 1 select 2;\nselect 3;\n
+select median(1); select (1,2) < (select 1,3); select 5;\n

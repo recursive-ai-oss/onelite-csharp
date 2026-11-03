@@ -1225,7 +1225,7 @@ internal sealed partial class Compiler
         var sets = new List<(int Col, Expr Value, int Part, int Of)>();
         foreach (SetClause sc in setClauses)
         {
-            if (sc.Columns.Length > 1 && ValueWidth(sc.Value) is int width && width != sc.Columns.Length)
+            if ((sc.Columns.Length > 1 || sc.Parenthesized) && ValueWidth(sc.Value) is int width && width != sc.Columns.Length)
             {
                 throw Err(sc.Columns.Length + " columns assigned " + width + " values");
             }
@@ -1286,6 +1286,7 @@ internal sealed partial class Compiler
     private void EmitUpdateBody(WriteCtx w, List<(int Col, Expr Value, int Part, int Of)> sets, ConflictAction? mode, int skip, ReturningClause? returning, bool count, Action<int, int, string[]>? retOut)
     {
         TableInfo t = w.T;
+        _setRows = null;
         SetOldRowMode(w);
         var setCols = new HashSet<int>(sets.Select(s => s.Col));
         bool rowidChanged = setCols.Contains(-1) || (t.RowidAlias >= 0 && setCols.Contains(t.RowidAlias));
@@ -1469,6 +1470,9 @@ internal sealed partial class Compiler
         }
     }
 
+    // The values of SET (a, b) = (SELECT ...) subqueries already computed for the row being rewritten, by the expression that asked.
+    private Dictionary<Expr, int>? _setRows;
+
     private void CompileSetValue((int Col, Expr Value, int Part, int Of) s, int reg)
     {
         if (s.Of > 1)
@@ -1479,7 +1483,26 @@ internal sealed partial class Compiler
                 return;
             }
 
-            throw Unsupported("multi-column SET from a subquery");
+            if (StripParens(s.Value) is SubqueryExpr sq)
+            {
+                // The subquery runs once for the row; each column of (a, b) takes its part of the first row it returns.
+                _setRows ??= [];
+                if (!_setRows.TryGetValue(s.Value, out int rows))
+                {
+                    rows = CompileRowSubquery(sq.Select, s.Of, out SelectMeta meta);
+                    if (meta.Names.Length != s.Of)
+                    {
+                        throw Err(s.Of + " columns assigned " + meta.Names.Length + " values");
+                    }
+
+                    (_setRows ??= [])[s.Value] = rows;
+                }
+
+                Emit(Op.Copy, rows + s.Part, reg);
+                return;
+            }
+
+            throw Unsupported("multi-column SET from this kind of value");
         }
 
         CompileInto(s.Value, reg);

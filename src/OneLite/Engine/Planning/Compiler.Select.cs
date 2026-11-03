@@ -174,6 +174,9 @@ internal sealed class Dest
     internal DestKind Kind;
     internal int Cursor;
     internal int Reg;
+
+    /// <summary>For a scalar subquery: how many consecutive registers from <see cref="Reg"/> take the columns of its first row (row values compare a subquery with several).</summary>
+    internal int Width = 1;
     internal int Set;
 
     /// <summary>For an IN (SELECT ...) set: the affinity applied to stored values.</summary>
@@ -192,7 +195,7 @@ internal sealed class Dest
     /// <summary>LIMIT and OFFSET registers and the exit label of a compound select whose rows stream through this destination.</summary>
     internal int LimReg, OffReg, End;
 
-    internal Dest WithLimit(int lim, int off, int end) => new() { Kind = Kind, Cursor = Cursor, Reg = Reg, Set = Set, Aff = Aff, Replace = Replace, UseOperandAff = UseOperandAff, OperandAff = OperandAff, LimReg = lim, OffReg = off, End = end };
+    internal Dest WithLimit(int lim, int off, int end) => new() { Kind = Kind, Cursor = Cursor, Reg = Reg, Width = Width, Set = Set, Aff = Aff, Replace = Replace, UseOperandAff = UseOperandAff, OperandAff = OperandAff, LimReg = lim, OffReg = off, End = end };
 }
 
 /// <summary>What a SELECT's result columns look like to whoever reads them.</summary>

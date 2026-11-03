@@ -29,6 +29,11 @@ internal static class Fts3Aux
             throw new OneLiteException(ResultCode.Error, "unable to use function " + name + " in the requested context");
         }
 
+        if (id == Vm.FuncId.Fts5Snippet && args.Length > 6)
+        {
+            throw new OneLiteException(ResultCode.Error, "wrong number of arguments to function snippet()");
+        }
+
         switch (id)
         {
             case Vm.FuncId.Fts3Optimize:

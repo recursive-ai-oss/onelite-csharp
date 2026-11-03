@@ -8,7 +8,7 @@ internal enum InsertVerb { Insert, Replace }
 internal sealed record InsertSource(SelectStatement? Select) : SqlNode;
 
 /// <summary>col = expr, or (col, col, ..) = expr.</summary>
-internal sealed record SetClause(ImmutableArray<Name> Columns, Expr Value) : SqlNode;
+internal sealed record SetClause(ImmutableArray<Name> Columns, Expr Value, bool Parenthesized = false) : SqlNode;
 
 /// <summary>
 /// ON CONFLICT [(target) [WHERE ..]] DO NOTHING | DO UPDATE SET .. [WHERE ..]. <c>Target</c> is empty when the clause has no conflict target.

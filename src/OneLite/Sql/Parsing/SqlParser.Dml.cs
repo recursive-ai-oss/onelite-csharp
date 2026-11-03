@@ -141,8 +141,10 @@ internal sealed partial class SqlParser
         {
             int start = Peek(0).Start;
             ImmutableArray<Name> cols;
+            bool parenthesized = false;
             if (Accept(TokenKind.LParen))
             {
+                parenthesized = true;
                 cols = ParseColumnNameListUntilParen();
             }
             else
@@ -152,7 +154,7 @@ internal sealed partial class SqlParser
 
             Expect(TokenKind.Eq);
             Expr value = ParseExpr();
-            b.Add(Done(new SetClause(cols, value), start));
+            b.Add(Done(new SetClause(cols, value, parenthesized), start));
         }
         while (Accept(TokenKind.Comma));
         return Builders<SetClause>.Finish(b);

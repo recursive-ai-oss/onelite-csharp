@@ -122,7 +122,8 @@ internal sealed partial class Compiler
                     AggKind.GroupConcat => AsciiComparer.Instance.Equals(name, "string_agg") ? nargs == 2 : nargs is 1 or 2,
                     AggKind.JsonGroupObject or AggKind.JsonbGroupObject => nargs == 2,
                     AggKind.User => true,
-                    _ => nargs == 1,
+                    AggKind.Percentile or AggKind.PercentileCont or AggKind.PercentileDisc => !f.Star && nargs == 2,
+                    _ => !f.Star && nargs == 1,
                 };
                 if (!arityOk)
                 {
@@ -638,6 +639,61 @@ internal sealed partial class Compiler
         Emit(Op.Copy, cache, dest);
     }
 
+    /// <summary>
+    /// A scalar subquery whose first row is wanted as <paramref name="width"/> values in consecutive registers (the first of which is returned),
+    /// NULLs when it has no row: the operand of a row value comparison, or the value of <c>SET (a, b) = (SELECT ...)</c>. The caller checks that the
+    /// subquery has that many columns.
+    /// </summary>
+    private int CompileRowSubquery(SelectStatement sel, int width, out SelectMeta meta)
+    {
+        int first = BeginSubquery(out Probe probe, out int guard, PlanNodeKind.Subquery, "scalar");
+        try
+        {
+            if (width > 1)
+            {
+                NewRegs(width - 1);
+            }
+
+            for (int i = 0; i < width; i++)
+            {
+                Emit(Op.Null, 0, first + i);
+            }
+
+            meta = CompileSelectStmt(sel, new Dest { Kind = DestKind.Scalar, Reg = first, Width = width });
+        }
+        finally
+        {
+            EndSubquery(probe, guard);
+        }
+
+        return first;
+    }
+
+    private readonly Dictionary<SelectStatement, int> _selectWidths = [];
+
+    /// <summary>The number of columns a subquery returns: read off a plain column list, else found by compiling it once and throwing the code away.</summary>
+    private int SubqueryWidth(SubqueryExpr sq)
+    {
+        if (ValueWidth(sq) is int known)
+        {
+            return known;
+        }
+
+        if (!_selectWidths.TryGetValue(sq.Select, out int w))
+        {
+            int found = 0;
+            DryRun(() => { CompileRowSubquery(sq.Select, 1, out SelectMeta m); found = m.Names.Length; });
+            _selectWidths[sq.Select] = w = found;
+        }
+
+        return w;
+    }
+
+    /// <summary>True for a comparison between two subqueries when one of them returns several columns (a row value comparison).</summary>
+    private bool IsSubqueryRowCompare(BinaryExpr b)
+        => b.Op is BinaryOp.Eq or BinaryOp.Ne or BinaryOp.Is or BinaryOp.IsNot or BinaryOp.Lt or BinaryOp.Le or BinaryOp.Gt or BinaryOp.Ge
+           && StripParens(b.Left) is SubqueryExpr l && StripParens(b.Right) is SubqueryExpr r && (SubqueryWidth(l) > 1 || SubqueryWidth(r) > 1);
+
     private void CompileExists(SelectStatement sel, int dest)
     {
         int cache = BeginSubquery(out Probe probe, out int guard, PlanNodeKind.Subquery, "EXISTS");
@@ -660,7 +716,8 @@ internal sealed partial class Compiler
 
     private void CompileInSelect(Expr operand, SelectStatement sel, bool negated, int dest)
     {
-        int width = operand is RowValueExpr rv ? rv.Items.Length : 1;
+        Expr operandCore = StripParens(operand);
+        int width = operandCore is RowValueExpr rv ? rv.Items.Length : operandCore is SubqueryExpr osq && SubqueryWidth(osq) > 1 ? SubqueryWidth(osq) : 1;
         // The operand belongs to the enclosing query: resolve it before the subquery's probe opens, or its columns would make an
         // uncorrelated subquery look correlated and it would be rebuilt for every outer row.
         Affinity operandAff = width == 1 ? CmpAffOf(operand) : Affinity.None;
@@ -704,20 +761,34 @@ internal sealed partial class Compiler
             return;
         }
 
-        var items = ((RowValueExpr)operand).Items;
+        Expr[]? items = operandCore is RowValueExpr orv ? [.. orv.Items] : null;
         var colls = new CollKind[width];
         for (int i = 0; i < width; i++)
         {
+            if (items is null)
+            {
+                colls[i] = meta.Coll[i];
+                continue;
+            }
+
             CollOf(items[i], out bool a2, out bool any2);
             _ = a2;
             colls[i] = any2 ? CollOf(items[i], out _) : meta.Coll[i];
         }
 
         spec.Collations = colls;
-        int xs = NewRegs(width);
-        for (int i = 0; i < width; i++)
+        int xs;
+        if (items is null)
         {
-            CompileInto(items[i], xs + i);
+            xs = CompileRowSubquery(((SubqueryExpr)operandCore).Select, width, out _);
+        }
+        else
+        {
+            xs = NewRegs(width);
+            for (int i = 0; i < width; i++)
+            {
+                CompileInto(items[i], xs + i);
+            }
         }
 
         Emit(Op.InSet, set, xs, dest, null, (negated ? 1 : 0) | (width << 1));
@@ -727,27 +798,97 @@ internal sealed partial class Compiler
 
     private static bool IsRow(Expr e) => e is RowValueExpr;
 
-    /// <summary>A comparison of row values: (a,b) = (c,d), and the ordering forms, which stop at the first pair that differs (lang_expr "Row Values").</summary>
+    /// <summary>A row value, or a subquery that returns several columns: either one compares as a row.</summary>
+    private bool IsRowish(Expr e) => StripParens(e) is RowValueExpr || StripParens(e) is SubqueryExpr sq && SubqueryWidth(sq) > 1;
+
+    /// <summary>One side of a row value comparison: the items of a row value, or the columns of a subquery's first row.</summary>
+    private sealed class RowSide
+    {
+        internal Expr[]? Items;
+        internal int Base;
+        internal SelectMeta? Meta;
+        internal int Width;
+        internal int Reg(int i) => Items is null ? Base + i : Base;
+    }
+
+    /// <summary>A comparison of row values: (a,b) = (c,d), and the ordering forms, which stop at the first pair that differs (lang_expr "Row Values"). Either side may be a subquery with several columns.</summary>
     private void CompileRowCompare(BinaryOp op, Expr left, Expr right, int dest)
     {
-        if (left is not RowValueExpr l || right is not RowValueExpr r || l.Items.Length != r.Items.Length)
+        Expr ls = StripParens(left), rs = StripParens(right);
+        int wl = ls is RowValueExpr lr ? lr.Items.Length : ls is SubqueryExpr lq && SubqueryWidth(lq) > 1 ? SubqueryWidth(lq) : 0;
+        int wr = rs is RowValueExpr rr ? rr.Items.Length : rs is SubqueryExpr rq && SubqueryWidth(rq) > 1 ? SubqueryWidth(rq) : 0;
+        if (wl == 0 || wl != wr)
         {
             // Observed: a plain left operand against a row value points at the comparison; any other shape has no position.
-            OneLiteException misuse = left is not RowValueExpr && right is RowValueExpr ? ErrAt("row value misused", left) : Err("row value misused");
+            OneLiteException misuse = wl == 0 && wr > 0 && ls is not SubqueryExpr ? ErrAt("row value misused", ls) : Err("row value misused");
             misuse.Data[ResolveTimeKey] = true;
             throw misuse;
         }
 
-        int n = l.Items.Length;
+        int n = wl;
         var a = new int[n];
         var b = new int[n];
-        for (int i = 0; i < n; i++)
+        var sideL = new RowSide { Items = ls is RowValueExpr lrv ? [.. lrv.Items] : null, Width = n };
+        var sideR = new RowSide { Items = rs is RowValueExpr rrv ? [.. rrv.Items] : null, Width = n };
+        if (sideL.Items is not null && sideR.Items is not null)
         {
-            a[i] = Compile(l.Items[i]);
-            b[i] = Compile(r.Items[i]);
+            for (int i = 0; i < n; i++)
+            {
+                a[i] = Compile(sideL.Items[i]);
+                b[i] = Compile(sideR.Items[i]);
+            }
+        }
+        else
+        {
+            foreach ((RowSide side, Expr e, int[] regs) in new[] { (sideL, ls, a), (sideR, rs, b) })
+            {
+                if (side.Items is not null)
+                {
+                    for (int i = 0; i < n; i++)
+                    {
+                        regs[i] = Compile(side.Items[i]);
+                    }
+                }
+                else
+                {
+                    side.Base = CompileRowSubquery(((SubqueryExpr)e).Select, n, out SelectMeta meta);
+                    side.Meta = meta;
+                    if (meta.Names.Length != n)
+                    {
+                        OneLiteException misuse = Err("row value misused");
+                        misuse.Data[ResolveTimeKey] = true;
+                        throw misuse;
+                    }
+
+                    for (int i = 0; i < n; i++)
+                    {
+                        regs[i] = side.Base + i;
+                    }
+                }
+            }
         }
 
-        int Flags(int i) => CmpFlags(Values.CompareAffinity(CmpAffOf(l.Items[i]), CmpAffOf(r.Items[i])), PairColl(l.Items[i], r.Items[i]));
+        // The affinity and collation of a pair: an operand is its expression, a subquery column is what the subquery says of its result column.
+        Affinity AffAt(RowSide s, int i) => s.Items is not null ? CmpAffOf(s.Items[i]) : s.Meta!.Aff[i];
+        CollKind CollAt(RowSide s, int i, out bool explicitColl, out bool any)
+        {
+            if (s.Items is not null)
+            {
+                return CollOf(s.Items[i], out explicitColl, out any);
+            }
+
+            explicitColl = false;
+            any = false;
+            return CollKind.Binary;
+        }
+
+        int Flags(int i)
+        {
+            CollKind lc = CollAt(sideL, i, out bool le, out bool la);
+            CollKind rc = CollAt(sideR, i, out bool re, out bool ra);
+            CollKind coll = le ? lc : re ? rc : la ? lc : ra ? rc : CollKind.Binary;
+            return CmpFlags(Values.CompareAffinity(AffAt(sideL, i), AffAt(sideR, i)), coll);
+        }
 
         if (op is BinaryOp.Eq or BinaryOp.Ne or BinaryOp.Is or BinaryOp.IsNot)
         {
@@ -803,10 +944,11 @@ internal sealed partial class Compiler
     private void CompileInRows(InListExpr il, int dest)
     {
         var left = il.Operand;
-        int width = ((RowValueExpr)left).Items.Length;
+        int width = ((RowValueExpr)StripParens(left)).Items.Length;
         foreach (Expr item in il.Items)
         {
-            int terms = item is RowValueExpr r ? r.Items.Length : 1;
+            Expr core = StripParens(item);
+            int terms = core is RowValueExpr r ? r.Items.Length : core is SubqueryExpr sq && il.Items.Length == 1 ? SubqueryWidth(sq) : 1;
             if (terms != width)
             {
                 throw Err("IN(...) element has " + terms + (terms == 1 ? " term" : " terms") + " - expected " + width);
