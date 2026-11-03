@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using RecursiveAI.OneLite.Storage;
 using RecursiveAI.OneLite.Storage.Record;
 
@@ -102,6 +103,7 @@ internal sealed class AggState
     }
 
     /// <summary>Feeds one row. Returns true if the call changed its "best" value (min and max), which is what picks the row bare columns come from.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     internal bool Step(ReadOnlySpan<Mem> args)
     {
         if (_ordered is not null)
@@ -503,8 +505,8 @@ internal sealed class AggState
             {
                 do
                 {
-                    byte[] row = sorter.Current;
-                    view.Parse(row, 0, row.Length);
+                    RecordSorter.SortRow row = sorter.Current;
+                    view.Parse(row.Buf, row.Off, row.Len);
                     for (int i = 0; i < args.Length; i++)
                     {
                         view.Load(terms.Length + i, ref args[i]);

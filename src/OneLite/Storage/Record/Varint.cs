@@ -15,6 +15,13 @@ public static class Varint
     /// <returns>The number of bytes used, or 0 if <paramref name="src"/> ended inside the varint.</returns>
     public static int Read(ReadOnlySpan<byte> src, out ulong value)
     {
+        if (src.Length > 0 && src[0] < 0x80)
+        {
+            // The one-byte form covers nearly every serial type and header size.
+            value = src[0];
+            return 1;
+        }
+
         ulong v = 0;
         int n = Math.Min(8, src.Length);
         for (int i = 0; i < n; i++)
@@ -41,6 +48,11 @@ public static class Varint
     /// <summary>The encoded length of <paramref name="value"/>.</summary>
     public static int Length(ulong value)
     {
+        if (value < 0x80)
+        {
+            return 1;
+        }
+
         if ((value & 0xff00000000000000UL) != 0)
         {
             return 9;
@@ -59,6 +71,12 @@ public static class Varint
     /// <returns>The number of bytes written.</returns>
     public static int Write(Span<byte> dst, ulong value)
     {
+        if (value < 0x80)
+        {
+            dst[0] = (byte)value;
+            return 1;
+        }
+
         if ((value & 0xff00000000000000UL) != 0)
         {
             dst[8] = (byte)value;

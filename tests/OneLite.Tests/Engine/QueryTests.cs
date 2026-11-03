@@ -288,8 +288,8 @@ public sealed class QueryTests : IDisposable
         int count = 0;
         for (; ; )
         {
-            byte[] row = sorter.Current;
-            view.Parse(row, 0, row.Length);
+            var row = sorter.Current;
+            view.Parse(row.Buf, row.Off, row.Len);
             long key = view.GetInt64(0), seq = view.GetInt64(1);
             Assert.True(key > prevKey || (key == prevKey && seq > prevSeq));
             prevKey = key;
