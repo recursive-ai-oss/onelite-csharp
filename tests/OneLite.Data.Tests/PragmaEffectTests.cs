@@ -44,7 +44,7 @@ public sealed class PragmaEffectTests : IDisposable
         ("busy_timeout", [], "pragma busy_timeout=1234", [], ["pragma busy_timeout"], []),
         ("locking_mode", [], "pragma locking_mode=exclusive", [], ["pragma locking_mode"], []),
         ("secure_delete", [], "pragma secure_delete=on", [], ["pragma secure_delete"], []),
-        ("writable_schema", [], "pragma writable_schema=on", [], ["pragma writable_schema"], []),
+        ("trusted_schema", [], "pragma trusted_schema=on", [], ["pragma trusted_schema"], []),
         ("temp_store", [], "pragma temp_store=2", [], ["pragma temp_store"], []),
         ("recursive_triggers", [], "pragma recursive_triggers=on", [], ["pragma recursive_triggers"], []),
         ("integrity_check", [Rows, "insert into t(b) values ('x')"], "pragma integrity_check", [], [], ["select count(*) from t"]),

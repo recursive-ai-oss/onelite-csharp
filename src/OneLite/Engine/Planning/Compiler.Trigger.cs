@@ -191,7 +191,7 @@ internal sealed partial class Compiler
             throw Err("trigger " + name + " already exists");
         }
 
-        if (name.StartsWith("sqlite_", StringComparison.OrdinalIgnoreCase))
+        if (name.StartsWith("sqlite_", StringComparison.OrdinalIgnoreCase) && !WritableSchema)
         {
             throw Err("object name reserved for internal use: " + name);
         }

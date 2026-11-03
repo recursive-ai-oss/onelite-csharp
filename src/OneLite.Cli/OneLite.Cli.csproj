@@ -7,10 +7,22 @@
     <!-- A tool is not a library: no API surface to validate, and it is not published trimmed. -->
     <EnablePackageValidation>false</EnablePackageValidation>
     <IsTrimmable>false</IsTrimmable>
+    <TrimmerSingleWarn>false</TrimmerSingleWarn>
+    <!-- The tool is framework-dependent when packed. Publish it with -p:OneLiteAot=true (NativeAOT) or -p:OneLiteTrim=true (trimmed, self-contained). The switches are
+         private properties so that a global PublishAot does not reach the source generator project. -->
+    <PublishAot Condition="'$(OneLiteAot)' == 'true'">true</PublishAot>
+    <PublishTrimmed Condition="'$(OneLiteTrim)' == 'true'">true</PublishTrimmed>
+    <SelfContained Condition="'$(OneLiteTrim)' == 'true'">true</SelfContained>
     <Description>The onelite command-line tool for OneLite, a pure-managed SQLite-compatible database: open, query, dump, import and recover database files. $(PackageDescriptionNotice)</Description>
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="OneLite.Cli.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Analyze every shipped assembly in full when the tool is published trimmed or with NativeAOT, not only what it calls. -->
+    <TrimmerRootAssembly Include="RecursiveAI.OneLite" />
     <ProjectReference Include="../OneLite/OneLite.csproj" />
   </ItemGroup>
 

@@ -6,12 +6,16 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Added
 
+- The `onelite` command-line tool (`RecursiveAI.OneLite.Cli`, not yet published): a shell used like `sqlite3`. Output in the `list`, `csv`, `tabs`, `ascii`, `line`, `json`, `column`, `box`, `table`, `markdown`, `quote` and `html` modes is byte for byte the pinned `sqlite3` shell's; `.dump` is identical on Chinook, Northwind and Sakila and loads in either direction; `.import` (CSV and plain) matches the shell's; `.recover` writes live rows and rows carved from free space as SQL without touching the file. See `docs/cli.md`.
 - `RecursiveAI.OneLite.SQLitePCLRaw`: an `ISQLite3Provider` for SQLitePCLRaw that runs on OneLite, so `Microsoft.Data.Sqlite` and EF Core's SQLite provider use it without a native library (`OneLiteBatteries.Init()`). `Microsoft.Data.Sqlite`'s own tests pass 670 of 687 and EF Core's SQLite functional tests 37,117 of 37,418 (289 skipped by the suites; the 12 failures are classified in `docs/adapter.md`). Connections through the adapter start with `foreign_keys` on, as the native library bundled with SQLitePCLRaw does; the core and `.Data` keep SQLite's default (off).
 - `X REGEXP Y` calls a user function `regexp(Y, X)` as SQLite documents; without one it fails with "no such function: regexp".
 - Group commit for `BEGIN CONCURRENT` at `synchronous=FULL` or EXTRA: concurrent commits of one process share WAL syncs. A commit is acknowledged only after a sync that covers it, and readers see it only after that sync, so durability is unchanged; on the test disk eight threads commit 3.4 to 3.7 times as fast as with `BEGIN IMMEDIATE` (before: no gain at FULL). It affects nothing unless `ConcurrentWrites` is on and `BEGIN CONCURRENT` is used; plain `BEGIN`, `BEGIN IMMEDIATE`, autocommit and `synchronous=NORMAL` are unchanged. `DatabaseOptions.ConcurrentGroupCommit = false` turns it off. See `docs/wal.md` and `docs/concurrency.md`.
 
 ### Fixed
 
+- `PRAGMA writable_schema=ON` is honoured (it was ignored): the schema table can be written and `sqlite_` names created, so the shell's `.dump` of `AUTOINCREMENT` and virtual-table databases loads.
+- The `sql` stored for `CREATE INDEX` and `CREATE VIEW` keeps the text before the closing `;` as the reference does (white space and comments after the last token).
+- `PRAGMA table_info` and `table_xinfo` list the columns of virtual tables (hidden columns in `table_xinfo` only).
 - `PRAGMA index_xinfo` and `index_info` name the column of an index key on a virtual generated column (they reported an expression with a NULL name).
 - `LIMIT` and `OFFSET` can no longer refer to columns of the query or of an outer query ("no such column", as SQLite).
 

@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>RecursiveAI.OneLite.Cli.Tests</RootNamespace>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Using Include="System" />
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/OneLite.Cli/OneLite.Cli.csproj" />
+    <ProjectReference Include="../../tools/OneLite.Oracle/OneLite.Oracle.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="../../testdata/cli/*" LinkBase="cli" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

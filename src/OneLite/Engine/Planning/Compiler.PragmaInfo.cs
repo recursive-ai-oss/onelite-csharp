@@ -124,11 +124,13 @@ internal sealed partial class Compiler
                 }
                 else if (t is not null)
                 {
+                    // A virtual table's columns are what its module declares, so the module is connected first. Hidden columns are table_xinfo's.
+                    EnsureVirtual(t);
                     int[] pkOrder = PragmaPkColumns(t);
                     for (int i = 0; i < t.Columns.Length; i++)
                     {
                         ColumnInfo c = t.Columns[i];
-                        int hidden = c.Generated == GeneratedKind.Virtual ? 2 : c.Generated == GeneratedKind.Stored ? 3 : 0;
+                        int hidden = c.Hidden ? 1 : c.Generated == GeneratedKind.Virtual ? 2 : c.Generated == GeneratedKind.Stored ? 3 : 0;
                         if (!x && hidden != 0)
                         {
                             continue;
@@ -136,7 +138,8 @@ internal sealed partial class Compiler
 
                         int pk = Array.IndexOf(pkOrder, i) + 1;
                         bool notNull = c.NotNull || (pk > 0 && (t.WithoutRowid || (t.Strict && i != t.RowidAlias)));
-                        object?[] row = [rows.Count, c.Name, c.TypeText, notNull ? 1 : 0, c.DefaultText, pk];
+                        string? typeText = c.Hidden && c.TypeText is { } tt && tt.EndsWith("HIDDEN", StringComparison.OrdinalIgnoreCase) ? tt[..^6].TrimEnd() : c.TypeText;
+                        object?[] row = [rows.Count, c.Name, typeText, notNull ? 1 : 0, c.DefaultText, pk];
                         rows.Add(x ? [.. row, hidden] : row);
                     }
                 }
