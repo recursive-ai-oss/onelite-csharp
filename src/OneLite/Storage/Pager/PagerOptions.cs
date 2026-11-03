@@ -51,6 +51,12 @@ public sealed class PagerOptions
     /// </summary>
     public int ConcurrentCommitHoldLimitMs { get; init; } = 5000;
 
+    /// <summary>
+    /// Let concurrent commits of connections in this process share one WAL sync under <c>synchronous=FULL</c> or EXTRA (docs/wal.md, group commit).
+    /// Default true.
+    /// </summary>
+    public bool GroupCommit { get; init; } = true;
+
     /// <summary>How long, in microseconds, a <c>BEGIN CONCURRENT</c> commit retries a busy WAL write lock with only a yield between tries before it asks <see cref="Busy"/>; 0 or null: no spin.</summary>
     internal Func<int>? BusySpinBudgetUs { get; init; }
 

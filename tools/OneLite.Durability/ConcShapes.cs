@@ -50,6 +50,7 @@ public static class ConcShapes
             Synchronous = sync == "full" ? SynchronousMode.Full : SynchronousMode.Normal,
             Busy = retries => retries < 100_000 ? 0 : 1,
             ConcurrentCommitHoldLimitMs = 0,
+            ConcurrentGroupCommit = GroupOn,
         }
         : new()
         {
@@ -58,7 +59,11 @@ public static class ConcShapes
             Synchronous = sync == "full" ? SynchronousMode.Full : SynchronousMode.Normal,
             BusyTimeoutMs = 60000,
             ConcurrentCommitHoldLimitMs = 0,
+            ConcurrentGroupCommit = GroupOn,
         };
+
+    // ONELITE_SHAPES_GROUP=off turns group commit off, for the before column of a comparison.
+    private static readonly bool GroupOn = Environment.GetEnvironmentVariable("ONELITE_SHAPES_GROUP") != "off";
 
     public static int Run(string[] a)
     {

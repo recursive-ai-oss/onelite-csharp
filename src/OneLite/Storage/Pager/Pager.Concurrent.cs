@@ -105,12 +105,24 @@ public sealed partial class Pager
 
         if (_ccStep == 1)
         {
+            GroupAbandonSync();
             _ccStep = 0;
             return;
         }
 
         WalConnection w = _wal!;
         DiscardDirty();
+        if (_grpRole != GroupRole.None)
+        {
+            GroupAbandonSync();
+            w.Hdr = w.Snap;
+            _state = w.ReadSlot >= 0 ? TxState.Read : TxState.None;
+            _concurrent = false;
+            _ccStep = 0;
+            ConcurrentAbandoned = true;
+            return;
+        }
+
         try
         {
             if ((_wHeldExcl & (1 << WalIndex.WriteLock)) != 0)
@@ -134,6 +146,16 @@ public sealed partial class Pager
 
     private IEnumerable<IoRequest> ConcLockOp()
     {
+        if (GroupEligible)
+        {
+            foreach (IoRequest r in ConcGroupLockOp())
+            {
+                yield return r;
+            }
+
+            yield break;
+        }
+
         WalConnection w = _wal!;
         foreach (IoRequest r in WalLock(WalIndex.WriteLock, 1, true, true, spin: true))
         {
