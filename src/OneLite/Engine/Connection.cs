@@ -633,7 +633,7 @@ public sealed partial class Connection : IDisposable, IAsyncDisposable
     // setting and text encoding. Anything else compiles again. A program that read other connection state (virtual tables, the statistics log
     // behind PRAGMA optimize) is never kept. c3ref/prepare: the schema is checked when the statement runs, which the kept program still does.
     private const int ProgramTableLimit = 32;
-    private readonly Dictionary<string, (VmProgram Program, string Tail)> _programs = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, RetiredStatement> _programs = new(StringComparer.Ordinal);
 
     /// <summary>Set by the compiler when it reads connection state a kept program could not account for.</summary>
     internal bool CompileTaint;
@@ -642,9 +642,9 @@ public sealed partial class Connection : IDisposable, IAsyncDisposable
     /// <summary>The tables the compile in progress added to <see cref="StatsUsed"/>; a kept program adds them again when it is taken.</summary>
     internal readonly List<string> CompileStatsTables = [];
 
-    internal bool TakeProgram(string sql, out VmProgram program, out string tail)
+    internal bool TakeProgram(string sql, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out RetiredStatement? retired)
     {
-        if (_programs.Count != 0 && _programs.Remove(sql, out (VmProgram Program, string Tail) e))
+        if (_programs.Count != 0 && _programs.Remove(sql, out RetiredStatement? e))
         {
             VmProgram p = e.Program;
             Catalog? cat = _catalog;
@@ -659,32 +659,28 @@ public sealed partial class Connection : IDisposable, IAsyncDisposable
                     }
                 }
 
-                program = p;
-                tail = e.Tail;
+                retired = e;
                 return true;
             }
         }
 
-        program = null!;
-        tail = string.Empty;
+        retired = null;
         return false;
     }
 
-    internal void KeepProgram(string sql, VmProgram program, string tail)
-    {
-        if (!program.Reusable || !ReferenceEquals(program.CompiledAgainst, _catalog))
-        {
-            return;
-        }
+    /// <summary>True if a finalized statement with this program would be kept for the next prepare of its text.</summary>
+    internal bool CanKeep(VmProgram program) => program.Reusable && ReferenceEquals(program.CompiledAgainst, _catalog);
 
+    internal void KeepProgram(string sql, RetiredStatement retired)
+    {
         if (_programs.Count >= ProgramTableLimit && !_programs.ContainsKey(sql))
         {
-            using Dictionary<string, (VmProgram, string)>.Enumerator it = _programs.GetEnumerator();
+            using Dictionary<string, RetiredStatement>.Enumerator it = _programs.GetEnumerator();
             it.MoveNext();
             _programs.Remove(it.Current.Key);
         }
 
-        _programs[sql] = (program, tail);
+        _programs[sql] = retired;
     }
 
     private void MarkReusable(VmProgram p, Catalog cat)

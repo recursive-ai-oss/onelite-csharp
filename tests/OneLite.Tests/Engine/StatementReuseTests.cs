@@ -220,4 +220,77 @@ public sealed class StatementReuseTests : IDisposable
         Run(c, "DETACH o");
         Assert.Throws<OneLiteException>(() => One(c, "SELECT v FROM only_there"));
     }
+
+    [Fact]
+    public void ABoundValueDoesNotSurviveIntoThePreparedAgainStatement()
+    {
+        using var db = Database.Open(Path.Combine(_dir, "h.db"));
+        using Connection c = db.Connect();
+        Run(c, "CREATE TABLE t(a)");
+        for (int round = 0; round < 3; round++)
+        {
+            using (Statement s = c.Prepare("SELECT ?1, ?2"))
+            {
+                Assert.True(s.Step());
+                Assert.True(s.IsNull(0));
+                Assert.True(s.IsNull(1));
+                s.Reset();
+                s.Bind(1, "text");
+                s.Bind(2, 42);
+                Assert.True(s.Step());
+                Assert.Equal("text", s.GetString(0));
+                Assert.Equal(42, s.GetInt64(1));
+            }
+        }
+    }
+
+    [Fact]
+    public void AStatementPreparedForEachRowWritesAndRollsBackLikeAnyOther()
+    {
+        using var db = Database.Open(Path.Combine(_dir, "i.db"));
+        using Connection c = db.Connect();
+        Run(c, "CREATE TABLE t(id INTEGER PRIMARY KEY, v TEXT)");
+        Run(c, "CREATE INDEX t_v ON t(v)");
+        Run(c, "BEGIN");
+        for (int i = 1; i <= 200; i++)
+        {
+            using Statement s = c.Prepare("INSERT INTO t(v) VALUES(?1)");
+            s.Bind(1, "v" + (i % 10));
+            Assert.False(s.Step());
+        }
+
+        Assert.Equal("200", One(c, "SELECT count(*) FROM t"));
+        Assert.Equal("20", One(c, "SELECT count(*) FROM t WHERE v = 'v3'"));
+        Run(c, "ROLLBACK");
+        Assert.Equal("0", One(c, "SELECT count(*) FROM t"));
+        for (int i = 0; i < 50; i++)
+        {
+            using Statement s = c.Prepare("INSERT INTO t(v) VALUES(?1)");
+            s.Bind(1, "w");
+            Assert.False(s.Step());
+        }
+
+        Assert.Equal("50", One(c, "SELECT count(*) FROM t WHERE v = 'w'"));
+        Assert.Equal("1", One(c, "SELECT min(id) FROM t"));
+    }
+
+    [Fact]
+    public void AStatementKeptOpenWhileAnotherOfTheSameTextIsFinalizedIsUnaffected()
+    {
+        using var db = Database.Open(Path.Combine(_dir, "j.db"));
+        using Connection c = db.Connect();
+        Run(c, "CREATE TABLE t(a)");
+        Run(c, "INSERT INTO t VALUES(1),(2),(3)");
+        using Statement live = c.Prepare("SELECT a FROM t ORDER BY a");
+        Assert.True(live.Step());
+        for (int i = 0; i < 3; i++)
+        {
+            using Statement other = c.Prepare("SELECT a FROM t ORDER BY a");
+            Assert.True(other.Step());
+            Assert.Equal(1, other.GetInt64(0));
+        }
+
+        Assert.True(live.Step());
+        Assert.Equal(2, live.GetInt64(0));
+    }
 }
