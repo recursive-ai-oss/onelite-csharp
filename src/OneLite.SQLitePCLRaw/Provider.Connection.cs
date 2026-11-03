@@ -702,7 +702,7 @@ public sealed partial class OneLiteSqlite3Provider : ISQLite3Provider
     // The options of the pinned release that describe behaviour OneLite reproduces.
     private static readonly List<string> CompileOptions =
     [
-        "DEFAULT_FOREIGN_KEYS=0", "ENABLE_FTS3", "ENABLE_FTS4", "ENABLE_FTS5", "ENABLE_RTREE", "ENABLE_MATH_FUNCTIONS", "ENABLE_DBSTAT_VTAB",
+        "ENABLE_COLUMN_METADATA", "ENABLE_FTS3", "ENABLE_FTS4", "ENABLE_FTS5", "ENABLE_RTREE", "ENABLE_MATH_FUNCTIONS", "ENABLE_DBSTAT_VTAB",
         "THREADSAFE=1", "MAX_VARIABLE_NUMBER=32766",
     ];
 

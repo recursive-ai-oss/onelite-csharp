@@ -597,7 +597,8 @@ public sealed partial class OneLiteSqlite3Provider
     private static bool Has(StmtState? s, int i) => s is { HasRow: true, Finalized: false } && (uint)i < (uint)s.Statement.ColumnCount;
 
     /// <inheritdoc />
-    public utf8z sqlite3_column_database_name(sqlite3_stmt stmt, int index) => default;
+    public utf8z sqlite3_column_database_name(sqlite3_stmt stmt, int index)
+        => Stmt(stmt) is { } s && (uint)index < (uint)s.Statement.ColumnCount && s.Statement.ColumnDatabaseName(index) is { } v ? utf8z.FromString(v) : default;
 
     /// <inheritdoc />
     public utf8z sqlite3_column_name(sqlite3_stmt stmt, int index)
@@ -607,10 +608,12 @@ public sealed partial class OneLiteSqlite3Provider
     }
 
     /// <inheritdoc />
-    public utf8z sqlite3_column_origin_name(sqlite3_stmt stmt, int index) => default;
+    public utf8z sqlite3_column_origin_name(sqlite3_stmt stmt, int index)
+        => Stmt(stmt) is { } s && (uint)index < (uint)s.Statement.ColumnCount && s.Statement.ColumnOriginName(index) is { } v ? utf8z.FromString(v) : default;
 
     /// <inheritdoc />
-    public utf8z sqlite3_column_table_name(sqlite3_stmt stmt, int index) => default;
+    public utf8z sqlite3_column_table_name(sqlite3_stmt stmt, int index)
+        => Stmt(stmt) is { } s && (uint)index < (uint)s.Statement.ColumnCount && s.Statement.ColumnTableName(index) is { } v ? utf8z.FromString(v) : default;
 
     /// <inheritdoc />
     public utf8z sqlite3_column_text(sqlite3_stmt stmt, int index)
@@ -687,6 +690,19 @@ public sealed partial class OneLiteSqlite3Provider
             return ResultCode.Misuse;
         }
 
-        return d.Fail(ResultCode.Error, "sqlite3_table_column_metadata is not supported by OneLite");
+        try
+        {
+            ColumnMetadata m = d.Conn.GetColumnMetadata(dbName.utf8_to_string(), tblName.utf8_to_string() ?? string.Empty, colName.utf8_to_string() ?? string.Empty);
+            dataType = utf8z.FromString(m.DeclaredType);
+            collSeq = utf8z.FromString(m.Collation);
+            notNull = m.NotNull ? 1 : 0;
+            primaryKey = m.PrimaryKey ? 1 : 0;
+            autoInc = m.AutoIncrement ? 1 : 0;
+            return d.Ok();
+        }
+        catch (Exception e) when (e is not OutOfMemoryException)
+        {
+            return d.Fail(e);
+        }
     }
 }

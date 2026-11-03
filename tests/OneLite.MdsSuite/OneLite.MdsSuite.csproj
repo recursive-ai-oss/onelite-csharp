@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Runs Microsoft.Data.Sqlite's own public test suite on OneLite through the SQLitePCLRaw adapter. The test sources are fetched by
+    tools/scripts/fetch_efcore_tests.sh into EfCoreTests (never committed); this project only compiles them against the released
+    Microsoft.Data.Sqlite.Core package and the adapter. It is not part of the solution: tools/scripts/mds_suite.sh builds and runs it.
+  -->
+  <PropertyGroup>
+    <!-- The suite names its custom test framework by assembly name. -->
+    <AssemblyName>Microsoft.Data.Sqlite.Tests</AssemblyName>
+    <RootNamespace>Microsoft.Data.Sqlite.Tests</RootNamespace>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <GenerateProgramFile>true</GenerateProgramFile>
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+    <DefineConstants>$(DefineConstants);E_SQLITE3</DefineConstants>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <!-- Someone else's test code: compile it as it is. -->
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <EnableNETAnalyzers>false</EnableNETAnalyzers>
+    <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
+    <AnalysisLevel>none</AnalysisLevel>
+    <NoWarn>$(NoWarn);CS8981;CS0618;xUnit1013</NoWarn>
+    <EfCoreTests Condition="'$(EfCoreTests)' == ''">$(HOME)/onelite/cache/efcore-tests</EfCoreTests>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="$(EfCoreTests)/test/Microsoft.Data.Sqlite.Tests/**/*.cs" Exclude="$(EfCoreTests)/test/Microsoft.Data.Sqlite.Tests/obj/**;$(EfCoreTests)/test/Microsoft.Data.Sqlite.Tests/bin/**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="Microsoft.Data.Sqlite.Core" Version="10.0.14" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/OneLite/OneLite.csproj" />
+    <ProjectReference Include="../../src/OneLite.SQLitePCLRaw/OneLite.SQLitePCLRaw.csproj" />
+  </ItemGroup>
+
+</Project>

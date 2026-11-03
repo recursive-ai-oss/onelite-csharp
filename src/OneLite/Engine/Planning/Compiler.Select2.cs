@@ -298,6 +298,7 @@ internal sealed partial class Compiler
                 Coll = [.. cols.Select(c => CollOf(c.Expr, out _))],
                 CollNames = [.. cols.Select(c => CollOf(c.Expr, out bool any) is var ck && any ? CollName(ck) : null)],
                 Decl = [.. cols.Select(c => DeclTypeOf(c.Expr))],
+                Origins = [.. cols.Select(c => OriginOf(c.Expr))],
             };
             if (dest.UseOperandAff && meta.Aff.Length > 0)
             {

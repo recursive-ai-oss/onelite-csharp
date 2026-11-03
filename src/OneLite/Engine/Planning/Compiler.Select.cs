@@ -184,6 +184,9 @@ internal sealed class SelectMeta
 
     /// <summary>Per result column, the declared type of the table column it is a plain reference to (see DeclTypeOf).</summary>
     internal string[] Decl = [];
+
+    /// <summary>Per result column, the table column it is a plain reference to (sqlite3_column_database_name and friends); null for an expression.</summary>
+    internal ColumnOrigin?[] Origins = [];
 }
 
 internal sealed partial class Compiler
@@ -238,6 +241,7 @@ internal sealed partial class Compiler
         prog.RegisterCount = _nReg + 1;
         prog.Cursors = [.. _cursors];
         prog.ColumnNames = meta.Names;
+        prog.ColumnOrigin = meta.Origins.Length == meta.Names.Length ? meta.Origins : new ColumnOrigin?[meta.Names.Length];
         prog.ResultBase = _outBase;
         prog.ResultCount = meta.Names.Length;
         prog.ParameterNames = [.. _params];

@@ -445,6 +445,25 @@ internal sealed partial class Compiler
         }
     }
 
+    /// <summary>The table column a result expression is a plain reference to, for sqlite3_column_database_name, _table_name, _origin_name and _decltype.</summary>
+    private ColumnOrigin? OriginOf(Expr e)
+    {
+        while (e is ParenExpr p)
+        {
+            e = p.Inner;
+        }
+
+        if (e is not ColumnRef cr || !TryResolveColumn(cr, out Source rs, out int col) || rs.Kind != SourceKind.Table)
+        {
+            return null;
+        }
+
+        string db = rs.Table.Db switch { 0 => "main", 1 => "temp", var slot => _cat.Owner?.AttachedBySlot(slot)?.Name ?? "main" };
+        return col < 0
+            ? new ColumnOrigin(db, rs.Table.Name, "rowid", "INTEGER")
+            : new ColumnOrigin(db, rs.Table.Name, rs.Table.Columns[col].Name, rs.Table.Columns[col].DeclaredType);
+    }
+
     /// <summary>
     /// The type text PRAGMA table_info shows for a view's result column: the declared type of a plain column reference, else the name of
     /// the expression's affinity (INT, TEXT, REAL, NUM, BLOB), else empty.
