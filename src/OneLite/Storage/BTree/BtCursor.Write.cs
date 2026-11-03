@@ -646,7 +646,21 @@ public sealed partial class BtCursor
                 {
                     case 0:
                         {
-                            BtStatus st = SeekGuard(rowid, key, 0, out int cmp);
+                            BtStatus st;
+                            int cmp;
+                            if (_skOk && Tree.IntKey && _op == Op.None && State == CursorState.Valid && _skRowid == rowid && _idx[_level] == _skIdx
+                                && ReferenceEquals(_pages[_level], _skPage))
+                            {
+                                // Stands where the probe for this rowid left it (see MoveToRowid).
+                                st = BtStatus.Ok;
+                                cmp = _skCmp;
+                            }
+                            else
+                            {
+                                st = SeekGuard(rowid, key, 0, out cmp);
+                            }
+
+                            _skOk = false;
                             if (st != BtStatus.Ok)
                             {
                                 return st;

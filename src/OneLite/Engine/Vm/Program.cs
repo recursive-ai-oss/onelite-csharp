@@ -325,6 +325,82 @@ internal sealed class VmProgram
         }
     }
 
+    private int _ssf;
+
+    /// <summary>
+    /// The statement is a straight-line insert of one row whose every failure (constraint, datatype, NOT NULL) is raised before its first write, so a
+    /// failure inside an explicit transaction has nothing to undo and the statement needs no savepoint of its own (a savepoint copies every page
+    /// the statement touches). Programs with loops, triggers, foreign keys, RETURNING, deletes or temp or attached tables always keep the savepoint.
+    /// </summary>
+    internal bool NoStatementSavepoint
+    {
+        get
+        {
+            if (_ssf == 0)
+            {
+                _ssf = ComputeNoStatementSavepoint() ? 1 : 2;
+            }
+
+            return _ssf == 1;
+        }
+    }
+
+    private bool ComputeNoStatementSavepoint()
+    {
+        if (UsesTemp || AttachedReadMask != 0 || AttachedWriteMask != 0 || ExtraWriteMask != 0)
+        {
+            return false;
+        }
+
+        foreach (CursorSpec c in Cursors)
+        {
+            if (c.Table is not { Db: 0 } || c.Ephemeral || c.Module is not null)
+            {
+                return false;
+            }
+        }
+
+        int firstWrite = -1;
+        for (int i = 0; i < Code.Length; i++)
+        {
+            if (Code[i].Op is Op.Insert or Op.IdxInsert)
+            {
+                firstWrite = i;
+                break;
+            }
+        }
+
+        if (firstWrite < 0)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < Code.Length; i++)
+        {
+            ref readonly Instr ins = ref Code[i];
+            bool cannotFail = ins.Op is Op.Init or Op.Goto or Op.Halt or Op.Noop or Op.BumpCookie or Op.Insert or Op.IdxInsert or Op.OpenWrite
+                or Op.Variable or Op.Gosub or Op.Return or Op.Integer or Op.Real or Op.String8 or Op.Blob or Op.Null or Op.Copy or Op.Transaction;
+            bool mayFail = ins.Op is Op.Affinity or Op.NotNull or Op.NewRowid or Op.RowidFix or Op.SeekRowid or Op.Raise or Op.IdxProbe or Op.MustBeInt or Op.StrictCheck;
+            if (!cannotFail && !mayFail)
+            {
+                return false;
+            }
+
+            if (i > firstWrite && !cannotFail)
+            {
+                return false;
+            }
+
+            // Every jump but the one call of the subroutine goes forward, so each instruction runs at most once.
+            if (ins.Op is Op.Goto or Op.SeekRowid or Op.NotNull or Op.IdxProbe && ins.P2 <= i)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     internal bool UsesTemp => ForceTemp || Array.Exists(Cursors, c => c.Table is { Db: 1 });
     internal int ResultBase;
     internal int ResultCount;

@@ -273,6 +273,15 @@ public sealed partial class BtCursor : IDisposable
         }
 
         BtStatus st = SeekGuard(rowid, default, 0, out cmp);
+        if (st == BtStatus.Ok && State == CursorState.Valid)
+        {
+            _skOk = true;
+            _skRowid = rowid;
+            _skCmp = cmp;
+            _skIdx = _idx[_level];
+            _skPage = _pages[_level];
+        }
+
         if (_ctx.Trace is { Active: true } tr)
         {
             TraceSeek(tr, st, rowid, default, 0, cmp);
@@ -280,6 +289,13 @@ public sealed partial class BtCursor : IDisposable
 
         return st;
     }
+
+    // The end of the last MoveToRowid, so an insert of the same rowid right after a probe for it (the uniqueness check of INSERT) does not
+    // walk the tree again. It is used only while the cursor still stands where that seek left it.
+    private bool _skOk, _appendHint;
+    private long _skRowid;
+    private int _skCmp, _skIdx;
+    private PageHandle? _skPage;
 
     /// <summary>
     /// Positions an index cursor on the entry equal to <paramref name="key"/> or next to it (Seek.Root, Seek.Descend, Seek.CompareOverflow).
@@ -352,6 +368,12 @@ public sealed partial class BtCursor : IDisposable
                 _bsLo = 0;
                 _bsHi = n;
                 _bsInit = true;
+                // The last seek ended after the last entry of its leaf (rows arriving in key order): look at the last entry of each page first.
+                // The binary search gives the same answer, just with one probe instead of a handful.
+                if (_appendHint && Tree.IntKey && n > 0 && _ctx.ReadCell(pg, h, type, n - 1, out _).Rowid < rowid)
+                {
+                    _bsLo = n;
+                }
             }
 
             if (Tree.IntKey)
@@ -386,9 +408,11 @@ public sealed partial class BtCursor : IDisposable
                 if (i < n)
                 {
                     long at = _ctx.ReadCell(pg, h, type, i, out _).Rowid;
+                    _appendHint = false;
                     return FinishSeek(true, i, at == rowid ? 0 : 1, out cmp);
                 }
 
+                _appendHint = true;
                 return FinishSeek(true, n - 1, -1, out cmp);
             }
 

@@ -809,8 +809,17 @@ public sealed class Statement : IDisposable, IAsyncDisposable
     public void Bind(int index, string value)
     {
         CheckBind(index);
-        byte[] b = Encoding.UTF8.GetBytes(value);
-        _varBytes[index - 1] = b;
+        // A statement stepped in a loop is usually bound with text of one length: encode into the array of the last binding then (the statement
+        // is not running, so nothing reads the old bytes any more).
+        int count = Encoding.UTF8.GetByteCount(value);
+        byte[]? b = _varBytes[index - 1];
+        if (b is null || b.Length != count)
+        {
+            b = new byte[count];
+            _varBytes[index - 1] = b;
+        }
+
+        Encoding.UTF8.GetBytes(value, b);
         _vars[index - 1] = Mem.FromTextBytes(b);
     }
 

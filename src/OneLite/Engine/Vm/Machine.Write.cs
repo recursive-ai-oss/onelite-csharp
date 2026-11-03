@@ -34,6 +34,9 @@ internal sealed partial class Machine
     private bool _dml;
     private bool _ddl;
     private int _stmtLevel;
+
+    // The statement runs inside a transaction without a savepoint of its own (Program.NoStatementSavepoint); _stmtDirty says a write has begun.
+    private bool _noStmtSp, _stmtDirty;
     private int _stmtTempLevel;
     private int[]? _stmtAttLevels;
     private int _wstep;
@@ -555,13 +558,15 @@ internal sealed partial class Machine
         {
             _writing = true;
             // A statement inside a transaction is a savepoint of its own, so that a constraint failure undoes just this statement (lang_conflict ABORT).
-            _stmtLevel = _conn.AutoCommit ? 0 : _conn.Pager.OpenSavepoint();
+            _noStmtSp = !_conn.AutoCommit && _conn.ConcTx is null && _conn.Attached.Count == 0 && _prog.NoStatementSavepoint;
+            _stmtDirty = false;
+            _stmtLevel = _conn.AutoCommit || _noStmtSp ? 0 : _conn.Pager.OpenSavepoint();
             if (_prog.UsesTemp)
             {
                 _conn.GetTemp();
             }
 
-            _stmtTempLevel = !_conn.AutoCommit && _conn.Temp is { } tmp ? tmp.Pager.OpenSavepoint() : 0;
+            _stmtTempLevel = !_conn.AutoCommit && !_noStmtSp && _conn.Temp is { } tmp ? tmp.Pager.OpenSavepoint() : 0;
             _stmtAttLevels = _conn.AutoCommit ? null : _conn.OpenAttachedSavepoints();
             _fkStartDef = _conn.FkDeferred;
             _conn.FkImm = 0;
@@ -631,7 +636,13 @@ internal sealed partial class Machine
                         {
                             _fwWhole = true;
                         }
-                        else
+                        else if (_noStmtSp && _stmtDirty)
+                        {
+                            // No savepoint to go back to and a write has begun: only an I/O or storage fault can get here, and those undo the whole
+                            // transaction (c3ref sqlite3_get_autocommit, rescode).
+                            _fwWhole = true;
+                        }
+                        else if (!_noStmtSp)
                         {
                             _fwStmt = true;
                         }
@@ -1338,6 +1349,7 @@ internal sealed partial class Machine
 
     private RunResult DoInsert(ref Instr ins)
     {
+        _stmtDirty = true;
         VmCursor c = _cur[ins.P1];
         long rowid = R[ins.P3].IntValue;
         BtStatus s = c.Bt!.Insert(rowid, BuildRecordOnce(ins.P2, ((TableInfo)ins.P4!).RecordWidth));
@@ -1377,6 +1389,7 @@ internal sealed partial class Machine
 
     private RunResult DoIdxInsert(ref Instr ins)
     {
+        _stmtDirty = true;
         VmCursor c = _cur[ins.P1];
         BtStatus s = c.Bt!.Insert(BuildRecordOnce(ins.P2, ins.P3), PrepareKey(ins.P2, ins.P3));
         if (s == BtStatus.Pending)
