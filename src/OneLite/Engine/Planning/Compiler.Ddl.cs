@@ -389,6 +389,21 @@ internal sealed partial class Compiler
         return DdlProgram();
     }
 
+    /// <summary>Whether the SQL text of an expression calls a function whose result can change between calls (lang_createindex, partial indexes).</summary>
+    private bool FindNonDeterministicCall(string expressionSql)
+    {
+        string text = System.Text.RegularExpressions.Regex.Replace(expressionSql, "'(?:[^']|'')*'", "''");
+        foreach (System.Text.RegularExpressions.Match m in System.Text.RegularExpressions.Regex.Matches(text, @"([A-Za-z_][A-Za-z0-9_]*)\s*\("))
+        {
+            if (_cat.Owner?.IsNonDeterministic(m.Groups[1].Value) == true)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private VmProgram CompileCreateIndex(CreateIndexStatement ci)
     {
         PreassignParameters();
@@ -425,6 +440,11 @@ internal sealed partial class Compiler
         }
 
         IndexInfo idx = SchemaBuilder.BuildIndex(ci, 0, t);
+        if (idx.Where is not null && FindNonDeterministicCall(SqlWriter.Write(idx.Where)))
+        {
+            throw Err("non-deterministic functions prohibited in partial index WHERE clauses");
+        }
+
         _table = t;
         _alias = t.Name;
         SetColumns(true);

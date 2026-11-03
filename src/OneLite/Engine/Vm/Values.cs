@@ -851,6 +851,11 @@ internal static class Values
             case CollKind.RTrim:
                 return a.TrimEnd((byte)' ').SequenceCompareTo(b.TrimEnd((byte)' '));
             default:
+                if (coll > CollKind.RTrim)
+                {
+                    return Scalar.Connection!.CompareUserCollation((int)coll, a, b);
+                }
+
                 if (dbEnc == TextEncoding.Utf8)
                 {
                     return a.SequenceCompareTo(b);

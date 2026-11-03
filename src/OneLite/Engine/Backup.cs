@@ -180,6 +180,12 @@ public sealed class Backup : IDisposable
             throw new OneLiteException(ResultCode.Misuse, "backup is finished");
         }
 
+        if (_sp.InWriteTransaction)
+        {
+            // c3ref backup_step: a source connection that is writing to the source database at the time gets SQLITE_BUSY
+            return BackupStatus.Busy;
+        }
+
         bool srcOwn = false;
         try
         {

@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>RecursiveAI.OneLite.SQLitePCLRaw.Tests</RootNamespace>
+    <IsTestProject>true</IsTestProject>
+    <NoWarn>$(NoWarn);CA1861</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Using Include="System" />
+    <Using Include="Xunit" />
+    <Using Include="System.Collections.Generic" />
+    <Using Include="System.IO" />
+    <Using Include="System.Threading" />
+    <Using Include="System.Threading.Tasks" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+    <!-- Test-only: the native library is the behavioural oracle for the provider surface, and Microsoft.Data.Sqlite runs on the adapter. -->
+    <PackageReference Include="Microsoft.Data.Sqlite.Core" />
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/OneLite/OneLite.csproj" />
+    <ProjectReference Include="../../src/OneLite.SQLitePCLRaw/OneLite.SQLitePCLRaw.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1052,6 +1052,10 @@ public sealed partial class Connection : IDisposable, IAsyncDisposable
             {
                 colls[i] = Collations.RTrim(enc);
             }
+            else if (name is not null && UserCollation(name) is { } user)
+            {
+                colls[i] = user;
+            }
         }
 
         return new KeyInfo(enc, colls, desc);

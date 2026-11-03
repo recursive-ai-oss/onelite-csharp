@@ -435,6 +435,14 @@ internal sealed partial class Compiler
         }
 
         TableInfo ti = SynthTable(alias, names, meta.Aff, meta.CollNames, colNames.IsDefaultOrEmpty || colNames.Length == names.Length ? meta.Decl : null);
+        if (meta.Origins.Length == ti.Columns.Length)
+        {
+            for (int i = 0; i < ti.Columns.Length; i++)
+            {
+                ti.Columns[i].Origin = meta.Origins[i];
+            }
+        }
+
         return new Source { Alias = alias, Table = ti, Cursor = cur, Kind = SourceKind.Eph };
     }
 

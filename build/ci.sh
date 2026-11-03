@@ -31,6 +31,11 @@ rm -rf "$art/smoke"
 dotnet publish tests/OneLite.AotSmoke -c Release -r linux-x64 -o "$art/smoke" -warnaserror
 "$art/smoke/OneLite.AotSmoke"
 
+step "NativeAOT smoke: Microsoft.Data.Sqlite on the SQLitePCLRaw adapter"
+rm -rf "$art/smoke-adapter"
+dotnet publish tests/OneLite.AotSmokeAdapter -c Release -r linux-x64 -o "$art/smoke-adapter" -warnaserror
+"$art/smoke-adapter/OneLite.AotSmokeAdapter"
+
 step "browser-wasm smoke: build"
 dotnet build tests/OneLite.WasmSmoke -c Release -warnaserror
 

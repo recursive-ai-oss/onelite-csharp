@@ -16,10 +16,12 @@
     <Project Path="tests/OneLite.Tests/OneLite.Tests.csproj" />
     <Project Path="tests/OneLite.Data.Tests/OneLite.Data.Tests.csproj" />
     <Project Path="tests/OneLite.Cli.Tests/OneLite.Cli.Tests.csproj" />
+    <Project Path="tests/OneLite.SQLitePCLRaw.Tests/OneLite.SQLitePCLRaw.Tests.csproj" />
     <Project Path="tests/OneLite.History.Tests/OneLite.History.Tests.csproj" />
     <Project Path="tests/OneLite.SqlLogicTest.Tests/OneLite.SqlLogicTest.Tests.csproj" />
     <Project Path="tests/OneLite.Differential.Tests/OneLite.Differential.Tests.csproj" />
     <Project Path="tests/OneLite.AotSmoke/OneLite.AotSmoke.csproj" />
+    <Project Path="tests/OneLite.AotSmokeAdapter/OneLite.AotSmokeAdapter.csproj" />
     <Project Path="tests/OneLite.WasmSmoke/OneLite.WasmSmoke.csproj" />
     <Project Path="tests/OneLite.BrowserTests/OneLite.BrowserTests.csproj" />
   </Folder>

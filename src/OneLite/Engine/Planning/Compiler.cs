@@ -28,8 +28,13 @@ internal sealed partial class Compiler
 
     private bool _columnsAllowed;
 
+    /// <summary>The connection whose user-defined aggregates the compile in progress on this thread may call.</summary>
+    [ThreadStatic]
+    private static Connection? t_owner;
+
     internal Compiler(Catalog cat, string sql, TextEncoding enc)
     {
+        t_owner = cat.Owner;
         _cat = cat;
         _sql = sql;
         _enc = enc;
@@ -440,6 +445,35 @@ internal sealed partial class Compiler
         }
     }
 
+    /// <summary>The table column a result expression is a plain reference to, for sqlite3_column_database_name, _table_name, _origin_name and _decltype.</summary>
+    private ColumnOrigin? OriginOf(Expr e)
+    {
+        while (e is ParenExpr p)
+        {
+            e = p.Inner;
+        }
+
+        if (e is not ColumnRef cr || !TryResolveColumn(cr, out Source rs, out int col))
+        {
+            return null;
+        }
+
+        if (rs.Kind == SourceKind.Eph)
+        {
+            return col >= 0 && col < rs.Table.Columns.Length ? rs.Table.Columns[col].Origin : null;
+        }
+
+        if (rs.Kind != SourceKind.Table)
+        {
+            return null;
+        }
+
+        string db = rs.Table.Db switch { 0 => "main", 1 => "temp", var slot => _cat.Owner?.AttachedBySlot(slot)?.Name ?? "main" };
+        return col < 0
+            ? new ColumnOrigin(db, rs.Table.Name, "rowid", "INTEGER")
+            : new ColumnOrigin(db, rs.Table.Name, rs.Table.Columns[col].Name, rs.Table.Columns[col].TypeText);
+    }
+
     /// <summary>
     /// The type text PRAGMA table_info shows for a view's result column: the declared type of a plain column reference, else the name of
     /// the expression's affinity (INT, TEXT, REAL, NUM, BLOB), else empty.
@@ -504,6 +538,11 @@ internal sealed partial class Compiler
         if (AsciiComparer.Instance.Equals(name, "RTRIM"))
         {
             return CollKind.RTrim;
+        }
+
+        if (t_owner?.UserCollationSlot(name) is >= 3 and var slot)
+        {
+            return (CollKind)slot;
         }
 
         throw new OneLiteException(ResultCode.ErrorMissingCollSeq, "no such collation sequence: " + name);
@@ -642,6 +681,11 @@ internal sealed partial class Compiler
 
         string n = f.Name.Text;
         int args = f.Args.IsDefaultOrEmpty ? 0 : f.Args.Length;
+        if (t_owner?.FindUserAggregate(n, args) is not null)
+        {
+            return AggKind.User;
+        }
+
         if (AsciiComparer.Instance.Equals(n, "count"))
         {
             return f.Star || args == 0 ? AggKind.CountStar : AggKind.Count;
@@ -1639,7 +1683,14 @@ internal sealed partial class Compiler
 
         if (l.Op == LikeOp.Regexp)
         {
-            throw Unsupported("REGEXP");
+            // lang_expr: X REGEXP Y is the user function regexp(Y, X); without one the call fails as any missing function does.
+            CompileCall(new FunctionCall(new Name("regexp"), CallQuantifier.None, false, [l.Pattern, l.Left], default, null, null), dest);
+            if (l.Negated)
+            {
+                Emit(Op.Not, dest, dest);
+            }
+
+            return;
         }
 
         // LIKE and GLOB are calls of like(pattern, text): the pattern's names are resolved first.
@@ -1766,7 +1817,7 @@ internal sealed partial class Compiler
             throw Unsupported("aggregate syntax in " + name + "()");
         }
 
-        FuncDef? def = FunctionTable.Find(name);
+        FuncDef? def = _cat.Owner?.FindUserFunction(name, f.Args.IsDefaultOrEmpty ? 0 : f.Args.Length) ?? FunctionTable.Find(name);
         if (def is null)
         {
             if (FunctionTable.IsKnownUnsupported(name))
@@ -1774,7 +1825,8 @@ internal sealed partial class Compiler
                 throw Unsupported("function " + name + "()");
             }
 
-            throw Err("no such function: " + name);
+            // a name that exists with other argument counts is a wrong-arity call (c3ref create_function)
+            throw Err(_cat.Owner?.HasUserFunctionNamed(name) == true ? "wrong number of arguments to function " + name + "()" : "no such function: " + name);
         }
 
         int n = f.Args.Length;

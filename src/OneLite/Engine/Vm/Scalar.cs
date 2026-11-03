@@ -175,6 +175,12 @@ internal sealed class FuncDef
     internal int MaxArgs { get; }
 
     internal FuncId Id { get; }
+
+    /// <summary>The implementation of a function registered through Connection.CreateFunction; null for a built-in.</summary>
+    internal UserScalarFunction? User { get; init; }
+
+    /// <summary>For a user function: registered as deterministic.</summary>
+    internal bool Deterministic { get; init; }
 }
 
 /// <summary>The function table (lang_corefunc). A static table: no reflection, nothing registered at run time.</summary>
@@ -336,7 +342,7 @@ internal static class FunctionTable
     {
         "sqlite_offset", "avg", "count", "group_concat", "string_agg", "sum", "total", "median", "mode", "percentile", "percentile_cont",
         "percentile_disc", "row_number", "rank", "dense_rank", "percent_rank", "cume_dist", "ntile", "lag", "lead", "first_value",
-        "last_value", "nth_value", "regexp", "match", "highlight", "snippet", "bm25", "rtreecheck",
+        "last_value", "nth_value", "match", "highlight", "snippet", "bm25", "rtreecheck",
     };
 
     internal static bool IsKnownUnsupported(string name)

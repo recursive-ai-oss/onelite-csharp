@@ -123,6 +123,9 @@ public static class ResultCode
     /// <summary>SQLITE_ERROR_MISSING_COLLSEQ: a collation name that is not registered.</summary>
     public const int ErrorMissingCollSeq = Error | (1 << 8);
 
+    /// <summary>SQLITE_CONSTRAINT_COMMITHOOK: a commit hook asked for the commit to become a rollback.</summary>
+    public const int ConstraintCommitHook = Constraint | (2 << 8);
+
     /// <summary>SQLITE_ABORT_ROLLBACK: a statement or incremental blob handle was aborted by a ROLLBACK.</summary>
     public const int AbortRollback = Abort | (2 << 8);
 
