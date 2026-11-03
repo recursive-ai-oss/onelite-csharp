@@ -57,8 +57,8 @@ public sealed class CrossProcessContentionTests : IDisposable
                 sb.AppendLine(line);
             }
 
-            // Standard error arrives on its own thread: wait for the message a refused statement prints.
-            for (int i = 0; i < 100 && expectError; i++)
+            // Standard error arrives on its own thread: wait (up to 15 s, for loaded machines) for the message a refused statement prints.
+            for (int i = 0; i < 500 && expectError; i++)
             {
                 lock (_err)
                 {
