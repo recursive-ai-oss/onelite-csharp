@@ -26,7 +26,11 @@ public sealed record DatabaseOptions
     /// </summary>
     public Func<int, int>? Busy { get; init; }
 
-    /// <summary>The page cache size as in <c>PRAGMA cache_size</c>: positive for pages, negative for KiB. Default -2000.</summary>
+    /// <summary>
+    /// The page cache size as in <c>PRAGMA cache_size</c>: positive for pages, negative for KiB. Default -2000. A sort also takes its memory budget
+    /// from it: up to eight times this (16 MiB by default; at least 256 KiB, at most the larger of this and 32 MiB) before it spills runs to a
+    /// temporary file.
+    /// </summary>
     public int CacheSize { get; init; } = -2000;
 
     /// <summary>Test hook: every n-th page-cache hit becomes a suspend point (I/O kind Yield), so every resume path runs. 0 turns it off.</summary>
@@ -302,9 +306,18 @@ public sealed partial class Database : IDisposable, IAsyncDisposable
             Busy = busy,
             SortVfs = vfs,
 
-            // Sorts keep about as much in memory as the page cache may hold (never less than 256 KiB), then spill runs to a temporary file.
-            SortMemoryLimit = Math.Max(256L * 1024, _options.CacheSize < 0 ? -(long)_options.CacheSize * 1024 : (long)_options.CacheSize * 4096),
+            SortMemoryLimit = SortBudget(_options.CacheSize),
         };
+    }
+
+    /// <summary>
+    /// How much a sort keeps in memory before it spills runs to a temporary file: eight times the page cache, so the default 2 MiB cache
+    /// sorts about 16 MiB in memory; never less than 256 KiB, and no more than the cache itself or 32 MiB, whichever is larger.
+    /// </summary>
+    private static long SortBudget(int cacheSize)
+    {
+        long cache = cacheSize < 0 ? -(long)cacheSize * 1024 : (long)cacheSize * 4096;
+        return Math.Max(256L * 1024, Math.Min(cache * 8, Math.Max(cache, 32L * 1024 * 1024)));
     }
 
     /// <summary>Closes the connection the happy-path methods use, if there is one. Connections from <see cref="Connect"/> belong to the caller.</summary>

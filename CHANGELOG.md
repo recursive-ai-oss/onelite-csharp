@@ -11,6 +11,10 @@ All notable changes to this project are documented here. The format follows [Kee
 - `X REGEXP Y` calls a user function `regexp(Y, X)` as SQLite documents; without one it fails with "no such function: regexp".
 - Group commit for `BEGIN CONCURRENT` at `synchronous=FULL` or EXTRA: concurrent commits of one process share WAL syncs. A commit is acknowledged only after a sync that covers it, and readers see it only after that sync, so durability is unchanged; on the test disk eight threads commit 3.4 to 3.7 times as fast as with `BEGIN IMMEDIATE` (before: no gain at FULL). It affects nothing unless `ConcurrentWrites` is on and `BEGIN CONCURRENT` is used; plain `BEGIN`, `BEGIN IMMEDIATE`, autocommit and `synchronous=NORMAL` are unchanged. `DatabaseOptions.ConcurrentGroupCommit = false` turns it off. See `docs/wal.md` and `docs/concurrency.md`.
 
+### Changed
+
+- Faster scans, sorts and grouping, with the same results: rows are sorted by a radix pass on the first key, leaf cells are read in place, and the read path is compiled optimized at first use. On x64, indicative: `scan_filter` 4.6× to 1.7× of native `sqlite3_step`, `group_by` 5.8× to 1.4×, `order_by_sort` 3.2× to 1.1×. Sorts now stay in memory up to 8 times the page cache (at least 256 KiB, 16 MiB at the default `cache_size`) before spilling to a temporary file.
+
 ### Fixed
 
 - `PRAGMA writable_schema=ON` is honoured (it was ignored): the schema table can be written and `sqlite_` names created, so the shell's `.dump` of `AUTOINCREMENT` and virtual-table databases loads.

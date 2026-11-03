@@ -104,6 +104,8 @@ narrowest, then the one created last. When only a prefix of the terms is served 
 sorter runs for the rest; the reference then sorts in groups and releases a group when the leading key changes, which OneLite does
 not (see Known differences).
 
+**Sorting.** The sorter keeps rows in shared chunks and, for a first key that is an integer, a real, or text or a blob under the BINARY collation in a UTF-8 database, sorts them by a radix pass on that key and settles ties with the full comparison (stable, so equal rows keep their insertion order as before). Other keys use a merge sort. Runs that exceed the sort memory limit (8 times the page cache, at least 256 KiB; 16 MiB at the default cache size) spill to a temporary file as before; encrypted databases still sort in memory only.
+
 ## Supported subset
 
 `SELECT` in full, window functions included: one table or many, subqueries, CTEs, compound selects, `DISTINCT`, grouping and
@@ -195,7 +197,7 @@ and every aggregate as a window function (`sum`, `avg`, `total` and the counts s
   does to the bound.
 - **Memory and spill.** Bounded frames stream: only the rows a frame can reach are kept. A frame that needs the whole partition (`UNBOUNDED
   FOLLOWING`, `ntile`, `percent_rank`, `cume_dist`, `last_value` without a bounded end) holds the partition in memory while it fits the sort
-  memory limit (`Connection.SortMemoryLimit`, about the page cache size, 256 KiB at least). Past the limit, and when the connection has a
+  memory limit (`Connection.SortMemoryLimit`: 8 times the page cache, at least 256 KiB, 16 MiB at the default cache size). Past the limit, and when the connection has a
   temporary-file VFS, the partition's rows move into blocks of 128 rows. A block is written to a temporary file (never synced, deleted on
   close) only when it has to leave memory, least recently used first, and is read back when a row in it is asked for. The peer groups
   are found from the blocks (the first and last group of each block stay in the block table), so no per-row or per-group structure

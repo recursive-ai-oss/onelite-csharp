@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using RecursiveAI.OneLite.Storage.Record;
 
 namespace RecursiveAI.OneLite.Storage.BTree;
@@ -105,6 +106,19 @@ public sealed class BtContext
     /// <summary>The largest cell an index page can hold: child pointer, size varint, local payload, overflow pointer.</summary>
     internal int MaxIndexCell => 4 + 9 + MaxLocalIndex + 4;
 
+    // The one-byte varint is nearly every payload size and small rowid; read it without building a span.
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static int ReadVar(byte[] d, int p, int limit, out ulong value)
+    {
+        if ((uint)p < (uint)limit && (uint)p < (uint)d.Length && d[p] < 0x80)
+        {
+            value = d[p];
+            return 1;
+        }
+
+        return Varint.Read(d.AsSpan(p, Math.Max(0, limit - p)), out value);
+    }
+
     /// <summary>Parses the cell at <paramref name="off"/> in <paramref name="d"/>, which may extend to <paramref name="limit"/>.</summary>
     internal CellInfo ParseCell(uint pgno, byte type, byte[] d, int off, int limit)
     {
@@ -123,7 +137,7 @@ public sealed class BtContext
 
         if (type == Pg.TableInterior)
         {
-            int n = Varint.Read(d.AsSpan(p, Math.Max(0, limit - p)), out ulong key);
+            int n = ReadVar(d, p, limit, out ulong key);
             if (n == 0)
             {
                 throw OneLiteException.Corrupt(pgno, "rowid varint is cut off");
@@ -134,7 +148,7 @@ public sealed class BtContext
             return ci;
         }
 
-        int n1 = Varint.Read(d.AsSpan(p, Math.Max(0, limit - p)), out ulong psize);
+        int n1 = ReadVar(d, p, limit, out ulong psize);
         if (n1 == 0)
         {
             throw OneLiteException.Corrupt(pgno, "payload size varint is cut off");
@@ -149,7 +163,7 @@ public sealed class BtContext
         ci.PayloadSize = (long)psize;
         if (type == Pg.TableLeaf)
         {
-            int n2 = Varint.Read(d.AsSpan(p, Math.Max(0, limit - p)), out ulong rowid);
+            int n2 = ReadVar(d, p, limit, out ulong rowid);
             if (n2 == 0)
             {
                 throw OneLiteException.Corrupt(pgno, "rowid varint is cut off");

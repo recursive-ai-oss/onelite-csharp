@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using RecursiveAI.OneLite.Storage.Record;
 
 namespace RecursiveAI.OneLite.Storage.BTree;
@@ -560,6 +561,11 @@ public sealed partial class BtCursor : IDisposable
                 throw new InvalidOperationException("Rowid on an index tree");
             }
 
+            if (State == CursorState.Valid && TryLeafCell(out _, out _, out _, out long fast))
+            {
+                return fast;
+            }
+
             return CurrentCell(out _, out _).Rowid;
         }
     }
@@ -606,6 +612,132 @@ public sealed partial class BtCursor : IDisposable
             TracePayload(whole);
             return whole;
         }
+    }
+
+    /// <summary>
+    /// <see cref="LoadPayload"/> followed by <see cref="ParseRecord"/> for the current entry, finding the cell once. <paramref name="wellFormed"/>
+    /// is false if the record is malformed. The common case, a payload that sits wholly in the page, is parsed in place.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+    public BtStatus LoadRecord(RecordView view, out bool wellFormed)
+    {
+        wellFormed = false;
+        try
+        {
+            if (State == CursorState.Valid && _ctx.Trace is null && TryLeafCell(out byte[] ld, out int lo, out int ls, out _))
+            {
+                wellFormed = view.Parse(ld, lo, ls);
+                return BtStatus.Ok;
+            }
+
+            CellInfo ci = CurrentCell(out PageHandle pg, out int off);
+            if (ci.PayloadSize <= ci.Local)
+            {
+                TracePayload(new ReadOnlySpan<byte>(pg.Data, ci.PayloadOff, ci.Local));
+                wellFormed = view.Parse(pg.Data, ci.PayloadOff, ci.Local);
+                return BtStatus.Ok;
+            }
+
+            BtStatus s = PayloadOf(pg, ci, off, out _, out _);
+            if (s != BtStatus.Ok)
+            {
+                return s;
+            }
+
+            wellFormed = ParseRecord(view);
+            return BtStatus.Ok;
+        }
+        catch (Exception e) when (e is OneLiteException or SourceFailure)
+        {
+            return Fail(e);
+        }
+    }
+
+    // The usual case of LoadRecord and Rowid, done without building a CellInfo: a table or index leaf cell whose payload size is a one-byte
+    // varint and which keeps all its payload on the page (fileformat2 section 1.6 cell formats). Anything else, and anything that looks
+    // wrong, returns false and takes the general path, which reports a damaged cell with the page and the cause.
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+    private bool TryLeafCell(out byte[] d, out int payloadOff, out int psize, out long rowid)
+    {
+        PageHandle pg = _pages[_level]!;
+        d = pg.Data;
+        payloadOff = 0;
+        psize = 0;
+        rowid = 0;
+        int h = pg.Number == 1 ? 100 : 0;
+        byte type = d[h];
+        int maxLocal;
+        if (type == Pg.TableLeaf)
+        {
+            maxLocal = _ctx.MaxLocalTable;
+        }
+        else if (type == Pg.IndexLeaf)
+        {
+            maxLocal = _ctx.MaxLocalIndex;
+        }
+        else
+        {
+            return false;
+        }
+
+        int usable = _ctx.Usable;
+        int n = (d[h + 3] << 8) | d[h + 4];
+        int ptr = h + 8 + (2 * _idx[_level]);
+        int ptrEnd = h + 8 + (2 * n);
+        if (ptr + 1 >= ptrEnd)
+        {
+            return false;
+        }
+
+        int off = (d[ptr] << 8) | d[ptr + 1];
+        if (off < ptrEnd || off > usable - 4)
+        {
+            return false;
+        }
+
+        int size = d[off];
+        if (size >= 0x80 || size > maxLocal)
+        {
+            return false;
+        }
+
+        int p = off + 1;
+        if (type == Pg.TableLeaf)
+        {
+            if (p + 9 > d.Length)
+            {
+                return false;
+            }
+
+            ulong r = 0;
+            int rl = 0;
+            for (; rl < 8; rl++)
+            {
+                byte b = d[p + rl];
+                r = (r << 7) | (uint)(b & 0x7f);
+                if (b < 0x80)
+                {
+                    break;
+                }
+            }
+
+            if (rl == 8)
+            {
+                r = (r << 8) | d[p + 8];
+            }
+
+            rowid = (long)r;
+            p += rl + 1;
+        }
+
+        if (p + size > usable)
+        {
+            return false;
+        }
+
+        payloadOff = p;
+        psize = size;
+        return true;
     }
 
     /// <summary>Parses the current payload as a record into <paramref name="view"/> (no allocation once the view is warm). Returns false if the record is malformed.</summary>
@@ -714,7 +846,25 @@ public sealed partial class BtCursor : IDisposable
     }
 
     /// <summary>Moves to the next entry in key order (Step.Restore, Step.Leaf, Step.Ascend, Step.Descend, Step.VisitInterior). Afterwards <see cref="State"/> is <see cref="CursorState.Invalid"/> if there was none.</summary>
-    public BtStatus Next() => TraceMove(TraceOp.Next, Step(true));
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+    public BtStatus Next()
+    {
+        // The common step, to the next cell of the same leaf page, needs none of the walking machinery.
+        if (State == CursorState.Valid && _op == Op.None && _ctx.Trace is null)
+        {
+            PageHandle pg = _pages[_level]!;
+            byte[] d = pg.Data;
+            int h = pg.Number == 1 ? 100 : 0;
+            if ((d[h] & 8) != 0 && _idx[_level] + 1 < ((d[h + 3] << 8) | d[h + 4]))
+            {
+                _idx[_level]++;
+                _gActive = false;
+                return BtStatus.Ok;
+            }
+        }
+
+        return TraceMove(TraceOp.Next, Step(true));
+    }
 
     /// <summary>Moves to the previous entry in key order.</summary>
     public BtStatus Previous() => TraceMove(TraceOp.Previous, Step(false));

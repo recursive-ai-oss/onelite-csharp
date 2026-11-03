@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Buffers.Binary;
 
 namespace RecursiveAI.OneLite.Storage.Record;
@@ -90,9 +91,17 @@ public static class SerialType
         }
     }
 
+    private static ReadOnlySpan<sbyte> SmallSizes => [0, 1, 2, 3, 4, 6, 8, 8, 0, 0, -1, -1];
+
     /// <summary>The number of content bytes for serial type <paramref name="t"/>, or -1 if the type is reserved or the size exceeds <see cref="MaxContent"/>.</summary>
     public static long ContentSize(ulong t)
     {
+        if (t < 12)
+        {
+            // Content sizes of serial types 0-9; 10 and 11 are reserved (-1).
+            return SmallSizes[(int)t];
+        }
+
         switch (t)
         {
             case 0: case 8: case 9: return 0;
@@ -157,6 +166,11 @@ public static class SerialType
     /// <summary>Reads a big-endian two's-complement integer of <paramref name="n"/> bytes (1 to 8).</summary>
     public static long ReadInt(ReadOnlySpan<byte> src, int n)
     {
+        if (n == 1)
+        {
+            return (sbyte)src[0];
+        }
+
         long v = (sbyte)src[0];
         for (int i = 1; i < n; i++)
         {
@@ -191,6 +205,7 @@ public sealed class RecordView
     /// Validates the header size, every serial type and that all bodies lie inside the record.
     /// </summary>
     /// <returns>False if the record is malformed (the BTree layer reports SQLITE_CORRUPT).</returns>
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     public bool Parse(byte[] owner, int offset, int length)
     {
         _array = owner;
@@ -207,37 +222,55 @@ public sealed class RecordView
         int hdrEnd = (int)hdrSize;
         long body = hdrEnd;
         int p = hn;
+        ulong[] types = _types;
+        int[] offsets = _offsets;
+        int count = 0;
         while (p < hdrEnd)
         {
-            int n = Varint.Read(rec.Slice(p, hdrEnd - p), out ulong t);
-            if (n == 0)
+            ulong t;
+            byte first = rec[p];
+            if (first < 0x80)
             {
-                return false;
+                t = first;
+                p++;
+            }
+            else
+            {
+                int n = Varint.Read(rec.Slice(p, hdrEnd - p), out t);
+                if (n == 0)
+                {
+                    return false;
+                }
+
+                p += n;
             }
 
-            p += n;
             long size = SerialType.ContentSize(t);
             if (size < 0)
             {
                 return false;
             }
 
-            if (_count == _types.Length)
+            if (count == types.Length)
             {
-                Array.Resize(ref _types, _count * 2);
-                Array.Resize(ref _offsets, _count * 2);
+                Array.Resize(ref _types, count * 2);
+                Array.Resize(ref _offsets, count * 2);
+                types = _types;
+                offsets = _offsets;
             }
 
-            _types[_count] = t;
-            _offsets[_count] = (int)Math.Min(body, int.MaxValue);
-            _count++;
+            types[count] = t;
+            offsets[count] = (int)Math.Min(body, int.MaxValue);
+            count++;
             body += size;
             if (body > length)
             {
+                _count = count;
                 return false;
             }
         }
 
+        _count = count;
         return true;
     }
 
@@ -252,6 +285,7 @@ public sealed class RecordView
     }
 
     /// <summary>The integer value of column <paramref name="i"/> (serial types 1-6, 8, 9); 0 for other types.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     public long GetInt64(int i)
     {
         ulong t = _types[i];
@@ -261,13 +295,31 @@ public sealed class RecordView
             case 9: return 1;
             case >= 1 and <= 6:
                 int n = (int)SerialType.ContentSize(t);
-                return SerialType.ReadInt(new ReadOnlySpan<byte>(_array!, _base + _offsets[i], n), n);
+                int at = _base + _offsets[i];
+                byte[] a = _array!;
+                if (n == 1)
+                {
+                    return (sbyte)a[at];
+                }
+
+                if (n == 2)
+                {
+                    return BinaryPrimitives.ReadInt16BigEndian(new ReadOnlySpan<byte>(a, at, 2));
+                }
+
+                if (n == 4)
+                {
+                    return BinaryPrimitives.ReadInt32BigEndian(new ReadOnlySpan<byte>(a, at, 4));
+                }
+
+                return SerialType.ReadInt(new ReadOnlySpan<byte>(a, at, n), n);
             case 7: return (long)GetDouble(i);
             default: return 0;
         }
     }
 
     /// <summary>The float value of column <paramref name="i"/>; integers convert.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     public double GetDouble(int i)
     {
         if (_types[i] == 7)
@@ -292,21 +344,31 @@ public sealed class RecordView
     }
 
     /// <summary>Copies column <paramref name="i"/> into <paramref name="m"/>, referencing the record's bytes for text and blobs.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     public void Load(int i, ref Mem m)
     {
-        StorageClass c = ClassOf(i);
-        m.Kind = c;
+        ulong t = _types[i];
         m.Subtype = 0;
-        switch (c)
+        if (t >= 12)
         {
-            case StorageClass.Integral: m.IntValue = GetInt64(i); break;
-            case StorageClass.Real: m.RealValue = GetDouble(i); break;
-            case StorageClass.Text:
-            case StorageClass.Blob:
-                m.Buffer = _array;
-                m.Offset = _base + _offsets[i];
-                m.Length = (int)((_types[i] - 12) / 2);
-                break;
+            m.Kind = (t & 1) == 0 ? StorageClass.Blob : StorageClass.Text;
+            m.Buffer = _array;
+            m.Offset = _base + _offsets[i];
+            m.Length = (int)((t - 12) / 2);
+        }
+        else if (t == 0 || t > 9)
+        {
+            m.Kind = StorageClass.Null;
+        }
+        else if (t == 7)
+        {
+            m.Kind = StorageClass.Real;
+            m.RealValue = GetDouble(i);
+        }
+        else
+        {
+            m.Kind = StorageClass.Integral;
+            m.IntValue = GetInt64(i);
         }
     }
 }

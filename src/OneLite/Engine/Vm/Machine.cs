@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using RecursiveAI.OneLite.Storage;
 using RecursiveAI.OneLite.Planning;
 using RecursiveAI.OneLite.Storage.BTree;
@@ -194,12 +195,12 @@ internal sealed partial class Machine
 
     private VmCursor Cursor(int i) => _cur[i];
 
-    /// <summary>Loads and parses the current entry so its columns can be read. Returns Ok, Pending or Error.</summary>
     /// <summary>
     /// Puts a cursor that a write by another cursor of the connection saved back on its entry before its row is read, as the reference does for a
     /// cursor that "requires seek" (lang_transaction: a pending SELECT sees the changes its own connection makes). The decoded record of the old
     /// position is dropped, since the page may have been edited since.
     /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static BtStatus Revive(VmCursor c)
     {
         if (c.Bt is not { State: CursorState.Saved } bt)
@@ -207,6 +208,11 @@ internal sealed partial class Machine
             return BtStatus.Ok;
         }
 
+        return ReviveSaved(c, bt);
+    }
+
+    private static BtStatus ReviveSaved(VmCursor c, BtCursor bt)
+    {
         BtStatus s = bt.Restore();
         if (s == BtStatus.Ok)
         {
@@ -216,6 +222,8 @@ internal sealed partial class Machine
         return s;
     }
 
+    /// <summary>Loads and parses the current entry so its columns can be read. Returns Ok, Pending or Error.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     private static BtStatus EnsureRecord(VmCursor c)
     {
         BtStatus rs = Revive(c);
@@ -229,13 +237,13 @@ internal sealed partial class Machine
             return BtStatus.Ok;
         }
 
-        BtStatus s = c.Bt!.LoadPayload();
+        BtStatus s = c.Bt!.LoadRecord(c.View, out bool wellFormed);
         if (s != BtStatus.Ok)
         {
             return s;
         }
 
-        if (!c.Bt.ParseRecord(c.View))
+        if (!wellFormed)
         {
             throw new OneLiteException(ResultCode.Corrupt, "database disk image is malformed", "a record in the b-tree is malformed");
         }
@@ -1076,7 +1084,7 @@ internal sealed partial class Machine
                     RecordSorter sorter = _sorters[ins.P1]!;
                     if (!sorter.SpillInProgress)
                     {
-                        sorter.Add(RecordWriter.ToArray(new ReadOnlySpan<Mem>(r, ins.P2, ins.P3)));
+                        sorter.Add(new ReadOnlySpan<Mem>(r, ins.P2, ins.P3));
                     }
 
                     if (sorter.SpillIfNeeded(_conn.Pager) == SortStatus.Pending)
@@ -1101,8 +1109,8 @@ internal sealed partial class Machine
 
                 case Op.SorterData:
                 {
-                    byte[] row = _sorters[ins.P1]!.Current;
-                    _sv.Parse(row, 0, row.Length);
+                    RecordSorter.SortRow row = _sorters[ins.P1]!.Current;
+                    _sv.Parse(row.Buf, row.Off, row.Len);
                     for (int i = 0; i < ins.P3; i++)
                     {
                         _sv.Load(i, ref r[ins.P2 + i]);
@@ -1995,6 +2003,7 @@ internal sealed partial class Machine
 
     // ------------------------------------------------------------------ columns
 
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     private void LoadColumn(VmCursor c, ref Instr ins)
     {
         int col = ins.P2;
@@ -2028,6 +2037,7 @@ internal sealed partial class Machine
 
     // ------------------------------------------------------------------ operators
 
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     private void Arith(ref Instr ins, int kind)
     {
         ref Mem a = ref R[ins.P1];
@@ -2140,8 +2150,28 @@ internal sealed partial class Machine
         _pc++;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     private void Compare(ref Instr ins)
     {
+        // Two numbers of the same kind compare the same whatever the affinity and collation are, so they skip the general path.
+        ref Mem fa = ref R[ins.P1];
+        ref Mem fb = ref R[ins.P2];
+        if (fa.Kind == fb.Kind && fa.Kind is StorageClass.Integral or StorageClass.Real)
+        {
+            int fc = fa.Kind == StorageClass.Integral ? fa.IntValue.CompareTo(fb.IntValue) : fa.RealValue.CompareTo(fb.RealValue);
+            bool fres = ins.Op switch
+            {
+                Op.Eq or Op.Is => fc == 0,
+                Op.Ne or Op.IsNot => fc != 0,
+                Op.Lt => fc < 0,
+                Op.Le => fc <= 0,
+                Op.Gt => fc > 0,
+                _ => fc >= 0,
+            };
+            Values.SetInt(ref R[ins.P3], fres ? 1 : 0);
+            return;
+        }
+
         Mem a = R[ins.P1], b = R[ins.P2];
         ref Mem d = ref R[ins.P3];
         bool an = a.Kind == StorageClass.Null, bn = b.Kind == StorageClass.Null;
