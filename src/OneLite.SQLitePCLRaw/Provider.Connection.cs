@@ -79,6 +79,10 @@ public sealed partial class OneLiteSqlite3Provider : ISQLite3Provider
         internal int Users;
     }
 
+    // The native library SQLitePCLRaw's own bundle ships is built with SQLITE_DEFAULT_FOREIGN_KEYS=1, and Microsoft.Data.Sqlite and EF Core rely on
+    // it (neither sends PRAGMA foreign_keys unless asked), so connections start with foreign keys on; OneLiteBatteries.Init can turn that off.
+    private static DatabaseOptions Options => new() { ForeignKeys = OneLiteBatteries.ForeignKeysByDefault };
+
     private static void OpenInto(DbState d, string name, int flags)
     {
         bool uri = (flags & OpenUri) != 0;
@@ -106,7 +110,7 @@ public sealed partial class OneLiteSqlite3Provider : ISQLite3Provider
             if (shared && path.Length > 0 && path != ":memory:")
             {
                 string key = path;
-                SharedMemory sm = s_sharedMemory.GetOrAdd(key, _ => new SharedMemory { Database = Database.Open("file:" + Uri.EscapeDataString(key) + "?mode=memory&cache=shared") });
+                SharedMemory sm = s_sharedMemory.GetOrAdd(key, _ => new SharedMemory { Database = Database.Open("file:" + Uri.EscapeDataString(key) + "?mode=memory&cache=shared", Options) });
                 lock (sm)
                 {
                     sm.Users++;
@@ -117,14 +121,14 @@ public sealed partial class OneLiteSqlite3Provider : ISQLite3Provider
             }
             else
             {
-                db = Database.Open(":memory:");
+                db = Database.Open(":memory:", Options);
             }
 
             d.Path = path.Length == 0 ? string.Empty : path;
         }
         else if (readOnly)
         {
-            db = Database.OpenReadOnly(path);
+            db = Database.OpenReadOnly(path, Options);
         }
         else
         {
@@ -133,7 +137,7 @@ public sealed partial class OneLiteSqlite3Provider : ISQLite3Provider
                 throw new OneLiteException(ResultCode.CantOpen, "unable to open database file");
             }
 
-            db = Database.Open(path);
+            db = Database.Open(path, Options);
         }
 
         d.Database = db;
@@ -749,7 +753,7 @@ public sealed partial class OneLiteSqlite3Provider : ISQLite3Provider
     // The options of the pinned release that describe behaviour OneLite reproduces.
     private static readonly List<string> CompileOptions =
     [
-        "ENABLE_COLUMN_METADATA", "ENABLE_FTS3", "ENABLE_FTS4", "ENABLE_FTS5", "ENABLE_RTREE", "ENABLE_MATH_FUNCTIONS", "ENABLE_DBSTAT_VTAB",
+        "DEFAULT_FOREIGN_KEYS=1", "ENABLE_COLUMN_METADATA", "ENABLE_FTS3", "ENABLE_FTS4", "ENABLE_FTS5", "ENABLE_RTREE", "ENABLE_MATH_FUNCTIONS", "ENABLE_DBSTAT_VTAB",
         "THREADSAFE=1", "MAX_VARIABLE_NUMBER=32766",
     ];
 
