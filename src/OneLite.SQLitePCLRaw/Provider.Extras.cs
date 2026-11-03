@@ -631,7 +631,7 @@ public sealed partial class OneLiteSqlite3Provider
     public utf8z sqlite3_value_text(IntPtr p)
     {
         ref Mem m = ref ValueMem(p);
-        return m.Kind == StorageClass.Null ? default : utf8z.FromSpan(m.Kind is StorageClass.Text or StorageClass.Blob ? m.Bytes : MemConversions.ToBytes(m));
+        return m.Kind == StorageClass.Null ? default : Utf8Z.Copy(m.Kind is StorageClass.Text or StorageClass.Blob ? m.Bytes : MemConversions.ToBytes(m));
     }
 }
 

@@ -26,7 +26,7 @@ public sealed partial class OneLiteSqlite3Provider
     private static int PrepareZ(sqlite3 db, utf8z sql, out IntPtr stmt, out utf8z remain)
     {
         string text = sql.utf8_to_string() ?? string.Empty;
-        int rc = Prepare(db, Encoding.UTF8.GetBytes(text), out stmt, out ReadOnlySpan<byte> t);
+        int rc = Prepare(db, Utf8Z.Terminated(Encoding.UTF8.GetBytes(text)), out stmt, out ReadOnlySpan<byte> t);
         remain = utf8z.FromSpan(t);
         return rc;
     }
@@ -62,7 +62,9 @@ public sealed partial class OneLiteSqlite3Provider
         // The engine reports the unconsumed text; the caller wants it as a position in its own bytes.
         string rest = st.Tail;
         string consumed = rest.Length <= s.Length ? s[..(s.Length - rest.Length)] : s;
-        remain = text[Encoding.UTF8.GetByteCount(consumed)..];
+        // SQLitePCLRaw reads the tail up to its zero terminator: hand back the caller's own bytes when they end with one, else a terminated copy.
+        int consumedBytes = Encoding.UTF8.GetByteCount(consumed);
+        remain = nul >= 0 ? sql[consumedBytes..] : Utf8Z.Terminated(text[consumedBytes..]);
         d.Ok();
         if (IsBlank(consumed))
         {
@@ -624,7 +626,12 @@ public sealed partial class OneLiteSqlite3Provider
             return default;
         }
 
-        return utf8z.FromSpan(s.Statement.GetTextUtf8(index));
+        if (s.TextBuffers.Length != s.Statement.ColumnCount)
+        {
+            s.TextBuffers = new byte[]?[s.Statement.ColumnCount];
+        }
+
+        return Utf8Z.Reuse(ref s.TextBuffers[index], s.Statement.GetTextUtf8(index));
     }
 
     /// <inheritdoc />

@@ -9,6 +9,7 @@
     <!-- The suite names its custom test framework by assembly name. -->
     <AssemblyName>Microsoft.Data.Sqlite.Tests</AssemblyName>
     <RootNamespace>Microsoft.Data.Sqlite.Tests</RootNamespace>
+    <InvariantGlobalization>false</InvariantGlobalization>
     <OutputType>Exe</OutputType>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>

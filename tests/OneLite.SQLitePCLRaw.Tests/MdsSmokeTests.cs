@@ -5,7 +5,16 @@ namespace RecursiveAI.OneLite.SQLitePCLRaw.Tests;
 
 public class MdsSmokeTests
 {
-    static MdsSmokeTests() => OneLiteBatteries.Init();
+    public MdsSmokeTests() => OneLiteBatteries.Init();
+
+    [Fact]
+    public void RunsOnOneLite()
+    {
+        using var c = new SqliteConnection("Data Source=:memory:");
+        c.Open();
+        Assert.Equal("OneLite (managed)", SQLitePCL.raw.GetNativeLibraryName());
+        Assert.Equal("3.53.4", c.ServerVersion);
+    }
 
     [Fact]
     public void SelectOne()

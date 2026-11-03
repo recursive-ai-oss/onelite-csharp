@@ -173,4 +173,40 @@ internal sealed class StmtState
 
     internal string? StepMessage;
     internal bool Finalized;
+
+    /// <summary>One reusable zero-terminated copy of the text per result column, for <c>sqlite3_column_text</c>.</summary>
+    internal byte[]?[] TextBuffers = [];
+}
+
+/// <summary>SQLitePCLRaw's <c>utf8z</c> wraps a zero-terminated byte sequence; these build one over managed memory.</summary>
+internal static class Utf8Z
+{
+    /// <summary>A zero-terminated copy of <paramref name="payload"/> as a byte array (the terminator is the last byte).</summary>
+    internal static byte[] Terminated(ReadOnlySpan<byte> payload)
+    {
+        var buf = new byte[payload.Length + 1];
+        payload.CopyTo(buf);
+        return buf;
+    }
+
+    /// <summary>A zero-terminated copy of <paramref name="payload"/>.</summary>
+    internal static SQLitePCL.utf8z Copy(ReadOnlySpan<byte> payload)
+    {
+        var buf = new byte[payload.Length + 1];
+        payload.CopyTo(buf);
+        return SQLitePCL.utf8z.FromSpan(buf);
+    }
+
+    /// <summary>As <see cref="Copy"/>, reusing <paramref name="buffer"/> when it is big enough. The result is valid until the buffer is used again.</summary>
+    internal static SQLitePCL.utf8z Reuse(ref byte[]? buffer, ReadOnlySpan<byte> payload)
+    {
+        if (buffer is null || buffer.Length < payload.Length + 1)
+        {
+            buffer = new byte[Math.Max(payload.Length + 1, 32)];
+        }
+
+        payload.CopyTo(buffer);
+        buffer[payload.Length] = 0;
+        return SQLitePCL.utf8z.FromSpan(new ReadOnlySpan<byte>(buffer, 0, payload.Length + 1));
+    }
 }
