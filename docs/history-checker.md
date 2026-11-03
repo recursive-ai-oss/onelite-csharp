@@ -52,6 +52,6 @@ onelite-history run --client memory|sqlite|sqlite-snapshot|sqlite-novalidate --l
 onelite-history check <history.jsonl> --level serializable [--json report.json]
 ```
 
-`sqlite` runs plain SQLite transactions (`--begin immediate|deferred`, `--journal wal|delete`) through the native library. `sqlite-snapshot` buffers writes over a snapshot and rejects a key that changed before commit (snapshot isolation). `sqlite-novalidate` commits the buffer without validation (lost updates). Both shims exist to show the checker tells the levels apart. New engines plug in by implementing `IHistoryClient`.
+`onelite` runs `BEGIN CONCURRENT` (serializable) and `onelite-snapshot` runs `BEGIN CONCURRENT SNAPSHOT` (snapshot isolation) on OneLite itself (`--db <file>`, any `--exec`). `tools/scripts/conc_history_campaign.sh` loops random workloads (2/4/8 clients, both models, threads and processes) for a time budget per level. `sqlite` runs plain SQLite transactions (`--begin immediate|deferred`, `--journal wal|delete`) through the native library. `sqlite-snapshot` buffers writes over a snapshot and rejects a key that changed before commit (snapshot isolation). `sqlite-novalidate` commits the buffer without validation (lost updates). Both shims exist to show the checker tells the levels apart. New engines plug in by implementing `IHistoryClient`.
 
 History files are JSON lines: a header `{"history":"list-append"}` then one transaction per line `{"id":7,"p":2,"t0":100,"t1":250,"o":"ok","m":[["a",3,41],["r",3,[41]]]}`; times are nanoseconds.
