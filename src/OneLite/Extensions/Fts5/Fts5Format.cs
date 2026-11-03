@@ -276,6 +276,12 @@ internal interface IBlobSource
 {
     /// <summary>The %_data record with this rowid, or null when there is none.</summary>
     byte[]? Data(long id);
+
+    /// <summary>Like <see cref="Data"/>, but returns false instead of throwing when the record has not been loaded yet.</summary>
+    bool TryData(long id, out byte[]? value);
+
+    /// <summary>The parsed leaf page <paramref name="pgno"/> of segment <paramref name="segid"/> (null when it does not exist), parsed once while it stays loaded; false when not loaded yet.</summary>
+    bool TryPage(int segid, int pgno, out SegPage? page);
 }
 
 /// <summary>A segment leaf page (fts5 "Pagination"): 4-byte header, key/doclist data, footer of key offsets.</summary>
@@ -360,13 +366,13 @@ internal sealed class SegScanner
 
     private SegPage Load(int pgno)
     {
-        byte[]? b = _src.Data(F5.DataId(_seg.Id, pgno));
-        if (b is null)
+        if (!_src.TryPage(_seg.Id, pgno, out SegPage? pg))
         {
-            throw F5.Corrupt($"segment {_seg.Id} page {pgno} is missing");
+            _src.Data(F5.DataId(_seg.Id, pgno)); // not loaded: the source signals the fetch
+            throw F5.Corrupt($"segment {_seg.Id}: page {pgno} cannot be read");
         }
 
-        return SegPage.Parse(b, _seg.Id, pgno);
+        return pg ?? throw F5.Corrupt($"segment {_seg.Id} page {pgno} is missing");
     }
 
     private static ReadOnlySpan<byte> FirstKeyOf(SegPage pg)
@@ -381,17 +387,16 @@ internal sealed class SegScanner
         return pg.Buf.AsSpan(p, (int)n);
     }
 
-    /// <summary>Positions on the first key that is not smaller than <paramref name="term"/>.</summary>
-    internal void Seek(ReadOnlySpan<byte> term)
+    /// <summary>
+    /// The page <see cref="Seek"/> starts its key scan on: the last page whose first key is not greater than <paramref name="term"/>.
+    /// Returns -1 with <paramref name="missing"/> set when a probed page has not been loaded yet (the store then fetches it and the
+    /// search is repeated; the probes are the same each time).
+    /// </summary>
+    internal static int FindStartPage(IBlobSource src, Seg seg, ReadOnlySpan<byte> term, out long missing)
     {
-        if (IsEmpty())
-        {
-            HasKey = false;
-            return;
-        }
-
-        int lo = _seg.First;
-        int hi = _seg.Last;
+        missing = 0;
+        int lo = seg.First;
+        int hi = seg.Last;
         int best = lo;
         // The last page whose first key is <= term; pages without a key are skipped over.
         while (lo <= hi)
@@ -401,7 +406,17 @@ internal sealed class SegScanner
             SegPage? pg = null;
             while (probe <= hi)
             {
-                pg = Load(probe);
+                if (!src.TryPage(seg.Id, probe, out pg))
+                {
+                    missing = F5.DataId(seg.Id, probe);
+                    return -1;
+                }
+
+                if (pg is null)
+                {
+                    throw F5.Corrupt($"segment {seg.Id} page {probe} is missing");
+                }
+
                 if (pg.KeyOffs.Length > 0)
                 {
                     break;
@@ -425,6 +440,25 @@ internal sealed class SegScanner
             {
                 hi = mid - 1;
             }
+        }
+
+        return best;
+    }
+
+    /// <summary>Positions on the first key that is not smaller than <paramref name="term"/>.</summary>
+    internal void Seek(ReadOnlySpan<byte> term)
+    {
+        if (IsEmpty())
+        {
+            HasKey = false;
+            return;
+        }
+
+        int best = FindStartPage(_src, _seg, term, out long missing);
+        if (best < 0)
+        {
+            _src.Data(missing); // not loaded: the store signals the fetch
+            throw F5.Corrupt($"segment {_seg.Id}: page {missing} cannot be read");
         }
 
         _pgno = best;
@@ -517,8 +551,19 @@ internal sealed class SegScanner
     /// <summary>Reads the next doclist entry of the current key; false when the doclist is done.</summary>
     internal bool NextEntry(out long rowid, out byte[] poslist, out bool del)
     {
+        bool ok = NextEntry(out rowid, out ReadOnlySpan<byte> pl, out del);
+        poslist = ok ? pl.ToArray() : [];
+        return ok;
+    }
+
+    /// <summary>
+    /// Like the overload above, but the position list is a view: into the page when the list lies inside it, else into a buffer reused by
+    /// the next call. Copy it to keep it.
+    /// </summary>
+    internal bool NextEntry(out long rowid, out ReadOnlySpan<byte> poslist, out bool del)
+    {
         rowid = 0;
-        poslist = [];
+        poslist = default;
         del = false;
         SegPage pg = _page!;
         for (; ; )
@@ -584,7 +629,20 @@ internal sealed class SegScanner
             throw F5.Corrupt("bad position list size");
         }
 
-        var res = new byte[size];
+        if (size <= pg.FooterOff - _pos && !(_keyIdx < pg.KeyOffs.Length && _pos < pg.KeyOffs[_keyIdx] && _pos + size > pg.KeyOffs[_keyIdx]))
+        {
+            poslist = pg.Buf.AsSpan(_pos, (int)size);
+            _pos += (int)size;
+            return true;
+        }
+
+        // the list runs on into the next page(s): gather it
+        if (_spill.Length < size)
+        {
+            _spill = new byte[Math.Max(size, 256)];
+        }
+
+        byte[] res = _spill;
         int got = 0;
         while (got < size)
         {
@@ -619,9 +677,11 @@ internal sealed class SegScanner
             _pos += take;
         }
 
-        poslist = res;
+        poslist = res.AsSpan(0, (int)size);
         return true;
     }
+
+    private byte[] _spill = [];
 }
 
 /// <summary>Builds the pages of one segment from keys and doclists given in order.</summary>
@@ -831,6 +891,48 @@ internal static class PosList
         }
 
         return b.ToArray();
+    }
+
+    /// <summary>Decodes like <see cref="Decode"/> into a reusable buffer; returns the number of values.</summary>
+    internal static int DecodeInto(ReadOnlySpan<byte> pl, ref long[] buf)
+    {
+        int n = 0;
+        int p = 0;
+        long col = 0;
+        long prev = 0;
+        bool start = true;
+        while (p < pl.Length)
+        {
+            long v = F5.GetVarint(pl, ref p);
+            if (v == 1)
+            {
+                col = F5.GetVarint(pl, ref p);
+                if (col < 0 || col > 2000)
+                {
+                    throw F5.Corrupt("bad column in position list");
+                }
+
+                start = true;
+                continue;
+            }
+
+            long off = start ? v - 2 : prev + v - 2;
+            if (off < 0 || off > 0x7FFFFFFF)
+            {
+                throw F5.Corrupt("bad offset in position list");
+            }
+
+            if (n == buf.Length)
+            {
+                Array.Resize(ref buf, Math.Max(16, n * 2));
+            }
+
+            buf[n++] = (col << 32) | off;
+            prev = off;
+            start = false;
+        }
+
+        return n;
     }
 
     /// <summary>Decodes into (column &lt;&lt; 32 | offset) values.</summary>

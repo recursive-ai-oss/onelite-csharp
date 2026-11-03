@@ -653,7 +653,7 @@ internal sealed class QueryEval
     private readonly Fts5Index _idx;
     private readonly Structure _st;
     private readonly int _nPhrases;
-    private readonly Dictionary<(byte[], bool), List<Posting>> _cache = new(new KeyCmp());
+    private readonly Dictionary<(byte[], bool), PostingList> _cache;
 
     private sealed class KeyCmp : IEqualityComparer<(byte[], bool)>
     {
@@ -668,15 +668,19 @@ internal sealed class QueryEval
         }
     }
 
-    internal QueryEval(Fts5Config cfg, Fts5Index idx, Structure st, int nPhrases)
+    /// <summary>The cache of term lookups; a cursor keeps one across the restarts of a computation so finished lookups are not repeated.</summary>
+    internal static Dictionary<(byte[], bool), PostingList> NewCache() => new(new KeyCmp());
+
+    internal QueryEval(Fts5Config cfg, Fts5Index idx, Structure st, int nPhrases, Dictionary<(byte[], bool), PostingList> cache)
     {
+        _cache = cache;
         _cfg = cfg;
         _idx = idx;
         _st = st;
         _nPhrases = nPhrases;
     }
 
-    private List<Posting> Postings(PTerm t)
+    private (byte[] Key, bool Scan) KeyOf(PTerm t)
     {
         byte[] key;
         bool scan = false;
@@ -707,7 +711,40 @@ internal sealed class QueryEval
             key = [(byte)'0', .. t.Token];
         }
 
-        if (!_cache.TryGetValue((key, scan), out List<Posting>? l))
+        return (key, scan);
+    }
+
+    /// <summary>
+    /// Makes the first pages of every term's search available in one fetch, so the evaluation below restarts once for all terms and
+    /// segments instead of once for each.
+    /// </summary>
+    internal void Prefetch(List<QPhrase> phrases)
+    {
+        var need = new List<(Seg, byte[])>();
+        foreach (QPhrase p in phrases)
+        {
+            foreach (PTerm t in p.Terms)
+            {
+                (byte[] key, bool scan) = KeyOf(t);
+                if (_cache.ContainsKey((key, scan)))
+                {
+                    continue;
+                }
+
+                foreach (Seg g in _st.NewestFirst())
+                {
+                    _idx.Store.CollectSeek(g, key, need);
+                }
+            }
+        }
+
+        Fts5Store.FetchSeeks(need);
+    }
+
+    private PostingList Postings(PTerm t)
+    {
+        (byte[] key, bool scan) = KeyOf(t);
+        if (!_cache.TryGetValue((key, scan), out PostingList? l))
         {
             _cache[(key, scan)] = l = _idx.Lookup(_st, key, scan);
         }
@@ -723,6 +760,13 @@ internal sealed class QueryEval
     internal List<DocMatch> EvalRoot(QNode n, List<QNode>? emptyLeft = null)
     {
         _leaks.Clear();
+        var leaves = new List<QPhrase>();
+        if ((emptyLeft is null || emptyLeft.Count == 0) && IsPureAnd(n, leaves))
+        {
+            _fast = true;
+            return EvalAnd(leaves);
+        }
+
         List<DocMatch> res = Eval(n);
         foreach (QNode right in emptyLeft ?? [])
         {
@@ -755,6 +799,155 @@ internal sealed class QueryEval
         return res;
     }
 
+    private bool _fast;
+
+    private static bool IsPureAnd(QNode n, List<QPhrase> leaves)
+    {
+        switch (n)
+        {
+            case QPhrase p:
+                leaves.Add(p);
+                return true;
+            case QBin { Op: '&' } b:
+                return IsPureAnd(b.L, leaves) && IsPureAnd(b.R, leaves);
+            default:
+                return false;
+        }
+    }
+
+    /// <summary>A phrase of one term with no column or position restriction: its rows are just the rows listing the term.</summary>
+    private static bool IsLone(QPhrase p) => p.Terms.Count == 1 && p.Cols is null && !p.Initial;
+
+    /// <summary>
+    /// A query that is only phrases joined by AND (the usual case) needs a row-level match only on the rows that list every one of its
+    /// terms. Those rows are found first, from the row numbers alone, so that positions are decoded and match objects made only for them.
+    /// The result is the one the general path gives: the same rows, the same instances.
+    /// </summary>
+    private List<DocMatch> EvalAnd(List<QPhrase> leaves)
+    {
+        var termLists = new List<PostingList>();
+        foreach (QPhrase p in leaves)
+        {
+            if (p.Terms.Count == 0)
+            {
+                return [];
+            }
+
+            foreach (PTerm t in p.Terms)
+            {
+                termLists.Add(Postings(t));
+            }
+        }
+
+        var cand = new List<long>();
+        var ptr = new int[termLists.Count];
+        bool done = false;
+        while (!done)
+        {
+            long target = long.MinValue;
+            for (int i = 0; i < termLists.Count; i++)
+            {
+                if (ptr[i] >= termLists[i].Count)
+                {
+                    done = true;
+                    break;
+                }
+
+                target = Math.Max(target, termLists[i].Rowid(ptr[i]));
+            }
+
+            if (done)
+            {
+                break;
+            }
+
+            bool all = true;
+            for (int i = 0; i < termLists.Count; i++)
+            {
+                PostingList l = termLists[i];
+                while (ptr[i] < l.Count && l.Rowid(ptr[i]) < target)
+                {
+                    ptr[i]++;
+                }
+
+                if (ptr[i] >= l.Count)
+                {
+                    done = true;
+                    all = false;
+                    break;
+                }
+
+                if (l.Rowid(ptr[i]) != target)
+                {
+                    all = false;
+                }
+            }
+
+            if (all)
+            {
+                cand.Add(target);
+                for (int i = 0; i < termLists.Count; i++)
+                {
+                    ptr[i]++;
+                }
+            }
+        }
+
+        List<DocMatch>? acc = null;
+        foreach (QPhrase p in leaves)
+        {
+            List<DocMatch> m = IsLone(p) ? EvalLone(p, cand) : EvalPhrase(p);
+            acc = acc is null ? m : And(acc, m);
+        }
+
+        return acc ?? [];
+    }
+
+    private List<DocMatch> EvalLone(QPhrase p, List<long> cand)
+    {
+        var res = new List<DocMatch>(cand.Count);
+        PostingList list = Postings(p.Terms[0]);
+        int j = 0;
+        foreach (long rowid in cand)
+        {
+            while (list.Rowid(j) < rowid)
+            {
+                j++;
+            }
+
+            long[] pos = list.Pos(j);
+            if (_cfg.Detail == DetailMode.None || pos.Length > 0)
+            {
+                var d = new DocMatch { Rowid = rowid, Inst = new long[]?[_nPhrases] };
+                d.Inst[p.Id] = pos;
+                res.Add(d);
+            }
+        }
+
+        return res;
+    }
+
+    /// <summary>The number of rows in which a phrase matches (what bm25 calls n).</summary>
+    internal long PhraseCount(QPhrase p)
+    {
+        if (_fast && IsLone(p))
+        {
+            long n = 0;
+            PostingList pl = Postings(p.Terms[0]);
+            for (int i = 0; i < pl.Count; i++)
+            {
+                if (_cfg.Detail == DetailMode.None || pl.HasPositionBytes(i))
+                {
+                    n++;
+                }
+            }
+
+            return n;
+        }
+
+        return Eval(p).Count;
+    }
+
     /// <summary>The rows in which the terms of a node meet, whatever their positions (a phrase that never occurs can still have some).</summary>
     private HashSet<long> Candidates(QNode n)
     {
@@ -766,9 +959,10 @@ internal sealed class QueryEval
                 foreach (PTerm t in p.Terms)
                 {
                     var rows = new HashSet<long>();
-                    foreach (Posting po in Postings(t))
+                    PostingList pl = Postings(t);
+                    for (int i = 0; i < pl.Count; i++)
                     {
-                        rows.Add(po.Rowid);
+                        rows.Add(pl.Rowid(i));
                     }
 
                     if (acc is null)
@@ -944,7 +1138,20 @@ internal sealed class QueryEval
 
     private static bool Has(long[] sorted, long v) => Array.BinarySearch(sorted, v) >= 0;
 
+    private readonly Dictionary<QPhrase, List<DocMatch>> _phraseCache = new(ReferenceEqualityComparer.Instance);
+
+    // A phrase is evaluated once per query: the count of rows per phrase (for bm25) reuses the result of the match itself.
     private List<DocMatch> EvalPhrase(QPhrase p)
+    {
+        if (!_phraseCache.TryGetValue(p, out List<DocMatch>? r))
+        {
+            _phraseCache[p] = r = EvalPhraseCore(p);
+        }
+
+        return r;
+    }
+
+    private List<DocMatch> EvalPhraseCore(QPhrase p)
     {
         var res = new List<DocMatch>();
         if (p.Terms.Count == 0)
@@ -952,7 +1159,7 @@ internal sealed class QueryEval
             return res;
         }
 
-        var lists = new List<Posting>[p.Terms.Count];
+        var lists = new PostingList[p.Terms.Count];
         for (int i = 0; i < lists.Length; i++)
         {
             lists[i] = Postings(p.Terms[i]);
@@ -976,7 +1183,7 @@ internal sealed class QueryEval
                     break;
                 }
 
-                target = Math.Max(target, lists[i][ptr[i]].Rowid);
+                target = Math.Max(target, lists[i].Rowid(ptr[i]));
             }
 
             if (done)
@@ -987,7 +1194,7 @@ internal sealed class QueryEval
             bool all = true;
             for (int i = 0; i < lists.Length; i++)
             {
-                while (ptr[i] < lists[i].Count && lists[i][ptr[i]].Rowid < target)
+                while (ptr[i] < lists[i].Count && lists[i].Rowid(ptr[i]) < target)
                 {
                     ptr[i]++;
                 }
@@ -997,7 +1204,7 @@ internal sealed class QueryEval
                     return res;
                 }
 
-                if (lists[i][ptr[i]].Rowid != target)
+                if (lists[i].Rowid(ptr[i]) != target)
                 {
                     all = false;
                 }
@@ -1008,7 +1215,6 @@ internal sealed class QueryEval
                 continue;
             }
 
-            var starts = new List<long>();
             if (_cfg.Detail == DetailMode.None)
             {
                 // no positions are kept: a lone term matches wherever it is listed
@@ -1023,7 +1229,23 @@ internal sealed class QueryEval
                 continue;
             }
 
-            foreach (long p0 in lists[0][ptr[0]].Pos)
+            if (lists.Length == 1 && p.Cols is null && !p.Initial)
+            {
+                // a lone term with no column or position filter: every listed position is a start (the arrays are never changed, so shared)
+                long[] lone = lists[0].Pos(ptr[0]);
+                if (lone.Length > 0)
+                {
+                    var dd = new DocMatch { Rowid = target, Inst = new long[]?[_nPhrases] };
+                    dd.Inst[p.Id] = lone;
+                    res.Add(dd);
+                }
+
+                ptr[0]++;
+                continue;
+            }
+
+            var starts = new List<long>();
+            foreach (long p0 in lists[0].Pos(ptr[0]))
             {
                 int col = (int)(p0 >> 32);
                 if (p.Cols is not null && (col >= p.Cols.Length || !p.Cols[col]))
@@ -1039,7 +1261,7 @@ internal sealed class QueryEval
                 bool ok = true;
                 for (int i = 1; i < lists.Length && ok; i++)
                 {
-                    ok = Has(lists[i][ptr[i]].Pos, p0 + i);
+                    ok = Has(lists[i].Pos(ptr[i]), p0 + i);
                 }
 
                 if (ok)

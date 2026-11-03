@@ -14,6 +14,7 @@ All notable changes to this project are documented here. The format follows [Kee
 ### Changed
 
 - Faster scans, sorts and grouping, with the same results: rows are sorted by a radix pass on the first key, leaf cells are read in place, and the read path is compiled optimized at first use. On x64, indicative: `scan_filter` 4.6× to 1.7× of native `sqlite3_step`, `group_by` 5.8× to 1.4×, `order_by_sort` 3.2× to 1.1×. Sorts now stay in memory up to 8 times the page cache (at least 256 KiB, 16 MiB at the default `cache_size`) before spilling to a temporary file.
+- FTS5 `MATCH` queries read only the index pages they need instead of the whole index, keep finished term lookups while a query waits for more pages, and decode positions only for the rows that match every term. A ranked two-word query over 20,000 documents is about 4.5 times faster and allocates about 9 times less (0.65 MB instead of 5.7 MB per query). Results and files are unchanged.
 
 ### Fixed
 

@@ -106,6 +106,13 @@ internal static class Fts5Aux
     /// <summary>The value of the <c>rank</c> column: the configured ranking function, which must be <c>bm25</c> with optional weights.</summary>
     internal static double RankValue(Fts5Cursor c, string spec)
     {
+        // the same spec is evaluated for every row of a scan: parse it once per cursor
+        if (ReferenceEquals(c.RankSpecCached, spec) && c.RankWeightsCached is { } cw)
+        {
+            return Bm25(c, cw);
+        }
+
+        string original = spec;
         spec = spec.Trim();
         int open = spec.IndexOf('(', StringComparison.Ordinal);
         string fn = open < 0 ? spec : spec[..open].Trim();
@@ -134,7 +141,10 @@ internal static class Fts5Aux
             throw new OneLiteException(ResultCode.Error, "no such function: " + fn);
         }
 
-        return Bm25(c, [.. w]);
+        double[] weights = [.. w];
+        c.RankSpecCached = original;
+        c.RankWeightsCached = weights;
+        return Bm25(c, weights);
     }
 
     /// <summary>Okapi BM25 with k1 = 1.2 and b = 0.75, negated so that better matches sort first (Robertson and Zaragoza).</summary>
