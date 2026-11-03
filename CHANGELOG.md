@@ -4,6 +4,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.6.0-preview.2]
+
 ### Changed
 
 - `Database.HappyPathOptions()` no longer turns `ConcurrentWrites` on. **0.6.0-preview.1 did**, so every happy-path `WriteAsync` ran as `BEGIN CONCURRENT` without any code change; rowids were then not in commit order, and a `WHERE id > :last` poller could miss rows. The default is `BEGIN IMMEDIATE` again, as in 0.3.0-preview.2. To opt in: `Database.HappyPathOptions() with { ConcurrentWrites = true }`.
