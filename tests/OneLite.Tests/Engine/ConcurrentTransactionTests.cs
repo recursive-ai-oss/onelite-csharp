@@ -759,4 +759,25 @@ public sealed class ConcurrentTransactionTests : IDisposable
         Assert.Equal(happy.BusyTimeoutMs, on.BusyTimeoutMs);
         Assert.False(happy.ConcurrentWrites);
     }
+
+    [Fact]
+    public void OsFileIdentityIsAvailableAndDiffersBetweenFiles()
+    {
+        if (!(OperatingSystem.IsLinux() || OperatingSystem.IsMacOS() || OperatingSystem.IsWindows()))
+        {
+            return;
+        }
+
+        string a = Path.Combine(_dir, "id-a");
+        string b = Path.Combine(_dir, "id-b");
+        File.WriteAllText(a, "x");
+        File.WriteAllText(b, "x");
+        using var ha = File.OpenHandle(a);
+        using var hb = File.OpenHandle(b);
+        using var ha2 = File.OpenHandle(a);
+        string? ia = RecursiveAI.OneLite.Storage.Vfs.NativeFile.FileIdentity(ha);
+        Assert.NotNull(ia);
+        Assert.Equal(ia, RecursiveAI.OneLite.Storage.Vfs.NativeFile.FileIdentity(ha2));
+        Assert.NotEqual(ia, RecursiveAI.OneLite.Storage.Vfs.NativeFile.FileIdentity(hb));
+    }
 }

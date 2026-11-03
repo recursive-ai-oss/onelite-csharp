@@ -13,7 +13,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Fixed
 
-- Concurrent-transaction rowid hints are kept per database file (its creation time and path), not per path: a database deleted and created again, or replaced by a copy, no longer starts its new rowids where the old file left off. A temp table no longer shares the main database's hint.
+- Concurrent-transaction rowid hints are kept per database file (the operating system's file identity: device and inode, or volume serial number and file index, plus the creation time), not per path: a database deleted and created again, or replaced by a copy, no longer starts its new rowids where the old file left off. A temp table no longer shares the main database's hint.
 - `docs/benchmarks.md`: wording about tuning; a `prepare_cold` row.
 
 ## [0.6.0-preview.1]
