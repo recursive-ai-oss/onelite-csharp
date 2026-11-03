@@ -55,3 +55,18 @@ did you mean "name"?
 Runtime errors that are not constraint failures (an integer overflow, a bad `LIMIT`) carry the statement text but no position in it: the virtual
 machine does not track which expression a failing instruction came from. A name that does not appear in the statement text itself (for example one
 inside a view body) has no position. Suggestions never change which error is reported.
+
+## Differences that remain in which statements fail
+
+Found by comparing about 290 statements and a dozen families of generated ones against the reference library's prepare step (message, extended code, offset). What is left, each by design or
+not yet done:
+
+* `SELECT sum(a) OVER (ORDER BY sum(b)) FROM t` (an aggregate inside the window's own ORDER BY or PARTITION BY) is refused ("misuse of aggregate"); the reference accepts it.
+* `VALUES (sum(1))` is refused; the reference accepts an aggregate in a one-row `VALUES` and returns it. A misused aggregate in a later `VALUES` row is worded "misuse of aggregate function sum()" where the reference says "misuse of aggregate: sum()".
+* A name that does not resolve in a join `ON` clause that also holds a misused aggregate is reported with a position (the reference reports none), and in `WHERE sum(zz) OVER ()` the window misuse is reported before the unknown name.
+* `UPDATE ... FROM` with `SET (a, b) = (SELECT ...)` (a subquery of several columns assigned to several columns) is not supported; plain `UPDATE`, upsert `DO UPDATE` and `INSTEAD OF` triggers are.
+* `row(1, 2)` is "no such function: row" here and "row value misused" in the reference.
+* `ATTACH` of one file under a second name: a statement that writes only through the second name starts a write transaction on `main` as well and can answer "database is locked" where the reference writes (it takes only the locks of the databases it writes). Starting only the databases a statement writes touches the transaction and lock protocol of every statement, so it is left as it is until it is needed.
+* The reference prints no caret for `select ?99999;` as the first statement of its input (and for a few other statements whose last token is the offending one); this shell prints it.
+* The functions `fts5()`, `fts5_locale`, `fts5_insttoken`, `fts5_decode` and the `geopoly_*` family are not provided (the first three are FTS5 internals).
+

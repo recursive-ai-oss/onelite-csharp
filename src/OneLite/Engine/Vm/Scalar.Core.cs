@@ -514,6 +514,25 @@ internal static partial class Scalar
                 return;
             case FuncId.MatchContext:
                 throw new OneLiteException(ResultCode.Error, "unable to use function MATCH in the requested context");
+            case FuncId.Fts3Tokenizer:
+            {
+                // Observed: registering a tokenizer is disabled; looking one up gives NULL for the built-in names (case-sensitive) and an error for any other.
+                if (args.Length == 2)
+                {
+                    throw new OneLiteException(ResultCode.Error, "fts3tokenize disabled");
+                }
+
+                Span<byte> scratch = stackalloc byte[Values.MaxRealText];
+                string tok = args[0].Kind == StorageClass.Null ? string.Empty : Encoding.UTF8.GetString(args[0].Kind == StorageClass.Blob ? args[0].Bytes : Values.AsText(args[0], scratch));
+                if (tok is not ("simple" or "porter" or "unicode61"))
+                {
+                    throw new OneLiteException(ResultCode.Error, "unknown tokenizer: " + tok);
+                }
+
+                Values.SetNull(ref dst);
+                return;
+            }
+
             case FuncId.Fts3Offsets:
             case FuncId.Fts3Matchinfo:
             case FuncId.Fts3Optimize:
@@ -522,8 +541,6 @@ internal static partial class Scalar
             case FuncId.Fts5Snippet when Extensions.Fts3.Fts3Aux.Handles(args):
                 Extensions.Fts3.Fts3Aux.Call(id, args, ref dst, ref own);
                 return;
-            case FuncId.Fts5Snippet when args.Length != 6:
-                throw new OneLiteException(ResultCode.Error, "wrong number of arguments to function snippet()");
             case FuncId.Fts5Bm25:
             case FuncId.Fts5Highlight:
             case FuncId.Fts5Snippet:

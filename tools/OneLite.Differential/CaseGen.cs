@@ -315,8 +315,12 @@ internal sealed class CaseGen
         int na = _r.Range(1, 3);
         for (int i = 0; i < na; i++)
         {
-            string a = _r.Next(12) switch
+            string a = _r.Next(16) switch
             {
+                12 => $"median({x()})",
+                13 => $"{_r.Pick(new[] { "percentile", "percentile_cont", "percentile_disc" })}({x()}, {_r.Pick(new[] { "0", "0.25", "0.5", "0.9", "1" })}{(_r.Chance(30) ? " * 100" : "")})",
+                14 => _r.Chance(50) ? $"json_group_array({x()})" : $"json_group_object({x()}, {x()})",
+                15 => $"percentile({x()}, {_r.Pick(new[] { "5", "25", "50", "75", "100", "33.3" })}) FILTER (WHERE {g.Predicate()})",
                 0 => "count(*)",
                 1 => $"count({x()})",
                 2 => $"count(DISTINCT {x()})",
@@ -402,8 +406,26 @@ internal sealed class CaseGen
             q.Order = [Expr.Raw("a.id")];
         }
 
-        switch (_r.Next(7))
+        string ac2 = _r.Pick(a.Cols).Name, bc2 = _r.Pick(b.Cols).Name;
+        string rowOp = _r.Pick(new[] { "=", "<>", "<", "<=", ">", ">=", "IS", "IS NOT" });
+        switch (_r.Next(11))
         {
+            case 7:
+                // a row value against a subquery of several columns (first row, so the subquery is ordered or an aggregate)
+                q.Cols = [Expr.Raw(ordered ? "a.id" : "a." + ac), Expr.Raw($"(a.{ac}, a.{ac2}) {rowOp} (SELECT max(b.{bc}), min(b.{bc2}) FROM {b.Name} AS b)")];
+                break;
+            case 8:
+                q.Cols = [Expr.Raw("a." + ac)];
+                q.Where = Expr.Raw($"(a.{ac}, a.{ac2}) {(_r.Chance(30) ? "NOT IN" : "IN")} (SELECT b.{bc}, b.{bc2} FROM {b.Name} AS b)");
+                break;
+            case 9:
+                q.Cols = [Expr.Raw("a." + ac)];
+                q.Where = Expr.Raw($"(SELECT {_r.Pick(new[] { "max", "min" })}(b.{bc}), count(*) FROM {b.Name} AS b WHERE b.{bc2} {_r.Pick(new[] { "<", "=", ">" })} a.{ac2}) {rowOp} (a.{ac}, {_r.Range(0, 5)})");
+                break;
+            case 10:
+                q.Cols = [Expr.Raw("a." + ac)];
+                q.Where = Expr.Raw($"(a.{ac}, a.{ac2}) BETWEEN (SELECT min(b.{bc}), min(b.{bc2}) FROM {b.Name} AS b) AND (SELECT max(b.{bc}), max(b.{bc2}) FROM {b.Name} AS b)");
+                break;
             case 0:
                 q.Cols = [Expr.Raw(ordered ? "a.id" : "a." + ac), Expr.Raw($"(SELECT max(b.{bc}) FROM {b.Name} AS b WHERE b.{bc} {_r.Pick(new[] { "<", "=", ">" })} a.{ac})")];
                 break;
@@ -634,8 +656,12 @@ internal sealed class CaseGen
         {
             framed = true;
             string filter = _r.Chance(15) ? $" FILTER (WHERE {x()} IS NOT NULL)" : "";
-            switch (_r.Next(22))
+            switch (_r.Next(26))
             {
+                case 22: return $"median({x()}){filter}";
+                case 23: return $"{_r.Pick(new[] { "percentile", "percentile_cont", "percentile_disc" })}({num()}, {_r.Pick(new[] { "0.1", "0.5", "0.75" })}{(_r.Chance(50) ? " * 100" : "")}){filter}";
+                case 24: return $"json_group_array({x()}){filter}";
+                case 25: return $"json_group_object({x()}, {x()}){filter}";
                 case 0: framed = false; return "row_number()";
                 case 1: framed = false; return "rank()";
                 case 2: framed = false; return "dense_rank()";

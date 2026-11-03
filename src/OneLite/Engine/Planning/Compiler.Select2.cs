@@ -132,10 +132,14 @@ internal sealed partial class Compiler
             // they read only that query's (lang_aggfunc).
             Func<FunctionCall, bool> owns = call => OwnerScope(call) is null;
             // HAVING alone does not make a query an aggregate query (observed: "HAVING clause on a non-aggregate query").
-            bool hasAgg = cols.Any(c => FindAggregate(c.Expr, owns) is not null) || (!order.IsDefaultOrEmpty && order.Any(o => FindAggregate(o.Expr, owns) is not null));
+            // Black-box: an aggregate in the ORDER BY of a query with a FROM clause is a misuse unless the result columns hold one too; a query with no
+            // FROM clause takes it (SELECT 1 ORDER BY sum(1) is accepted).
+            bool hasAgg = cols.Any(c => FindAggregate(c.Expr, owns) is not null)
+                || (core.From is null && !order.IsDefaultOrEmpty && order.Any(o => FindAggregate(o.Expr, owns) is not null));
             bool grouped = !core.GroupBy.IsDefaultOrEmpty;
             if (core.Where is not null && FindAggregate(core.Where, owns) is { } wa)
             {
+                ResolveCallNames(wa);
                 throw ErrAt(AggregateMisuse(wa.Name.Text, hasAgg || grouped), wa);
             }
 
@@ -143,6 +147,7 @@ internal sealed partial class Compiler
             {
                 if (FindAggregate(on, owns) is { } oa)
                 {
+                    ResolveCallNames(oa);
                     throw Err(AggregateMisuse(oa.Name.Text, hasAgg || grouped));
                 }
             }
@@ -242,6 +247,21 @@ internal sealed partial class Compiler
 
                 if (groupError is not null)
                 {
+                    if (groupError.Message.StartsWith("aggregate functions are not allowed", StringComparison.Ordinal))
+                    {
+                        // Names inside the aggregate are resolved before the clause is refused.
+                        foreach (Expr g in core.GroupBy)
+                        {
+                            if (FindAggregate(g, owns) is { } ga)
+                            {
+                                foreach (Expr garg in ga.Args.IsDefault ? [] : ga.Args)
+                                {
+                                    Compile(garg);
+                                }
+                            }
+                        }
+                    }
+
                     throw groupError;
                 }
 
@@ -345,6 +365,8 @@ internal sealed partial class Compiler
             {
                 dest.Aff = Values.InSetAffinity(dest.OperandAff, meta.Aff[0]);
             }
+
+            SetRowAffinities(dest, meta);
 
             var pipe = new Pipe { Cols = cols, N = cols.Count, Core = core, Dest = dest };
             int limReg = 0, offReg = 0;
@@ -584,6 +606,19 @@ internal sealed partial class Compiler
     }
 
     /// <summary>The reference library words the error differently when the query is itself an aggregate query ("misuse of aggregate: sum()", checked against the pinned shell).</summary>
+    /// <summary>The reference resolves the names inside an aggregate call it is about to refuse first, so an unknown column there is the error reported.</summary>
+    private void ResolveCallNames(FunctionCall call)
+    {
+        foreach (Expr arg in call.Args.IsDefault ? [] : call.Args)
+        {
+            DryRun(() =>
+            {
+                _columnsAllowed = true;
+                Compile(arg);
+            });
+        }
+    }
+
     private static string AggregateMisuse(string name, bool aggregateQuery)
         => aggregateQuery ? "misuse of aggregate: " + name + "()" : "misuse of aggregate function " + name + "()";
 
@@ -723,7 +758,7 @@ internal sealed partial class Compiler
             bool c = false;
             if (ConstPosition(terms[k], ref c) is long n && (n < 1 || n > 65535))
             {
-                throw Err($"{Ordinal(k + 1)} {clause} term out of range - should be between 1 and {columns}");
+                throw ErrAtNode($"{Ordinal(k + 1)} {clause} term out of range - should be between 1 and {columns}", terms[k]);
             }
         }
     }
@@ -1118,7 +1153,17 @@ internal sealed partial class Compiler
                 Emit(Op.EphInsert, d.Cursor, bas, n);
                 break;
             case DestKind.Set:
-                if (d.Aff != Affinity.None)
+                if (d.Affs is { } affs)
+                {
+                    for (int i = 0; i < n && i < affs.Length; i++)
+                    {
+                        if (affs[i] != Affinity.None)
+                        {
+                            Emit(Op.CompareAffinity, bas + i, 0, 0, null, (int)affs[i]);
+                        }
+                    }
+                }
+                else if (d.Aff != Affinity.None)
                 {
                     for (int i = 0; i < n; i++)
                     {
@@ -1129,12 +1174,18 @@ internal sealed partial class Compiler
                 Emit(Op.SetAdd, d.Set, bas, n, null, d.Replace ? 1 : 0);
                 break;
             case DestKind.Scalar:
-                Emit(Op.Copy, bas, d.Reg);
-                Emit(Op.Goto, 0, end != 0 ? end : d.End);
+                for (int i = 0; i < Math.Min(n, d.Width); i++)
+                {
+                    Emit(Op.Copy, bas + i, d.Reg + i);
+                }
+
+                // the first row is enough: leave the whole compound select, not just the arm that produced it
+                Emit(Op.Goto, 0, d.End != 0 ? d.End : end);
                 break;
             case DestKind.Exists:
                 Emit(Op.Integer, 0, d.Reg, 0, 1L);
-                Emit(Op.Goto, 0, end != 0 ? end : d.End);
+                // the first row is enough: leave the whole compound select, not just the arm that produced it
+                Emit(Op.Goto, 0, d.End != 0 ? d.End : end);
                 break;
         }
 
@@ -1146,6 +1197,15 @@ internal sealed partial class Compiler
         if (skipLabel == 0)
         {
             Mark(skip);
+        }
+    }
+
+    /// <summary>For <c>(a, b) IN (SELECT x, y ...)</c>: each column of the set takes the comparison affinity of its pair, as the single-column form does.</summary>
+    private static void SetRowAffinities(Dest dest, SelectMeta meta)
+    {
+        if (dest.OperandAffs is { } oa && oa.Length == meta.Aff.Length)
+        {
+            dest.Affs = [.. oa.Select((a, i) => Values.InSetAffinity(a, meta.Aff[i]))];
         }
     }
 
@@ -1185,7 +1245,7 @@ internal sealed partial class Compiler
             {
                 if (pn < 1 || pn > n)
                 {
-                    throw Err($"{Ordinal(k + 1)} ORDER BY term out of range - should be between 1 and {n}");
+                    throw ErrAtNode($"{Ordinal(k + 1)} ORDER BY term out of range - should be between 1 and {n}", e);
                 }
 
                 target = (int)pn - 1;

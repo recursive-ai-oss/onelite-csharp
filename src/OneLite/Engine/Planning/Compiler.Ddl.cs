@@ -376,21 +376,7 @@ internal sealed partial class Compiler
         }
 
         TableInfo built = SchemaBuilder.BuildTable(ct, 0, null);
-        foreach (TableConstraint tc in ct.Constraints)
-        {
-            if (tc is PrimaryKeyTableConstraint { Columns: var cols })
-            {
-                foreach (OrderingTerm term in cols)
-                {
-                    Expr e = term.Expr is CollateExpr ce ? ce.Operand : term.Expr;
-                    if (e is ColumnRef cr && built.FindColumn(cr.Column.Text) < 0)
-                    {
-                        throw Err("no such column: " + cr.Column.Text);
-                    }
-                }
-            }
-        }
-
+        CheckTableDefinition(ct, built);
         if ((ct.Columns.Any(c => c.Constraints.OfType<PrimaryKeyColumnConstraint>().Any(p => p.Autoincrement))
             || ct.Constraints.OfType<PrimaryKeyTableConstraint>().Any(p => p.Autoincrement)) && built.RowidAlias < 0)
         {
@@ -432,28 +418,19 @@ internal sealed partial class Compiler
         return DdlProgram();
     }
 
-    /// <summary>Whether the SQL text of an expression calls a function whose result can change between calls (lang_createindex, partial indexes).</summary>
-    private bool FindNonDeterministicCall(string expressionSql)
-    {
-        string text = System.Text.RegularExpressions.Regex.Replace(expressionSql, "'(?:[^']|'')*'", "''");
-        foreach (System.Text.RegularExpressions.Match m in System.Text.RegularExpressions.Regex.Matches(text, @"([A-Za-z_][A-Za-z0-9_]*)\s*\("))
-        {
-            if (_cat.Owner?.IsNonDeterministic(m.Groups[1].Value) == true)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     private VmProgram CompileCreateIndex(CreateIndexStatement ci)
     {
         PreassignParameters();
         string? schema = ci.Name.Schema?.Text;
-        int named = schema is null ? -1 : CreateDb(schema, false);
+        int named = schema is null ? -1 : CreateDb(schema, false, ci.Name.Schema);
         string name = ci.Name.Name.Text;
-        TableInfo? t = named < 0 ? _cat.Find(ci.Table.Text) : _cat.FindIn(_cat.SchemaName(named), ci.Table.Text);
+        // An index in the temp schema is found for the table by its plain name; it may only be on a temp table.
+        TableInfo? t = named < 0 || named == 1 ? _cat.Find(ci.Table.Text) : _cat.FindIn(_cat.SchemaName(named), ci.Table.Text);
+        if (named == 1 && t is not null && t.Db != 1)
+        {
+            throw Err("cannot create a TEMP index on non-TEMP table \"" + t.Name + "\"");
+        }
+
         if (t is null || t.Unsupported is not null || t.View is not null)
         {
             throw Err(t is null ? "no such table: " + (schema ?? "main") + "." + ci.Table.Text : "views may not be indexed");
@@ -483,32 +460,28 @@ internal sealed partial class Compiler
         }
 
         IndexInfo idx = SchemaBuilder.BuildIndex(ci, 0, t);
-        if (idx.Where is not null && FindNonDeterministicCall(SqlWriter.Write(idx.Where)))
-        {
-            throw Err("non-deterministic functions prohibited in partial index WHERE clauses");
-        }
-
         _table = t;
         _alias = t.Name;
         SetColumns(true);
-        // Resolve the key expressions now so that an unknown column fails here, with the reference's message.
-        DryRun(() =>
+        _tableCursor = 0;
+        // Resolve the key expressions now so that an unknown column or collation fails here, with the reference's message.
+        for (int i = 0; i < ci.Columns.Length; i++)
         {
-            _tableCursor = 0;
-            for (int i = 0; i < idx.Columns.Length; i++)
+            for (Expr c = ci.Columns[i].Expr; c is CollateExpr ce; c = ce.Operand)
             {
-                int tmp = NewReg();
-                if (idx.Terms[i] is { } term)
-                {
-                    CompileInto(term, tmp);
-                }
+                ParseColl(ce.Collation.Text);
             }
 
-            if (idx.Where is not null)
+            if (i < idx.Terms.Length && idx.Terms[i] is { } term)
             {
-                CompileInto(idx.Where, NewReg());
+                ResolveRestricted(term, new ExprRestriction { What = "index expressions", NoDot = true, NoRowid = true, NoNonDeterministic = true });
             }
-        });
+        }
+
+        if (idx.Where is not null)
+        {
+            ResolveRestricted(idx.Where, new ExprRestriction { What = "partial index WHERE clauses", NoNonDeterministic = true });
+        }
 
         _forceTemp = db == 1;
         TableInfo master = _cat.MasterOf(db);

@@ -226,7 +226,9 @@ internal sealed partial class Shell : IDisposable
         if (!_quit && buf.ToString().AsSpan().Trim().Length > 0 && !(_exitCode != 0 && _bail))
         {
             _where = "near line";
-            ExecSql(buf.ToString(), startLine);
+            // Input that ends inside a statement is run as it stands: without the line break this reader added after its last line.
+            string text = buf.ToString();
+            ExecSql(text.EndsWith('\n') ? text[..^1] : text, startLine);
         }
     }
 
@@ -255,7 +257,7 @@ internal sealed partial class Shell : IDisposable
 
     // ------------------------------------------------------------------ executing SQL
 
-    /// <summary>Runs every statement in <paramref name="sql"/>. Returns false after the first error.</summary>
+    /// <summary>Runs every statement in <paramref name="sql"/>. Returns false if one failed; a statement that fails to prepare ends the text, one that fails while running does not.</summary>
     public bool ExecSql(string sql, int baseLine)
     {
         Connection? conn = Conn();
@@ -305,8 +307,9 @@ internal sealed partial class Shell : IDisposable
             {
                 if (!RunStatement(conn, st, rest, line))
                 {
+                    // Black-box: a statement that fails while running does not stop the statements after it in the same text (a line of input,
+                    // a command-line argument, a .read file); one that fails to prepare does.
                     ok = false;
-                    break;
                 }
 
                 string tail = st.Tail;

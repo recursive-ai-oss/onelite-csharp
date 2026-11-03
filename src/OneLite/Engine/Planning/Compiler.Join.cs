@@ -463,6 +463,11 @@ internal sealed partial class Compiler
 
         if (def is null)
         {
+            if (_cat.FindIn(tf.Name.Schema?.Text, name) is not null)
+            {
+                throw Err("'" + name + "' is not a function");
+            }
+
             throw Err("no such table: " + (tf.Name.Schema is { } sch ? sch.Text + "." : "") + name);
         }
 

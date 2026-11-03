@@ -377,6 +377,7 @@ internal sealed partial class Compiler
             _code.RemoveRange(code, _code.Count - code);
             _labels.RemoveRange(labels, _labels.Count - labels);
             _nReg = regs;
+            _setRows = null;
             _params.RemoveRange(pars, _params.Count - pars);
             foreach (VariableExpr stale in _anonymous.Where(kv => kv.Value > pars).Select(kv => kv.Key).ToList())
             {
@@ -574,7 +575,7 @@ internal sealed partial class Compiler
             return (CollKind)slot;
         }
 
-        throw new OneLiteException(ResultCode.ErrorMissingCollSeq, "no such collation sequence: " + name);
+        return t_lenientCollation ? CollKind.Binary : throw new OneLiteException(ResultCode.ErrorMissingCollSeq, "no such collation sequence: " + name);
     }
 
     /// <summary>The collating sequence of an expression: an explicit COLLATE, else the column's (datatype3 §7.1). <paramref name="explicitColl"/> tells which.</summary>
@@ -718,6 +719,27 @@ internal sealed partial class Compiler
         if (AsciiComparer.Instance.Equals(n, "count"))
         {
             return f.Star || args == 0 ? AggKind.CountStar : AggKind.Count;
+        }
+
+        // The percentile extension (percent.html); a star argument is refused by the arity check.
+        if (AsciiComparer.Instance.Equals(n, "median"))
+        {
+            return AggKind.Median;
+        }
+
+        if (AsciiComparer.Instance.Equals(n, "percentile"))
+        {
+            return AggKind.Percentile;
+        }
+
+        if (AsciiComparer.Instance.Equals(n, "percentile_cont"))
+        {
+            return AggKind.PercentileCont;
+        }
+
+        if (AsciiComparer.Instance.Equals(n, "percentile_disc"))
+        {
+            return AggKind.PercentileDisc;
         }
 
         if (f.Star)
@@ -907,6 +929,7 @@ internal sealed partial class Compiler
             }
         }
 
+        CheckRestricted(e);
         switch (e)
         {
             case ParenExpr p:
@@ -942,6 +965,26 @@ internal sealed partial class Compiler
 
             case BetweenExpr bt:
             {
+                if (!IsRowish(bt.Operand) && (IsRowish(bt.Low) || IsRowish(bt.High)))
+                {
+                    throw ErrAt("row value misused", bt);   // black-box: this one is positioned at the start of the BETWEEN
+                }
+
+                if (IsRowish(bt.Operand))
+                {
+                    // Row values: x BETWEEN lo AND hi is x >= lo AND x <= hi, each a row comparison.
+                    int r1 = NewReg(), r2 = NewReg();
+                    CompileRowCompare(BinaryOp.Ge, bt.Operand, bt.Low, r1);
+                    CompileRowCompare(BinaryOp.Le, bt.Operand, bt.High, r2);
+                    Emit(Op.And, r1, r2, dest);
+                    if (bt.Negated)
+                    {
+                        Emit(Op.Not, dest, dest);
+                    }
+
+                    return;
+                }
+
                 int x = Compile(bt.Operand);
                 int lo = Compile(bt.Low);
                 int hi = Compile(bt.High);
@@ -995,7 +1038,12 @@ internal sealed partial class Compiler
             case InTableExpr { IsFunction: false } itab:
                 CompileInSelect(itab.Operand, SelectAllFrom(itab.Table), itab.Negated, dest);
                 return;
-            case InTableExpr:
+            case InTableExpr itf:
+                if (itf.Table.Schema is null && Modules.Find(itf.Table.Name.Text) is null && EponymousTable(itf.Table.Name.Text) is null)
+                {
+                    throw Err("no such table: " + itf.Table.Name.Text);
+                }
+
                 throw Unsupported("table-valued functions");
             default:
                 throw Unsupported(e.GetType().Name);
@@ -1141,6 +1189,11 @@ internal sealed partial class Compiler
         if (!Resolve(cr, out Source? src, out int col, out Expr? alias, true))
         {
             throw NoSuchColumn(FirstMissingColumn(cr));
+        }
+
+        if (_restrict is { NoRowid: true } && col < 0 && alias is null)
+        {
+            throw NoSuchColumn(cr);
         }
 
         if (alias is not null)
@@ -1504,7 +1557,7 @@ internal sealed partial class Compiler
             return;
         }
 
-        if (IsRow(b.Left) || IsRow(b.Right))
+        if (IsRow(StripParens(b.Left)) || IsRow(StripParens(b.Right)) || IsSubqueryRowCompare(b))
         {
             if (b.Op is BinaryOp.Eq or BinaryOp.Ne or BinaryOp.Is or BinaryOp.IsNot or BinaryOp.Lt or BinaryOp.Le or BinaryOp.Gt or BinaryOp.Ge)
             {
@@ -1609,19 +1662,34 @@ internal sealed partial class Compiler
         int l, r;
         if (b.Op is BinaryOp.Is or BinaryOp.IsNot)
         {
-            r = Compile(b.Right);
-            l = Compile(b.Left);
+            r = CompileOperand(b, b.Right);
+            l = CompileOperand(b, b.Left);
         }
         else
         {
-            l = Compile(b.Left);
-            r = Compile(b.Right);
+            l = CompileOperand(b, b.Left);
+            r = CompileOperand(b, b.Right);
         }
 
         // `x IS NULL` compares nothing by collation, so an unknown COLLATE on x is not looked up.
         bool nullTest = b.Op is BinaryOp.Is or BinaryOp.IsNot && StripParens(b.Right) is LiteralExpr { Kind: LiteralKind.Null };
         int flags = op is >= Op.Eq and <= Op.IsNot ? CmpFlags(Values.CompareAffinity(CmpAffOf(b.Left), CmpAffOf(b.Right)), nullTest ? CollKind.Binary : PairColl(b.Left, b.Right)) : 0;
         Emit(op, l, r, dest, null, flags);
+    }
+
+    /// <summary>An operand of a binary operator. A subquery that returns several columns, set against a plain value in a comparison, is "row value misused" at the comparison (black-box).</summary>
+    private int CompileOperand(BinaryExpr b, Expr operand)
+    {
+        try
+        {
+            return Compile(operand);
+        }
+        catch (OneLiteException ex) when (ex.Message.StartsWith("sub-select returns", StringComparison.Ordinal) && StripParens(operand) is SubqueryExpr
+            && b.Op is BinaryOp.Eq or BinaryOp.Ne or BinaryOp.Lt or BinaryOp.Le or BinaryOp.Gt or BinaryOp.Ge or BinaryOp.Is or BinaryOp.IsNot)
+        {
+            // Observed: no position when the left operand is itself a subquery.
+            throw StripParens(b.Left) is SubqueryExpr ? Err("row value misused") : ErrAt("row value misused", b.Left is ParenExpr ? StripParens(b.Left) : b);
+        }
     }
 
     private void CompileIn(InListExpr il, int dest)
@@ -1634,6 +1702,12 @@ internal sealed partial class Compiler
 
         if (il.Items.Any(IsRow))
         {
+            if (StripParens(il.Operand) is SubqueryExpr)
+            {
+                // A subquery of several columns is refused for what it is before the row values in the list are.
+                DryRun(() => Compile(il.Operand));
+            }
+
             throw Err("row value misused");
         }
 
@@ -1827,9 +1901,10 @@ internal sealed partial class Compiler
             return;
         }
 
-        if (IsWindowOnly(name, out _, out _, out _))
+        if (IsWindowOnly(name, out _, out int wmin, out int wmax))
         {
-            throw ErrAt("misuse of window function " + name + "()", f);
+            int wn = f.Args.IsDefault ? 0 : f.Args.Length;
+            throw ErrAt(wn < wmin || wn > wmax ? "wrong number of arguments to function " + name + "()" : "misuse of window function " + name + "()", f);
         }
 
         if (AggregateKind(f) is { } akind)
@@ -1844,19 +1919,15 @@ internal sealed partial class Compiler
             return;
         }
 
-        if (f.Star)
-        {
-            throw Unsupported("function " + name + "(*)");
-        }
-
-        if (f.Filter is not null || f.Quantifier != CallQuantifier.None || !f.OrderBy.IsDefaultOrEmpty)
-        {
-            throw Unsupported("aggregate syntax in " + name + "()");
-        }
-
         FuncDef? def = _cat.Owner?.FindUserFunction(name, f.Args.IsDefaultOrEmpty ? 0 : f.Args.Length) ?? FunctionTable.Find(name);
         if (def is null)
         {
+            if (f.Star && AggregateKind(f with { Star = false, Args = [f] }) is not null)
+            {
+                // sum(*), total(*), max(*) ...: the name is an aggregate's, the argument list is not one it takes.
+                throw ErrAt("wrong number of arguments to function " + name + "()", f);
+            }
+
             if (FunctionTable.IsKnownUnsupported(name))
             {
                 throw Unsupported("function " + name + "()");
@@ -1866,7 +1937,8 @@ internal sealed partial class Compiler
             throw ErrAt(_cat.Owner?.HasUserFunctionNamed(name) == true ? "wrong number of arguments to function " + name + "()" : "no such function: " + name, f);
         }
 
-        int n = f.Args.Length;
+        // f(*) counts as a call with no arguments (black-box: date(*) is accepted, abs(*) has the wrong number).
+        int n = f.Args.IsDefault ? 0 : f.Args.Length;
         if (def.Id is FuncId.MaxN or FuncId.MinN && n == 1)
         {
             throw Unsupported("aggregate " + name.ToLowerInvariant() + "()");
@@ -1875,6 +1947,17 @@ internal sealed partial class Compiler
         if (n < def.MinArgs || n > def.MaxArgs)
         {
             throw ErrAt("wrong number of arguments to function " + name + "()", f);
+        }
+
+        // DISTINCT and ALL are accepted and ignored on a scalar function; FILTER and ORDER BY are refused.
+        if (f.Filter is not null)
+        {
+            throw ErrAt("FILTER may not be used with non-aggregate " + name + "()", f);
+        }
+
+        if (!f.OrderBy.IsDefaultOrEmpty)
+        {
+            throw ErrAt("ORDER BY may not be used with non-aggregate " + name + "()", f);
         }
 
         int flags = 0;
@@ -1938,7 +2021,7 @@ internal sealed partial class Compiler
 
         if (badLikelihood)
         {
-            throw Err("second argument to likelihood() must be a constant between 0.0 and 1.0");
+            throw ErrAt("second argument to likelihood() must be a constant between 0.0 and 1.0", f);
         }
 
         Emit(Op.Function, bas, n, dest, def, flags);

@@ -123,6 +123,7 @@ internal sealed partial class Compiler
 
         _colRegs = [.. Enumerable.Range(0, n).Select(i => oldB + i)];
         _rowidReg = oldB + n;
+        _setRows = null;
         foreach (SetClause sc in up.Sets)
         {
             for (int k = 0; k < sc.Columns.Length; k++)

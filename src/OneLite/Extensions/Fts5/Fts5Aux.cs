@@ -18,10 +18,16 @@ internal static class Fts5Aux
         }
 
         string name = id switch { Vm.FuncId.Fts5Bm25 => "bm25", Vm.FuncId.Fts5Highlight => "highlight", _ => "snippet" };
-        Fts5Cursor? c = Fts5Cursor.FromRef(args[0]);
+        Fts5Cursor? c = args.Length > 0 ? Fts5Cursor.FromRef(args[0]) : null;
         if (c is null || c.Current is null)
         {
             throw new OneLiteException(ResultCode.Error, "unable to use function " + name + " in the requested context");
+        }
+
+        // Observed: the context is checked before the number of arguments; highlight takes exactly four, snippet exactly six.
+        if (id == Vm.FuncId.Fts5Highlight && args.Length != 4 || id == Vm.FuncId.Fts5Snippet && args.Length != 6)
+        {
+            throw new OneLiteException(ResultCode.Error, "wrong number of arguments to function " + name + "()");
         }
 
         if (c.Config.Detail != DetailMode.Full)

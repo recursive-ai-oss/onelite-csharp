@@ -15,6 +15,12 @@ internal enum AggKind : byte
     Max,
     GroupConcat,
 
+    /// <summary>The percentile extension: median(Y), percentile(Y,P), percentile_cont(Y,P) and percentile_disc(Y,P).</summary>
+    Median,
+    Percentile,
+    PercentileCont,
+    PercentileDisc,
+
     /// <summary>An aggregate registered through Connection.CreateAggregate.</summary>
     User,
     JsonGroupArray,
@@ -64,6 +70,12 @@ internal sealed class AggState
     private bool _bestSet;
     private IUserAggregate? _user;
 
+    // The percentile family: the numeric inputs, whether they are in order, and the fraction the first row gave (in percent).
+    private List<double>? _pv;
+    private bool _pvSorted;
+    private bool _hasP;
+    private double _p0;
+
     internal AggState(AggSpec spec, TextEncoding enc)
     {
         _spec = spec;
@@ -83,6 +95,10 @@ internal sealed class AggState
         _any = false;
         _bestSet = false;
         _user = null;
+        _pv?.Clear();
+        _pvSorted = true;
+        _hasP = false;
+        _p0 = 0;
         _best = default;
         _concat?.Clear();
         _sepNext = false;
@@ -173,6 +189,25 @@ internal sealed class AggState
                 return;
             }
 
+            case AggKind.Median:
+            case AggKind.Percentile:
+            case AggKind.PercentileCont:
+            case AggKind.PercentileDisc:
+            {
+                // The value leaves the sorted inputs; the fraction the first row gave stays (observed: it is not forgotten when rows leave).
+                if (_pv is { Count: > 0 } pv && PercentileInput(args[0], out double y))
+                {
+                    SortInputs();
+                    int at = pv.BinarySearch(y);
+                    if (at >= 0)
+                    {
+                        pv.RemoveAt(at);
+                    }
+                }
+
+                return;
+            }
+
             default:
                 throw new InvalidOperationException("aggregate has no inverse");
         }
@@ -239,6 +274,11 @@ internal sealed class AggState
         if (_spec.Kind >= AggKind.JsonGroupArray)
         {
             return ApplyJson(args);
+        }
+
+        if (_spec.Kind is AggKind.Median or AggKind.Percentile or AggKind.PercentileCont or AggKind.PercentileDisc)
+        {
+            return ApplyPercentile(args);
         }
 
         if (_spec.Kind != AggKind.CountStar)
@@ -312,6 +352,150 @@ internal sealed class AggState
         }
     }
 
+    private string PercentileName => _spec.Kind switch
+    {
+        AggKind.Median => "median",
+        AggKind.Percentile => "percentile",
+        AggKind.PercentileCont => "percentile_cont",
+        _ => "percentile_disc",
+    };
+
+    /// <summary>The value of a percentile input as a double: integers and reals only (percent.html: text, blobs and NULL are not numeric).</summary>
+    private static bool PercentileInput(in Mem m, out double y)
+    {
+        y = 0;
+        if (m.Kind == StorageClass.Integral)
+        {
+            y = m.IntValue;
+            return true;
+        }
+
+        if (m.Kind == StorageClass.Real)
+        {
+            y = m.RealValue;
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>The fraction argument: a number, or text that is wholly one (numeric affinity); anything else is out of range.</summary>
+    private static bool PercentileFraction(in Mem m, out double p)
+    {
+        p = 0;
+        switch (m.Kind)
+        {
+            case StorageClass.Integral:
+                p = m.IntValue;
+                return true;
+            case StorageClass.Real:
+                p = m.RealValue;
+                return !double.IsNaN(p);
+            case StorageClass.Text:
+            {
+                StorageClass k = Values.ParseNumber(m.Bytes, out long iv, out double dv, out bool whole);
+                if (!whole || k is not (StorageClass.Integral or StorageClass.Real))
+                {
+                    return false;
+                }
+
+                p = k == StorageClass.Integral ? iv : dv;
+                return true;
+            }
+
+            default:
+                return false;
+        }
+    }
+
+    // percent.html: the fraction is checked on every row, even one whose value is NULL; the first row's fraction is the one used, and
+    // the others may differ from it by 0.001 of the range (observed: compared as P/100, so 0.1 in percent).
+    private bool ApplyPercentile(ReadOnlySpan<Mem> args)
+    {
+        string name = PercentileName;
+        if (_spec.Kind != AggKind.Median)
+        {
+            bool cont = _spec.Kind != AggKind.Percentile;
+            double max = cont ? 1.0 : 100.0;
+            if (!PercentileFraction(args[1], out double p) || p < 0.0 || p > max)
+            {
+                throw new OneLiteException(ResultCode.Error, "the fraction argument to " + name + "() is not between 0.0 and " + (cont ? "1.0" : "100.0"));
+            }
+
+            if (cont)
+            {
+                p *= 100.0;
+            }
+
+            if (!_hasP)
+            {
+                _hasP = true;
+                _p0 = p;
+            }
+            else if (Math.Abs(_p0 / 100.0 - p / 100.0) > 0.001)
+            {
+                throw new OneLiteException(ResultCode.Error, "the fraction argument to " + name + "() is not the same for all input rows");
+            }
+        }
+
+        if (args[0].Kind == StorageClass.Null)
+        {
+            return false;
+        }
+
+        if (!PercentileInput(args[0], out double y))
+        {
+            throw new OneLiteException(ResultCode.Error, "input to " + name + "() is not numeric");
+        }
+
+        if (double.IsInfinity(y))
+        {
+            throw new OneLiteException(ResultCode.Error, "Inf input to " + name + "()");
+        }
+
+        if (_seen is not null && !_seen.Add(args[..1]))
+        {
+            return false;
+        }
+
+        (_pv ??= []).Add(y);
+        _pvSorted = false;
+        return false;
+    }
+
+    private void SortInputs()
+    {
+        if (!_pvSorted && _pv is not null)
+        {
+            _pv.Sort();
+            _pvSorted = true;
+        }
+    }
+
+    private void PercentileResult(ref Mem dst)
+    {
+        if (_pv is not { Count: > 0 } y)
+        {
+            Values.SetNull(ref dst);
+            return;
+        }
+
+        SortInputs();
+        double percent = _spec.Kind == AggKind.Median ? 50.0 : _p0;
+
+        // Design requirement 10: the height of the line through the sorted values at P*(N-1)/100.
+        double rank = percent / 100.0 * (y.Count - 1);
+        int i1 = (int)rank;
+        if (_spec.Kind == AggKind.PercentileDisc || i1 == rank)
+        {
+            Values.SetReal(ref dst, y[i1]);
+            return;
+        }
+
+        int i2 = Math.Min(i1 + 1, y.Count - 1);
+        Values.SetReal(ref dst, y[i1] + (rank - i1) * (y[i2] - y[i1]));
+    }
+
     /// <summary>json_group_array and json_group_object keep the elements as JSONB payload and wrap them in a container at the end (json1).</summary>
     private bool ApplyJson(ReadOnlySpan<Mem> args)
     {
@@ -332,7 +516,10 @@ internal sealed class AggState
         if (obj)
         {
             Span<byte> scratch = stackalloc byte[Values.MaxRealText];
-            JsonFunctions.PutString(_json, args[0].Kind == StorageClass.Blob ? args[0].Bytes : Values.AsText(args[0], scratch));
+            // Observed: the label is read as a C string, so it ends at its first NUL byte (json_object keeps the whole text).
+            ReadOnlySpan<byte> label = args[0].Kind == StorageClass.Blob ? args[0].Bytes : Values.AsText(args[0], scratch);
+            int nul = label.IndexOf((byte)0);
+            JsonFunctions.PutString(_json, nul >= 0 ? label[..nul] : label);
             JsonFunctions.PutValue(args[1], _json);
         }
         else
@@ -565,6 +752,12 @@ internal sealed class AggState
                     SetRealNullIfNaN(ref dst, SumValue() / _count);
                 }
 
+                return;
+            case AggKind.Median:
+            case AggKind.Percentile:
+            case AggKind.PercentileCont:
+            case AggKind.PercentileDisc:
+                PercentileResult(ref dst);
                 return;
             case AggKind.User:
             {

@@ -174,6 +174,9 @@ internal sealed class Dest
     internal DestKind Kind;
     internal int Cursor;
     internal int Reg;
+
+    /// <summary>For a scalar subquery: how many consecutive registers from <see cref="Reg"/> take the columns of its first row (row values compare a subquery with several).</summary>
+    internal int Width = 1;
     internal int Set;
 
     /// <summary>For an IN (SELECT ...) set: the affinity applied to stored values.</summary>
@@ -182,6 +185,12 @@ internal sealed class Dest
     /// <summary>For the set behind <c>x IN (SELECT ...)</c>: the affinity of x, from which the stored side's conversion follows once the SELECT's columns are known.</summary>
     internal bool UseOperandAff;
     internal Affinity OperandAff;
+
+    /// <summary>For the set behind <c>(a, b) IN (SELECT ...)</c>: the affinity of each operand column; the stored side's conversion per column follows from the SELECT's columns.</summary>
+    internal Affinity[]? OperandAffs;
+
+    /// <summary>The conversion each column of that set takes (set once the SELECT's columns are known).</summary>
+    internal Affinity[]? Affs;
 
     /// <summary>For the same set: the collation of x when it has one (a column's or an explicit COLLATE), otherwise null.</summary>
     internal CollKind? OperandColl;
@@ -192,7 +201,7 @@ internal sealed class Dest
     /// <summary>LIMIT and OFFSET registers and the exit label of a compound select whose rows stream through this destination.</summary>
     internal int LimReg, OffReg, End;
 
-    internal Dest WithLimit(int lim, int off, int end) => new() { Kind = Kind, Cursor = Cursor, Reg = Reg, Set = Set, Aff = Aff, Replace = Replace, UseOperandAff = UseOperandAff, OperandAff = OperandAff, LimReg = lim, OffReg = off, End = end };
+    internal Dest WithLimit(int lim, int off, int end) => new() { Kind = Kind, Cursor = Cursor, Reg = Reg, Width = Width, Set = Set, Aff = Aff, Replace = Replace, UseOperandAff = UseOperandAff, OperandAff = OperandAff, OperandAffs = OperandAffs, Affs = Affs, LimReg = lim, OffReg = off, End = end };
 }
 
 /// <summary>What a SELECT's result columns look like to whoever reads them.</summary>
@@ -652,6 +661,8 @@ internal sealed partial class Compiler
             dest.Aff = Values.InSetAffinity(dest.OperandAff, meta0.Aff[0]);
         }
 
+        SetRowAffinities(dest, meta0);
+
         EmitCompoundOutput(cur, meta0, order, dest, limReg, offReg, end);
         Mark(end);
         _ = cols;
@@ -713,6 +724,12 @@ internal sealed partial class Compiler
     {
         if (m.Names.Length != first.Names.Length)
         {
+            // Black-box: a VALUES list on the right of the operator is reported as a VALUES mismatch.
+            if (s.Cores[i] is ValuesCore)
+            {
+                throw Err("all VALUES must have the same number of terms");
+            }
+
             throw Err("SELECTs to the left and right of " + CompoundName(s.Operators[i - 1]) + " do not have the same number of result columns");
         }
     }

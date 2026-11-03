@@ -124,6 +124,7 @@ internal sealed partial class Compiler
 
         _colRegs = [.. Enumerable.Range(0, n).Select(i => old + 1 + i)];
         _rowidReg = old;
+        _setRows = null;
         foreach ((int col, Expr value, int part, int of) in sets)
         {
             CompileSetValue((col, value, part, of), col < 0 ? arg + 1 : arg + 2 + col);

@@ -40,6 +40,9 @@ internal sealed class WinFuncSpec
     internal int[] ArgFields = [];
 
     internal int FilterField = -1;
+
+    /// <summary>For json_group_array and json_group_object: per argument, the field holding its subtype (the sorter keeps values only).</summary>
+    internal int[] FlagFields = [];
     internal WinUnit Unit;
     internal WinBound Start, End;
     internal int StartOffField = -1, EndOffField = -1;
@@ -351,7 +354,10 @@ internal sealed partial class WindowRun
     {
         if (src.Kind is StorageClass.Text or StorageClass.Blob)
         {
+            // The subtype (json text that is already JSON) rides along: json_group_array(json(x)) OVER nests it rather than quoting it.
+            byte subtype = src.Subtype;
             Values.SetBytes(ref dst, ref own, src.Kind, src.Bytes);
+            dst.Subtype = subtype;
         }
         else
         {
@@ -578,7 +584,8 @@ internal sealed partial class WindowRun
         }
     }
 
-    private static bool IsInvertible(AggKind k) => k is AggKind.Count or AggKind.CountStar or AggKind.Sum or AggKind.Total or AggKind.Avg or AggKind.GroupConcat;
+    private static bool IsInvertible(AggKind k) => k is AggKind.Count or AggKind.CountStar or AggKind.Sum or AggKind.Total or AggKind.Avg or AggKind.GroupConcat or AggKind.Median or AggKind.Percentile
+        or AggKind.PercentileCont or AggKind.PercentileDisc;
 
     // ------------------------------------------------------------------ offsets
 
@@ -1346,6 +1353,10 @@ internal sealed partial class WindowRun
         for (int i = 0; i < af.Length; i++)
         {
             f.Args[i] = row.F[af[i]];
+            if (i < f.Spec.FlagFields.Length)
+            {
+                f.Args[i].Subtype = f.Args[i].Kind is StorageClass.Text or StorageClass.Blob ? (byte)row.F[f.Spec.FlagFields[i]].IntValue : (byte)0;
+            }
         }
 
         args = new ReadOnlySpan<Mem>(f.Args, 0, af.Length);

@@ -17,7 +17,8 @@ internal static class RTreeFunctions
         {
             case FuncId.RtreeDepth:
             {
-                ReadOnlySpan<byte> b = args[0].Kind is StorageClass.Blob or StorageClass.Text ? args[0].Bytes : default;
+                // Observed: only a blob is a node (a two-byte text is refused like any other argument).
+                ReadOnlySpan<byte> b = args[0].Kind is StorageClass.Blob ? args[0].Bytes : default;
                 if (b.Length < 2)
                 {
                     throw new OneLiteException(ResultCode.Error, "Invalid argument to rtreedepth()");
@@ -30,10 +31,12 @@ internal static class RTreeFunctions
             case FuncId.RtreeNode:
             {
                 int dims = (int)Values.ToInt(args[0]);
-                ReadOnlySpan<byte> b = args[1].Kind is StorageClass.Blob or StorageClass.Text ? args[1].Bytes : default;
-                if (dims < 1 || dims > 5 || b.Length < 4)
+                ReadOnlySpan<byte> b = args[1].Kind is StorageClass.Blob ? args[1].Bytes : default;
+                if (args[0].Kind == StorageClass.Null || dims < 1 || dims > 5 || b.Length < 4)
                 {
-                    throw new OneLiteException(ResultCode.Error, "Invalid argument to rtreenode()");
+                    // Observed: an argument that is no node gives NULL, not an error.
+                    Values.SetNull(ref dst);
+                    return;
                 }
 
                 int count = BinaryPrimitives.ReadUInt16BigEndian(b[2..]);
@@ -56,12 +59,32 @@ internal static class RTreeFunctions
                     sb.Append('}');
                 }
 
+                if (sb.Length == 0)
+                {
+                    Values.SetNull(ref dst);
+                    return;
+                }
+
                 Values.SetBytes(ref dst, ref own, StorageClass.Text, Encoding.UTF8.GetBytes(sb.ToString()));
                 return;
             }
 
             default:
             {
+                // Observed: a call with another number of arguments fails when it runs, and an argument that is no text names no table.
+                if (args.Length is < 1 or > 2)
+                {
+                    throw new OneLiteException(ResultCode.Error, "wrong number of arguments to function rtreecheck()");
+                }
+
+                foreach (Mem a in args)
+                {
+                    if (a.Kind != StorageClass.Text)
+                    {
+                        throw new OneLiteException(ResultCode.Error, "SQL logic error");
+                    }
+                }
+
                 string schema = args.Length == 2 ? TextCodec.Decode(args[0].Bytes, Values.BlobEncoding) : "main";
                 string table = TextCodec.Decode(args[^1].Bytes, Values.BlobEncoding);
                 string result = Check(conn ?? throw new OneLiteException(ResultCode.Misuse, "no connection"), schema, table);
@@ -109,9 +132,15 @@ internal static class RTreeFunctions
     {
         Catalog cat = conn.Catalog ?? throw new OneLiteException(ResultCode.Error, "no schema");
         TableInfo? t = cat.FindIn(schema, table);
-        if (t?.Virtual is null || VirtualModules.FindBuiltin(t.Virtual.Module) is not RTreeModule m || (m.Name != "rtree" && m.Name != "rtree_i32"))
+        if (t is null)
         {
-            throw new OneLiteException(ResultCode.Error, "Specified RTree table does not exist or is not an rtree: " + table);
+            // Observed: no such table (or schema) is an error with no message of its own.
+            throw new OneLiteException(ResultCode.Error, "SQL logic error");
+        }
+
+        if (t.Virtual is null || VirtualModules.FindBuiltin(t.Virtual.Module) is not RTreeModule m || (m.Name != "rtree" && m.Name != "rtree_i32"))
+        {
+            return "Schema corrupt or not an rtree";
         }
 
         t.Virtual.Schema = cat.SchemaName(t.Db);
