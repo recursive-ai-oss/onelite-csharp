@@ -10,8 +10,15 @@ All notable changes to this project are documented here. The format follows [Kee
 - The happy path's `WriteAsync` and `Write` run as `BEGIN CONCURRENT` in WAL mode and retry on a busy snapshot.
 - `onelite-history` can drive OneLite itself (`--client onelite`, `onelite-snapshot`).
 
+### Changed
+
+- Preparing a statement again is far cheaper. A finalized `SELECT`, `INSERT`, `UPDATE` or `DELETE` leaves its program, machine and cursors with the connection, and the next `Prepare` of the same text takes them instead of parsing and planning again, as long as the schema, `foreign_keys` setting and text encoding are unchanged (at most 32 texts per connection; virtual-table, DDL, `PRAGMA` and row-counting statements are not kept). `.Data` commands and the happy path get this without any change.
+- A read transaction in WAL mode starts and ends without allocating and, while the wal-index snapshot is unchanged, without re-reading the database size and page 1. A cached point lookup (bind, step, reset) now allocates 0 B at engine level, down from 600 B.
+- A query on one rowid table that an index can answer completely (a lookup, range or `IN` list whose columns are all in the index or the rowid) reads the index alone instead of following each entry to the table. Rows and their order are unchanged.
+
 ### Fixed
 
+- A statement whose schema changed between preparing and running (`SELECT *` after another connection added a column) could throw `IndexOutOfRangeException` when reading a column added by the change; its result buffers now follow the new column count.
 - In WAL mode an autocommit write that found a newer commit between reading and taking the write lock failed with `SQLITE_BUSY_SNAPSHOT`; it now restarts on the new snapshot.
 
 ## [0.3.0-preview.2]

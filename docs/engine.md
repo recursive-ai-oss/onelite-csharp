@@ -76,8 +76,25 @@ count, partial ones do not), it takes the one with the smallest total estimated 
 only if that is no wider than the table's own width (strictly narrower for a rowid table, whose entries also carry the rowid). A
 column's width is `N/4+1` for a declared length `(N)`, 3 for TEXT/CHAR/CLOB/BLOB types and 1 for anything else (an `INTEGER PRIMARY
 KEY` column is not part of a rowid table's row; an expression counts 1). Columns read in `FILTER`, aggregate `ORDER BY`, `GROUP
-BY` and `HAVING` count like any other. The index entry is still followed to the table row, so values never depend on the choice.
-`ANALYZE` statistics are not consulted.
+BY` and `HAVING` count like any other. `ANALYZE` statistics are not consulted.
+
+**Index-only reads.** When a statement reads one rowid table, its plan uses an index (a lookup, a range, an `IN` list or the covering scan
+above), the index has no `WHERE`, and every column the statement reads is a plain key column of that index or the rowid, the loop reads
+the index entry and never opens the table. The plan, the rows visited and their order are those of the same statement without this
+shortcut, and the whole `WHERE` clause is still evaluated on each entry. The columns are found by walking the statement's own text
+(result columns, `WHERE`, `GROUP BY`, `HAVING`, `ORDER BY`, `LIMIT`); anything the walk does not understand (a subquery, a generated
+column, a window function) keeps the table read, and if code generation still asks for a column the index lacks, the statement is
+compiled again without the shortcut. A `WITHOUT ROWID` table is not affected.
+
+**Statements prepared again.** Preparing the same text again is the usual case (a command per query, a statement per call), so when a
+statement is finalized its program, its machine and its cursors stay with the connection, and the next `Prepare` of the same text on that
+connection takes them instead of parsing and planning again. They belong to one statement at a time, so two live statements of one text
+never share them. They are used again only while everything compilation read is unchanged: the connection still holds the same schema
+object (every schema change, local or from another connection, builds a new one) at the same schema cookie, with the same
+`foreign_keys` setting and text encoding; otherwise the text is compiled again. As with a statement kept open, a schema change made by
+another connection is noticed when the statement runs, which re-prepares it. A statement that touches a virtual table, or that is
+compiled to count rows for a plan, is never kept; nor are DDL, `PRAGMA` and transaction control. At most 32 texts are kept per
+connection. The bound-parameter values never carry over.
 
 **`ORDER BY` through an index.** When the sort terms are the leading columns of an index (plain columns, the index's collations,
 default `NULLS` placement, then optionally the rowid), all in the index's direction or all opposite, the index is walked forwards or
