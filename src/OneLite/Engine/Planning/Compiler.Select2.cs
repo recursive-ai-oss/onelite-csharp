@@ -132,21 +132,11 @@ internal sealed partial class Compiler
             // they read only that query's (lang_aggfunc).
             Func<FunctionCall, bool> owns = call => OwnerScope(call) is null;
             // HAVING alone does not make a query an aggregate query (observed: "HAVING clause on a non-aggregate query").
-            bool hasAgg = cols.Any(c => FindAggregate(c.Expr, owns) is not null) || (!order.IsDefaultOrEmpty && order.Any(o => FindAggregate(o.Expr, owns) is not null));
+            // Black-box: an aggregate in the ORDER BY of a query with a FROM clause is a misuse unless the result columns hold one too; a query with no
+            // FROM clause takes it (SELECT 1 ORDER BY sum(1) is accepted).
+            bool hasAgg = cols.Any(c => FindAggregate(c.Expr, owns) is not null)
+                || (core.From is null && !order.IsDefaultOrEmpty && order.Any(o => FindAggregate(o.Expr, owns) is not null));
             bool grouped = !core.GroupBy.IsDefaultOrEmpty;
-            if (core.Where is not null && FindAggregate(core.Where, owns) is { } wa)
-            {
-                throw ErrAt(AggregateMisuse(wa.Name.Text, hasAgg || grouped), wa);
-            }
-
-            foreach (Expr on in joinPool.Concat(scope.Sources.SelectMany(s => s.On)))
-            {
-                if (FindAggregate(on, owns) is { } oa)
-                {
-                    throw Err(AggregateMisuse(oa.Name.Text, hasAgg || grouped));
-                }
-            }
-
             bool hasWin = cols.Any(c => FindWindowCall(c.Expr) is not null) || (!order.IsDefaultOrEmpty && order.Any(o => FindWindowCall(o.Expr) is not null));
             if (hasWin)
             {
@@ -242,6 +232,21 @@ internal sealed partial class Compiler
 
                 if (groupError is not null)
                 {
+                    if (groupError.Message.StartsWith("aggregate functions are not allowed", StringComparison.Ordinal))
+                    {
+                        // Names inside the aggregate are resolved before the clause is refused.
+                        foreach (Expr g in core.GroupBy)
+                        {
+                            if (FindAggregate(g, owns) is { } ga)
+                            {
+                                foreach (Expr garg in ga.Args.IsDefault ? [] : ga.Args)
+                                {
+                                    Compile(garg);
+                                }
+                            }
+                        }
+                    }
+
                     throw groupError;
                 }
 

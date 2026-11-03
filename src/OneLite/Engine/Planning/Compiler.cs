@@ -574,7 +574,7 @@ internal sealed partial class Compiler
             return (CollKind)slot;
         }
 
-        throw new OneLiteException(ResultCode.ErrorMissingCollSeq, "no such collation sequence: " + name);
+        return t_lenientCollation ? CollKind.Binary : throw new OneLiteException(ResultCode.ErrorMissingCollSeq, "no such collation sequence: " + name);
     }
 
     /// <summary>The collating sequence of an expression: an explicit COLLATE, else the column's (datatype3 §7.1). <paramref name="explicitColl"/> tells which.</summary>
@@ -907,6 +907,7 @@ internal sealed partial class Compiler
             }
         }
 
+        CheckRestricted(e);
         switch (e)
         {
             case ParenExpr p:
@@ -1141,6 +1142,11 @@ internal sealed partial class Compiler
         if (!Resolve(cr, out Source? src, out int col, out Expr? alias, true))
         {
             throw NoSuchColumn(FirstMissingColumn(cr));
+        }
+
+        if (_restrict is { NoRowid: true } && col < 0 && alias is null)
+        {
+            throw NoSuchColumn(cr);
         }
 
         if (alias is not null)
@@ -1827,9 +1833,10 @@ internal sealed partial class Compiler
             return;
         }
 
-        if (IsWindowOnly(name, out _, out _, out _))
+        if (IsWindowOnly(name, out _, out int wmin, out int wmax))
         {
-            throw ErrAt("misuse of window function " + name + "()", f);
+            int wn = f.Args.IsDefault ? 0 : f.Args.Length;
+            throw ErrAt(wn < wmin || wn > wmax ? "wrong number of arguments to function " + name + "()" : "misuse of window function " + name + "()", f);
         }
 
         if (AggregateKind(f) is { } akind)
@@ -1844,19 +1851,15 @@ internal sealed partial class Compiler
             return;
         }
 
-        if (f.Star)
-        {
-            throw Unsupported("function " + name + "(*)");
-        }
-
-        if (f.Filter is not null || f.Quantifier != CallQuantifier.None || !f.OrderBy.IsDefaultOrEmpty)
-        {
-            throw Unsupported("aggregate syntax in " + name + "()");
-        }
-
         FuncDef? def = _cat.Owner?.FindUserFunction(name, f.Args.IsDefaultOrEmpty ? 0 : f.Args.Length) ?? FunctionTable.Find(name);
         if (def is null)
         {
+            if (f.Star && AggregateKind(f with { Star = false, Args = [f] }) is not null)
+            {
+                // sum(*), total(*), max(*) ...: the name is an aggregate's, the argument list is not one it takes.
+                throw ErrAt("wrong number of arguments to function " + name + "()", f);
+            }
+
             if (FunctionTable.IsKnownUnsupported(name))
             {
                 throw Unsupported("function " + name + "()");
@@ -1866,7 +1869,8 @@ internal sealed partial class Compiler
             throw ErrAt(_cat.Owner?.HasUserFunctionNamed(name) == true ? "wrong number of arguments to function " + name + "()" : "no such function: " + name, f);
         }
 
-        int n = f.Args.Length;
+        // f(*) counts as a call with no arguments (black-box: date(*) is accepted, abs(*) has the wrong number).
+        int n = f.Args.IsDefault ? 0 : f.Args.Length;
         if (def.Id is FuncId.MaxN or FuncId.MinN && n == 1)
         {
             throw Unsupported("aggregate " + name.ToLowerInvariant() + "()");
@@ -1875,6 +1879,17 @@ internal sealed partial class Compiler
         if (n < def.MinArgs || n > def.MaxArgs)
         {
             throw ErrAt("wrong number of arguments to function " + name + "()", f);
+        }
+
+        // DISTINCT and ALL are accepted and ignored on a scalar function; FILTER and ORDER BY are refused.
+        if (f.Filter is not null)
+        {
+            throw ErrAt("FILTER may not be used with non-aggregate " + name + "()", f);
+        }
+
+        if (!f.OrderBy.IsDefaultOrEmpty)
+        {
+            throw ErrAt("ORDER BY may not be used with non-aggregate " + name + "()", f);
         }
 
         int flags = 0;
@@ -1938,7 +1953,7 @@ internal sealed partial class Compiler
 
         if (badLikelihood)
         {
-            throw Err("second argument to likelihood() must be a constant between 0.0 and 1.0");
+            throw ErrAt("second argument to likelihood() must be a constant between 0.0 and 1.0", f);
         }
 
         Emit(Op.Function, bas, n, dest, def, flags);

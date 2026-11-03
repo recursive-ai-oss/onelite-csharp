@@ -80,7 +80,20 @@ internal sealed partial class Compiler
         string name = f.Name.Text;
         if (_aggPlan is null)
         {
-            throw ErrAt("misuse of aggregate function " + name + "()", f);
+            // The reference resolves the names inside the call before it reports the misuse, and reports an aggregate nested in the call first.
+            foreach (Expr arg in f.Args.IsDefault ? [] : f.Args)
+            {
+                DryRun(() => Compile(arg));
+            }
+
+            if (f.Filter is not null)
+            {
+                DryRun(() => Compile(f.Filter));
+            }
+
+            // "misuse of aggregate: sum()" is the wording in a query that is an aggregate query, and in the ORDER BY of one that is not.
+            bool colon = _scope is { } sc && (sc.NoAgg == AggClause.Order || (sc.NoAgg == AggClause.Filter && sc.IsAgg));
+            throw ErrAt(AggregateMisuse(name, colon), f);
         }
 
         if (_aggDiscover)
@@ -102,11 +115,6 @@ internal sealed partial class Compiler
             if (!plan.Index.ContainsKey(f))
             {
                 bool distinct = f.Quantifier == CallQuantifier.Distinct;
-                if (distinct && (nargs != 1 || kind == AggKind.CountStar))
-                {
-                    throw Err("DISTINCT aggregates must have exactly one argument");
-                }
-
                 bool arityOk = kind switch
                 {
                     AggKind.CountStar => f.Star || nargs == 0,
@@ -121,6 +129,12 @@ internal sealed partial class Compiler
                     throw ErrAt("wrong number of arguments to function " + name + "()", f);
                 }
 
+                // A call with a count the function takes, but DISTINCT over more than one argument (group_concat(DISTINCT a, b)).
+                if (distinct && (nargs != 1 || kind == AggKind.CountStar))
+                {
+                    throw Err("DISTINCT aggregates must have exactly one argument");
+                }
+
                 plan.Registering = true;
                 try
                 {
@@ -128,6 +142,15 @@ internal sealed partial class Compiler
                     {
                         if (FindAggregate(a) is { } inner)
                         {
+                            // Names inside the nested call are resolved before the misuse is reported.
+                            foreach (Expr innerArg in inner.Args.IsDefault ? [] : inner.Args)
+                            {
+                                if (FindAggregate(innerArg) is null)
+                                {
+                                    DryRun(() => Compile(innerArg));
+                                }
+                            }
+
                             throw ErrAt("misuse of aggregate function " + inner.Name.Text + "()", inner);
                         }
 
@@ -696,7 +719,9 @@ internal sealed partial class Compiler
         if (left is not RowValueExpr l || right is not RowValueExpr r || l.Items.Length != r.Items.Length)
         {
             // Observed: a plain left operand against a row value points at the comparison; any other shape has no position.
-            throw left is not RowValueExpr && right is RowValueExpr ? ErrAt("row value misused", left) : Err("row value misused");
+            OneLiteException misuse = left is not RowValueExpr && right is RowValueExpr ? ErrAt("row value misused", left) : Err("row value misused");
+            misuse.Data[ResolveTimeKey] = true;
+            throw misuse;
         }
 
         int n = l.Items.Length;

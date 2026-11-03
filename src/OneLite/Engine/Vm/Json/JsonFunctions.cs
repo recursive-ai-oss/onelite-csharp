@@ -654,6 +654,13 @@ internal static class JsonFunctions
     private static void Edit(FuncId id, ReadOnlySpan<Mem> args, ref Mem dst, ref byte[]? own, JsonBuf docBuf)
     {
         bool remove = id is FuncId.JsonRemove or FuncId.JsonbRemove;
+        if (args.Length == 0)
+        {
+            // Black-box: json_set() and its relatives called with no arguments give NULL.
+            Values.SetNull(ref dst);
+            return;
+        }
+
         if (!remove && (args.Length & 1) == 0)
         {
             throw Err(FunctionName(id) + "() needs an odd number of arguments");
