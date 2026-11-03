@@ -20,3 +20,6 @@ namespace Microsoft.EntityFrameworkCore
         internal static void Run() => OneLiteBatteries.Init();
     }
 }
+
+// Several test classes create, fill and delete databases of the same name; the suite's own runs keep them from overlapping.
+[assembly: Xunit.CollectionBehavior(DisableTestParallelization = true)]

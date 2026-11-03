@@ -389,10 +389,27 @@ public class ProviderParityTests
         Exec(log, db, "UPDATE Kiwi SET EagleId = 'Nope' WHERE Species = 'Apteryx'");
         Query(log, db, "UPDATE \"Kiwi\" SET \"EagleId\" = ?1 WHERE \"Species\" = 'Apteryx' RETURNING 1", "Nope");
         Query(log, db, "UPDATE \"Kiwi\" SET \"EagleId\" = @p WHERE \"Species\" = @k", "Nope", "Apteryx");
-        Exec(log, db, "INSERT INTO \"Kiwi\" (\"Species\", \"EagleId\") VALUES ('x', 'Nope')");
+        log.Append("insert: ").AppendLine(raw.sqlite3_exec(db, "INSERT INTO \"Kiwi\" (\"Species\", \"EagleId\") VALUES ('x', 'Nope')").ToString());
         Exec(log, db, "PRAGMA foreign_keys");
-        Query(log, db, "select count(*), group_concat(EagleId) from Kiwi");
-        Query(log, db, "PRAGMA foreign_keys");
+        raw.sqlite3_prepare_v2(db, "select count(*), group_concat(EagleId) from Kiwi", out sqlite3_stmt q);
+        raw.sqlite3_step(q);
+        log.AppendLine(Row(q));
+        raw.sqlite3_finalize(q);
+        raw.sqlite3_close(db);
+        return "";
+    });
+
+    [Fact]
+    public void UpdateFromJoinOnCannotSeeTheTarget() => Same(log =>
+    {
+        sqlite3 db = Open();
+        Exec(log, db, "create table a(id integer primary key, n); create table b(id integer primary key); create table k(id integer primary key)");
+        Exec(log, db, "insert into a values (1, 0), (2, 0); insert into b values (1), (2); insert into k values (1)");
+        Exec(log, db, "update a set n = 1 from b inner join k on a.id = k.id where a.id = b.id");
+        Exec(log, db, "update a as x set n = 1 from b inner join k on x.id = k.id where x.id = b.id");
+        Exec(log, db, "update a set n = 5 from b inner join k on b.id = k.id where a.id = b.id");
+        Exec(log, db, "update a set n = 6 from b, k where a.id = k.id and a.id = b.id");
+        Query(log, db, "select * from a order by id");
         raw.sqlite3_close(db);
         return "";
     });
