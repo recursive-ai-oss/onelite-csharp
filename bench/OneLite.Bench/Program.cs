@@ -173,6 +173,9 @@ internal static class Program
         long check = 0;
         var ms = new double[reps];
         var alloc = new long[reps];
+        // Short rows are warmed up three times, with a pause longer than the runtime's tier-up delay (100 ms) after each pass, so the timed passes
+        // run optimized code: a 10 ms row would otherwise be timed while the JIT is still at its first tier. The first pass is kept as ColdMs.
+        double coldMs = 0;
         for (int i = -1; i < reps; i++)
         {
             row.PerRep?.Invoke(d, ctx);
@@ -183,7 +186,24 @@ internal static class Program
             check = row.Run(d, ctx);
             double e = Stopwatch.GetElapsedTime(t0).TotalMilliseconds;
             long a1 = GC.GetAllocatedBytesForCurrentThread();
-            if (i >= 0)
+            if (i == -1)
+            {
+                coldMs = e;
+                if (e < 2000 && reps > 0)
+                {
+                    // two more warm-up passes: shift the loop so they are not timed
+                    for (int w = 0; w < 2; w++)
+                    {
+                        Thread.Sleep(250);
+                        row.PerRep?.Invoke(d, ctx);
+                        GC.Collect();
+                        check = row.Run(d, ctx);
+                    }
+
+                    Thread.Sleep(250);
+                }
+            }
+            else
             {
                 ms[i] = e;
                 alloc[i] = a1 - a0;
@@ -206,6 +226,7 @@ internal static class Program
             PeakKb = PeakKb(),
             Check = check,
             SetupMs = setupMs,
+            ColdMs = coldMs,
         };
     }
 

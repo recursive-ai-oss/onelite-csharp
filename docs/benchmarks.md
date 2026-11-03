@@ -225,6 +225,28 @@ What changed:
 A full engine matrix on the same two builds shows no other row slower beyond run-to-run noise (`lookup_rowid` 0.84× to 0.87×, `lookup_index` 1.34× to 1.32×, `range_scan` 2.13× to 1.71×, `prepare_cost`, `prepare_cold`, `fts5_top10` unchanged). `insert_tx_10k` is a 60 to 170 ms row whose time is JIT and tier-up, and it swings between those values on both builds at 3 repetitions, so no change can be read from it; `insert_tx_100k` went from 347 to 286 ms in that run (that matrix's base ran at a load average near 29, so treat the pair as noise-bounded). The bytes per row stepped stay 0 for the scan and join rows.
 
 What is left. `scan_filter` still evaluates the `WHERE` clause per row through the general dispatch loop. `group_by` allocates 74 B per row in the aggregate state and the grouping sorter's key copies. These are x64 numbers only; arm64 was not re-measured.
+## Tuning: write path, open, cold prepare
+
+Indicative before/after, x64 (Ryzen 9 7950X3D, .NET 10, reference SQLite 3.53.4), heavy-queue job on a shared machine, base and new builds alternated in one job, 3 timed repetitions, engine level. Results unchanged: checksums agree; the interop, kill and test checks of the change are clean.
+
+**Method change.** A short row used to be timed while the runtime was still running its first JIT tier (tiering waits 100 ms without new methods before optimizing): `insert_tx_10k` took 111 ms in that state and 25 ms once warm. The harness now warms short rows three times with a 250 ms pause after each pass and keeps the first pass as `ColdMs`; the tables above this note were measured the old way. The cold first pass of a 100k-row insert is about 740 ms (steady 120 ms); a ReadyToRun build of the library cut it to about 330 ms and the cold `insert_tx_10k` pass from 70 to 31 ms, at a slightly slower steady state for prepare-heavy code. Whether to ship ReadyToRun is a packaging decision, not made here. Marking the write path `AggressiveOptimization` changed nothing.
+
+What changed:
+
+1. **Appends.** A table leaf that overflows with one cell after its last cell, in the rightmost leaf, now gets a new empty leaf and a single divider in the parent (the append case of a split); before, every split gathered three siblings' cells and redistributed them with a quadratic evening-out pass (half of the insert time).
+2. **Open and close on Linux.** Disposing a mapped `-shm` view made the runtime `msync` it (about 6 ms per close); the view is now released through its handle.
+
+| Row (engine) | Before ms | After ms | Native ms | Ratio before | Ratio after |
+|---|---:|---:|---:|---:|---:|
+| insert_tx_10k | 22.9 | 8.6 | 4.1 | 5.6x | 2.1x |
+| insert_tx_100k | 280.7 | 111.7 | 70.1 | 4.0x | 1.6x |
+| open_time (200 opens) | 1272.8 | 39.3 | 34.3 | 37.1x | 1.15x |
+| prepare_cold | 21.1 | 21.4 | 7.6 | 2.8x | 2.8x |
+
+The other rows of the engine matrix are within 5% of before (insert_autocommit, wal_commit_*, lookups, scans, join, group_by, sort, fts5_top10 and prepare_cost; run-to-run noise on the short ones). App level (`.Data` against `Microsoft.Data.Sqlite`), same job: insert_tx_10k 26.2 to 10.9 ms (native 9.6 to 8.6), insert_tx_100k 294 to 165 ms (112 to 123), open_time 2549 to 54 ms (36 to 33).
+
+Where it stops: `insert_tx_100k` is still 1.6x. The rest is spread over the statement (a second root-to-leaf seek after the uniqueness probe, a statement savepoint, record build, binding). `prepare_cold` is compile cost: every query is name-resolved by a dry code-generation pass and then generated again, and a prepare allocates about 24 KB; with all JIT effects removed it is about 4x native.
+
 ## Tuning: FTS5 queries
 
 `fts5_top10` (300 two-word `MATCH` queries, `order by rank limit 10`, 20,000 documents of 30 words). Indicative: heavy-queue runs on the x64 machine above (not a bench-class run, other jobs on the machine, load average 1-5), before and after alternated in one job, medians of 3 repetitions, results agree with the reference on every run.
