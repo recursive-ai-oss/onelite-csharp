@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Cold start of the first query as a NativeAOT executable, OneLite against the reference library through raw P/Invoke. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>RecursiveAI.OneLite.Bench.Cold</RootNamespace>
+    <PublishAot>true</PublishAot>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../OneLite.Bench/Native.cs" Link="Native.cs" />
+    <ProjectReference Include="../../src/OneLite/OneLite.csproj" />
+  </ItemGroup>
+
+</Project>
