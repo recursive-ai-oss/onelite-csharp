@@ -11,6 +11,10 @@ All notable changes to this project are documented here. The format follows [Kee
 - `X REGEXP Y` calls a user function `regexp(Y, X)` as SQLite documents; without one it fails with "no such function: regexp".
 - Group commit for `BEGIN CONCURRENT` at `synchronous=FULL` or EXTRA: concurrent commits of one process share WAL syncs. A commit is acknowledged only after a sync that covers it, and readers see it only after that sync, so durability is unchanged; on the test disk eight threads commit 3.4 to 3.7 times as fast as with `BEGIN IMMEDIATE` (before: no gain at FULL). It affects nothing unless `ConcurrentWrites` is on and `BEGIN CONCURRENT` is used; plain `BEGIN`, `BEGIN IMMEDIATE`, autocommit and `synchronous=NORMAL` are unchanged. `DatabaseOptions.ConcurrentGroupCommit = false` turns it off. See `docs/wal.md` and `docs/concurrency.md`.
 
+### Changed
+
+- FTS5 `MATCH` queries read only the index pages they need instead of the whole index, keep finished term lookups while a query waits for more pages, and decode positions only for the rows that match every term. A ranked two-word query over 20,000 documents is about 4.5 times faster and allocates about 9 times less (0.65 MB instead of 5.7 MB per query). Results and files are unchanged.
+
 ### Fixed
 
 - `PRAGMA writable_schema=ON` is honoured (it was ignored): the schema table can be written and `sqlite_` names created, so the shell's `.dump` of `AUTOINCREMENT` and virtual-table databases loads.

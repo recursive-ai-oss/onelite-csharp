@@ -149,7 +149,7 @@ No fixes have been made; each is a candidate for its own tuning unit. Ratios are
 
 1. **`prepare_cost` (19.5× / 17.5×)**: parse, plan and code generation allocate about 23 KB per statement. Fixed for repeated prepares by statement reuse, see "Tuning: prepare and point lookups"; a first prepare of a text still costs this much.
 2. **`insert_tx_10k` (18.7× / 15.6×)**: the row is short (about 80 ms) so JIT and tier-0 code dominate; the same insert path is 3.9× / 5.1× at 100,000 rows, where the remaining gap is per-row allocation (435 B/op) and the record build.
-3. **`fts5_top10` (10.9× / 15.1×)**: 5.7 MB allocated per query, which points at the FTS5 segment and doclist readers copying into fresh buffers instead of reading spans in place.
+3. **`fts5_top10` (10.9× / 15.1×)**: 5.7 MB allocated per query because the whole index was read into memory per query. Fixed, see "Tuning: FTS5 queries" (x64 3.5×, 0.65 MB per query).
 4. **`group_by` (5.7× / 5.2×)**: the aggregation and the grouping sorter or hash path (122 B per row), not the scan.
 5. **`range_scan` (4.5× / 6.5×)**: each execution re-seeked and allocated about 600 B, and every index entry was followed to the table row. Both fixed, see "Tuning: prepare and point lookups"; the unindexed `scan_filter` (4.4× / 6.0×) points at the dispatch loop's per-row cost rather than I/O.
 
@@ -191,6 +191,25 @@ Three changes, measured on the same machine in one run, before and after: (1) a 
 | app `prepare_cost` (reuse) | 21.89 | 23.03 | 0.95× |
 
 What is left. `lookup_index` and `range_scan` still evaluate the whole `WHERE` clause on every index entry, as the engine always does (a plan can change speed, never the answer). Every read transaction costs two `fcntl` calls (taking and releasing the wal-index read mark), as it does in the native library; on this machine starting and ending a read transaction around a trivial query takes about 1.8 µs, most of it those calls.
+
+## Tuning: FTS5 queries
+
+`fts5_top10` (300 two-word `MATCH` queries, `order by rank limit 10`, 20,000 documents of 30 words). Indicative: heavy-queue runs on the x64 machine above (not a bench-class run, other jobs on the machine, load average 1-5), before and after alternated in one job, medians of 3 repetitions, results agree with the reference on every run.
+
+| Level | Before ms | After ms | Native / MDS ms | Ratio before | Ratio after | B/query before | B/query after |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| engine | 739-765 | 162-166 | 47 | 15.7-16.3x | 3.5x | 5,720,000 | 650,000 |
+| app | 725-740 | 175 | 48-50 | 14.9-14.7x | 3.6x | 5,737,000 | 667,000 |
+
+(A first pair of runs measured 132 ms after against 477-497 ms before, 2.9x; the machine was quieter. The 10.9x in the first table is an earlier run on a quieter machine; the before numbers here are higher because of the other jobs, so compare the two columns of this table with each other, not with that one.)
+
+What was wrong, and what changed:
+
+- A query read **the whole index** (every page of every segment) into memory before looking at it, and a computation that needed one more page restarted from the beginning and redid every term lookup. Now only the pages a term's search touches are loaded (the binary search over the segment's pages, the start page and the next, then more as the doclist is read, in runs that grow), all the first pages of all terms are fetched in one step, and finished term lookups are kept across restarts.
+- Positions are decoded only for rows that survive the other terms of an AND query (the usual case); row numbers are intersected first. The count of rows per phrase that `bm25` needs comes from the doclist without building a match for every row.
+- The column sizes for `rank` are read without loading the row text, with no exception per row, and the `rank` weights are parsed once per query.
+
+What is still proportional to the doclist, not to the result: the rows of each term's doclist are held as row numbers plus the raw position bytes (about 20 B per row per term) while the query runs, and the segment pages read (about 250 KB per query here, most of it the binary-search probes of eight small segments). Native SQLite streams doclists and keeps neither. The remaining 3.5x is mostly this, plus one exception-based restart for each batch of pages (4 per query).
 
 ## Where OneLite is faster
 
