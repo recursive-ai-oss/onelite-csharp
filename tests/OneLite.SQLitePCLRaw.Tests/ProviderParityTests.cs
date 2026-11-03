@@ -379,6 +379,25 @@ public class ProviderParityTests
     });
 
     [Fact]
+    public void ForeignKeysOnChildUpdateAndParameter() => Same(log =>
+    {
+        sqlite3 db = Open();
+        Exec(log, db, "PRAGMA foreign_keys=ON");
+        Exec(log, db, "CREATE TABLE \"Eagle\" (\"Species\" TEXT NOT NULL CONSTRAINT \"PK_Eagle\" PRIMARY KEY, \"Group\" INTEGER NOT NULL)");
+        Exec(log, db, "CREATE TABLE \"Kiwi\" (\"Species\" TEXT NOT NULL CONSTRAINT \"PK_Kiwi\" PRIMARY KEY, \"EagleId\" TEXT NULL, CONSTRAINT \"FK_Kiwi_Eagle_EagleId\" FOREIGN KEY (\"EagleId\") REFERENCES \"Eagle\" (\"Species\"))");
+        Exec(log, db, "INSERT INTO Eagle VALUES ('Aquila', 1); INSERT INTO Kiwi VALUES ('Apteryx', 'Aquila')");
+        Exec(log, db, "UPDATE Kiwi SET EagleId = 'Nope' WHERE Species = 'Apteryx'");
+        Query(log, db, "UPDATE \"Kiwi\" SET \"EagleId\" = ?1 WHERE \"Species\" = 'Apteryx' RETURNING 1", "Nope");
+        Query(log, db, "UPDATE \"Kiwi\" SET \"EagleId\" = @p WHERE \"Species\" = @k", "Nope", "Apteryx");
+        Exec(log, db, "INSERT INTO \"Kiwi\" (\"Species\", \"EagleId\") VALUES ('x', 'Nope')");
+        Exec(log, db, "PRAGMA foreign_keys");
+        Query(log, db, "select count(*), group_concat(EagleId) from Kiwi");
+        Query(log, db, "PRAGMA foreign_keys");
+        raw.sqlite3_close(db);
+        return "";
+    });
+
+    [Fact]
     public void ColumnMetadata() => Same(log =>
     {
         sqlite3 db = Open();
