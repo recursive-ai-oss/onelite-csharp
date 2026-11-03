@@ -49,6 +49,7 @@ public sealed partial class OneLiteSqlite3Provider
         }
 
         string s = Encoding.UTF8.GetString(text);
+        if (Environment.GetEnvironmentVariable("ONELITE_TRACE_SQL") is not null) { Console.Error.WriteLine("SQL> " + s); } // TEMPTRACE
         Statement st;
         try
         {
