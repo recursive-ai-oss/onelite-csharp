@@ -1,6 +1,6 @@
 # Benchmarks
 
-OneLite's own benchmark suite lives in `bench/OneLite.Bench`. It compares OneLite with the reference SQLite library at two levels and measures nothing else. The tables below are the first published baseline (commit `7e028d2`). Speed is a target, not a release gate: the reference ratios are information, and the first baseline tables below predate the tuning described under "Tuning: prepare and point lookups".
+OneLite's own benchmark suite lives in `bench/OneLite.Bench`. It compares OneLite with the reference SQLite library at two levels and measures nothing else. The first tables are the 1.0 rows (commit `0295e23`); the tables after them are the first published baseline (commit `7e028d2`) and the tuning record. Speed is a target, not a release gate: the reference ratios are information, and the first baseline tables below predate the tuning described under "Tuning: prepare and point lookups".
 
 ## Method
 
@@ -27,7 +27,65 @@ Reproduce with `bench/run.sh --rows <a,b|all> --levels engine,app --reps 3 --out
 - **Allocation.** The cached hot path allocates nothing per *row stepped* (`scan_filter` 0.2 B/op, `join` 0.4 B/op) and, since the tuning below, nothing per *statement execution* of a point lookup (bind, step, reset: 0 B at engine level). Preparing a statement that was prepared before on the connection allocates about 140 B; a first prepare about 23 KB. `fts5_top10` allocates 5.7 MB per query.
 - **Mac load.** The Mac was not idle by itself: its 1-minute load average sat near 2 before, during and after both groups, with no other queue job running. Treat the arm64 numbers as slightly less quiet than the x64 ones.
 
-## x64: AMD Ryzen 9 7950X3D, 32 cores, Linux Mint 22.3
+## 1.0 rows (commit 0295e23)
+
+The full suite after all tuning, at both levels, on both machines. Settings and method are as above (page size 4096, `cache_size = -2000`, 3 timed repetitions after one warm-up, median, one child process per row, side and level). Each machine ran alone, in two groups (write, prepare and open rows; read and query rows) as exclusive benchmark jobs. These tables supersede the baseline and tuning tables below, which stay as the record of how the numbers moved. Speed is a target, not a release gate. Results agree on every row.
+
+### x64: AMD Ryzen 9 7950X3D, 32 cores, Linux Mint 22.3
+
+.NET 10.0.13, reference SQLite 3.53.4, `Microsoft.Data.Sqlite` 10.0.14. Load average (1 min): group 1 0.00 before, 1.78 highest, 1.50 after; group 2 1.66 before, 1.66 highest, 1.12 after. (A first run of group 1 started at a load of 10 left over from the previous job and was discarded; the rerun waited for the machine to settle.)
+
+| Row | Engine OneLite ms | Native ms | Ratio | | App OneLite.Data ms | `Microsoft.Data.Sqlite` ms | Ratio |
+|---|---:|---:|---:|---|---:|---:|---:|
+| insert_tx_10k | 6.40 | 4.21 | 1.52x | | 8.03 | 9.23 | 0.87x |
+| insert_tx_100k | 75.98 | 63.36 | 1.20x | | 97.81 | 116.69 | 0.84x |
+| insert_autocommit | 3204.34 | 3801.15 | 0.84x | | 3209.72 | 3753.57 | 0.86x |
+| prepare_cold | 21.13 | 7.86 | 2.69x | | 34.39 | 19.09 | 1.80x |
+| wal_commit_normal | 18.78 | 28.58 | 0.66x | | 21.41 | 28.63 | 0.75x |
+| wal_commit_full | 1792.23 | 6406.54 | 0.28x | | 1810.08 | 6389.03 | 0.28x |
+| prepare_cost | 0.34 | 7.75 | 0.04x | | 10.97 | 20.08 | 0.55x |
+| open_time (report only) | 49.10 | 34.53 | 1.42x | | 46.57 | 36.18 | 1.29x |
+| lookup_rowid | 410.27 | 478.24 | 0.86x | | 470.91 | 579.06 | 0.81x |
+| lookup_index | 465.50 | 374.80 | 1.24x | | 535.82 | 466.72 | 1.15x |
+| scan_filter | 6.35 | 5.11 | 1.24x | | 7.14 | 6.76 | 1.06x |
+| range_scan | 19.46 | 13.54 | 1.44x | | 20.13 | 25.98 | 0.77x |
+| join | 20.56 | 80.20 | 0.26x | | 20.70 | 79.56 | 0.26x |
+| group_by | 26.73 | 25.00 | 1.07x | | 24.30 | 24.85 | 0.98x |
+| order_by_sort | 24.14 | 35.09 | 0.69x | | 25.39 | 51.28 | 0.50x |
+| fts5_top10 | 72.28 | 49.43 | 1.46x | | 76.37 | 44.70 | 1.71x |
+| vec0_knn | 93.86 | 273.18 | 0.34x | | 95.02 | 265.54 | 0.36x |
+
+Geometric mean over the 16 timed rows (`open_time` is in the mean as the tool computes it): engine **0.73x**, app **0.74x**. Engine rows over 1.5x: `prepare_cold` (2.69x). App rows over 1.25x: `prepare_cold` (1.80x), `fts5_top10` (1.71x), `open_time` (1.29x, report only).
+
+### Baseline, arm64: Apple M2, 8 cores, macOS 27.0.1
+
+.NET 10.0.11, reference SQLite 3.53.4, `Microsoft.Data.Sqlite` 10.0.14. Load average (1 min): group 1 2.77 before, 2.84 highest, 2.50 after; group 2 2.17 before, 2.17 highest, 1.75 after (the Mac is not idle by itself, as noted above). The sqlite-vec reference is not installed on this machine, so `vec0_knn` has no reference side here and is not in the mean.
+
+| Row | Engine OneLite ms | Native ms | Ratio | | App OneLite.Data ms | `Microsoft.Data.Sqlite` ms | Ratio |
+|---|---:|---:|---:|---|---:|---:|---:|
+| insert_tx_10k | 5.91 | 13.75 | 0.43x | | 7.98 | 19.91 | 0.40x |
+| insert_tx_100k | 73.91 | 49.22 | 1.50x | | 89.73 | 85.06 | 1.05x |
+| insert_autocommit | 45.39 | 41.52 | 1.09x | | 45.30 | 43.46 | 1.04x |
+| prepare_cold | 22.23 | 15.94 | 1.39x | | 33.11 | 21.95 | 1.51x |
+| wal_commit_normal | 14.25 | 17.53 | 0.81x | | 15.55 | 18.86 | 0.82x |
+| wal_commit_full | 39.00 | 38.30 | 1.02x | | 46.89 | 41.17 | 1.14x |
+| prepare_cost | 2.46 | 16.35 | 0.15x | | 16.60 | 22.13 | 0.75x |
+| open_time (report only) | 75.19 | 54.56 | 1.38x | | 67.69 | 55.06 | 1.23x |
+| lookup_rowid | 278.40 | 290.74 | 0.96x | | 321.81 | 355.83 | 0.90x |
+| lookup_index | 348.05 | 229.45 | 1.52x | | 384.59 | 285.34 | 1.35x |
+| scan_filter | 15.56 | 12.87 | 1.21x | | 15.69 | 15.55 | 1.01x |
+| range_scan | 30.06 | 23.05 | 1.30x | | 31.65 | 31.28 | 1.01x |
+| join | 28.45 | 61.36 | 0.46x | | 28.21 | 56.75 | 0.50x |
+| group_by | 29.83 | 31.06 | 0.96x | | 29.87 | 30.12 | 0.99x |
+| order_by_sort | 26.94 | 39.23 | 0.69x | | 29.96 | 51.17 | 0.59x |
+| fts5_top10 | 78.02 | 40.23 | 1.94x | | 85.35 | 40.07 | 2.13x |
+| vec0_knn | 111.90 | n/a | n/a | | 112.82 | n/a | n/a |
+
+Geometric mean over the 15 rows with a reference: engine **0.89x**, app **0.93x**. Engine rows over 1.5x: `fts5_top10` (1.94x), `lookup_index` (1.52x), `insert_tx_100k` (1.50x, at the line). App rows over 1.25x: `fts5_top10` (2.13x), `prepare_cold` (1.51x), `lookup_index` (1.35x).
+
+Not re-measured for 1.0: cold start (process start to first answer) and `BEGIN CONCURRENT` throughput; the earlier cold-start table stands, and concurrent-writer rows are in the concurrency notes.
+
+## Baseline, x64: AMD Ryzen 9 7950X3D, 32 cores, Linux Mint 22.3
 
 .NET 10.0.13 (SDK 10.0.402), SQLite 3.53.4, `Microsoft.Data.Sqlite` 10.0.14. Load average (1 min): group A 0.76 before, 1.83 highest, 1.77 after; group B 1.25 before, 1.28 highest, 1.24 after. Group B was run twice. The first run started at a load of 4.54 and could not be shown to have been alone, so it was discarded and re-run; the re-run agrees with it to within a few percent on every row.
 
