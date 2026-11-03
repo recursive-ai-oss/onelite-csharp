@@ -1,5 +1,6 @@
 using System.Text;
 using RecursiveAI.OneLite.Storage.Vfs;
+using RecursiveAI.OneLite.Storage.Wal;
 
 namespace RecursiveAI.OneLite.Storage.Pager;
 
@@ -37,6 +38,10 @@ public sealed partial class Pager
     private long _pbRecCount;
     private long _pbRecIdx;
     private uint _pbPgno;
+    // The wal-index snapshot under which page 1's header fields (database size, change counter, encoding, ...) were last parsed; valid until a write
+    // transaction begins or the log is reopened.
+    private WalIndexHeader _hdrSnap;
+    private bool _hdrSnapOk;
     private int _fjStep;
     private int _mbIdx;
 
@@ -77,6 +82,17 @@ public sealed partial class Pager
                     if (s != PagerStatus.Ok)
                     {
                         return s;
+                    }
+
+                    if (_hdrSnapOk && _hasHeader && _cipher is null && _wal!.Snap == _hdrSnap)
+                    {
+                        // The snapshot is the one page 1 was parsed under: nothing it holds can have changed, so the size and header reads are
+                        // skipped. A page number up to the database size is always in the log or the file, which is all _fileBytes is asked about.
+                        _fileBytes = Math.Max(_fileBytes, (long)_dbSize * _pageSize);
+                        _origSize = _dbSize;
+                        _rdStep = 0;
+                        _state = TxState.Read;
+                        return PagerStatus.Ok;
                     }
 
                     _rdStep = 6;
@@ -428,6 +444,12 @@ public sealed partial class Pager
                     _incremental = h.IncrementalVacuum;
                     _dbSize = _wal != null && _wal.Snap.MxFrame > 0 ? _wal.Snap.NPage : h.SizeIsValid ? h.DatabaseSizeInHeader : (uint)Math.Min(uint.MaxValue, (_fileBytes + _pageSize - 1) / _pageSize);
                     _origSize = _dbSize;
+                    _hdrSnapOk = _wal != null && _cipher is null;
+                    if (_hdrSnapOk)
+                    {
+                        _hdrSnap = _wal!.Snap;
+                    }
+
                     _rdStep = 0;
                     _state = TxState.Read;
                     return PagerStatus.Ok;

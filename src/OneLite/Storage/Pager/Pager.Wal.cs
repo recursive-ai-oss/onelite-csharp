@@ -375,6 +375,7 @@ public sealed partial class Pager
         IVfsShm? shm = _dbFile!.Shm;
         var w = new WalConnection(file, new WalIndex(shm ?? new HeapShm(), shm == null), _opts.ReadOnly);
         _wal = w;
+        _hdrSnapOk = false;
         _source = new WalSource(this);
         _walLastSnapValid = false;
     }
@@ -383,13 +384,133 @@ public sealed partial class Pager
 
     private PagerStatus WalBeginReadStep()
     {
-        _wOp ??= WalBeginReadOp().GetEnumerator();
-        PagerStatus s = WalPump();
-        if (s != PagerStatus.Ok)
+        if (_wOp == null)
         {
-            return s;
+            if (WalTryBeginReadFast())
+            {
+                return WalSnapshotTaken();
+            }
+
+            _wOp = WalBeginReadOp().GetEnumerator();
         }
 
+        PagerStatus s = WalPump();
+        return s != PagerStatus.Ok ? s : WalSnapshotTaken();
+    }
+
+    // The common start of a read transaction on a backend that answers synchronously: the log is mapped, the header is consistent and a read slot is
+    // free to take without waiting. It takes the same steps as WalBeginReadOp in the same order, without the iterator machinery (no allocation); any
+    // irregularity (a region to map, a busy lock, a mark to publish, a failure) returns false having taken nothing, and the general path runs.
+    private bool WalTryBeginReadFast()
+    {
+        if (_yieldEvery > 0 || (_vfs.Caps & VfsCaps.Sync) == 0)
+        {
+            return false;
+        }
+
+        WalConnection w = _wal!;
+        WalIndex index = w.Index;
+        if (!index.HasRegion(0) || !index.TryReadHeader(out WalIndexHeader h) || h.PageSize != _pageSize)
+        {
+            return false;
+        }
+
+        for (int t = 1; t < WalIndex.RegionsFor(h.MxFrame); t++)
+        {
+            if (!index.HasRegion(t))
+            {
+                return false;
+            }
+        }
+
+        uint nb = index.NBackfill;
+        if (nb > h.MxFrame)
+        {
+            return false;
+        }
+
+        int slot = -1;
+        try
+        {
+            if (nb == h.MxFrame)
+            {
+                // Everything is in the database file: promise not to read the WAL (read lock 0).
+                if (index.Shm.Lock(WalIndex.ReadLock0, 1, ShmLockOptions.Lock | ShmLockOptions.Shared))
+                {
+                    slot = 0;
+                    _wHeldShared |= 1 << WalIndex.ReadLock0;
+                }
+            }
+
+            if (slot < 0)
+            {
+                int best = -1;
+                uint bestMark = 0;
+                for (int i = 1; i < WalIndex.ReadSlots; i++)
+                {
+                    uint m = index.ReadMark(i);
+                    if (m != WalIndex.ReadMarkNotUsed && m <= h.MxFrame && (best < 0 || m > bestMark))
+                    {
+                        best = i;
+                        bestMark = m;
+                    }
+                }
+
+                // A mark that must be published first goes the general way.
+                if (best < 0 || bestMark < h.MxFrame)
+                {
+                    return false;
+                }
+
+                if (!index.Shm.Lock(WalIndex.ReadLock0 + best, 1, ShmLockOptions.Lock | ShmLockOptions.Shared))
+                {
+                    return false;
+                }
+
+                _wHeldShared |= 1 << (WalIndex.ReadLock0 + best);
+                if (index.ReadMark(best) != bestMark)
+                {
+                    ReleaseShared(index, WalIndex.ReadLock0 + best);
+                    return false;
+                }
+
+                slot = best;
+            }
+        }
+        catch (VfsException)
+        {
+            return false;
+        }
+
+        // The header must still be the one the slot was chosen for; otherwise a writer or checkpointer moved things under us.
+        if (!index.TryReadHeader(out WalIndexHeader h2) || h2 != h || (slot == 0 && index.NBackfill != h.MxFrame))
+        {
+            ReleaseShared(index, WalIndex.ReadLock0 + slot);
+            return false;
+        }
+
+        w.ReadSlot = slot;
+        w.Snap = h;
+        w.ReadMx = slot == 0 ? 0 : h.MxFrame;
+        return true;
+    }
+
+    private void ReleaseShared(WalIndex index, int lockSlot)
+    {
+        try
+        {
+            index.Shm.Lock(lockSlot, 1, ShmLockOptions.Unlock | ShmLockOptions.Shared);
+        }
+        catch (VfsException)
+        {
+            // Unlocking cannot fail in the backends here; if one does, the locks go with the handle.
+        }
+
+        _wHeldShared &= ~(1 << lockSlot);
+    }
+
+    private PagerStatus WalSnapshotTaken()
+    {
         WalConnection w = _wal!;
         if (!_walLastSnapValid || _walLastSnap != w.Snap)
         {
@@ -606,6 +727,13 @@ public sealed partial class Pager
             switch (_werStep)
             {
                 case 0:
+                    if (_wal!.ReadSlot >= 0 && _wOp == null && _yieldEvery == 0 && (_vfs.Caps & VfsCaps.Sync) != 0)
+                    {
+                        // Releasing a lock is immediate on a synchronous backend: no request, no iterator.
+                        ReleaseShared(_wal.Index, WalIndex.ReadLock0 + _wal.ReadSlot);
+                        _wal.ReadSlot = -1;
+                    }
+
                     if (_wal!.ReadSlot >= 0)
                     {
                         _wOp ??= WalUnlock(WalIndex.ReadLock0 + _wal.ReadSlot, 1, false).GetEnumerator();
