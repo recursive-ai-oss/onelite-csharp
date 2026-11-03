@@ -195,8 +195,35 @@ internal sealed partial class Machine
     private VmCursor Cursor(int i) => _cur[i];
 
     /// <summary>Loads and parses the current entry so its columns can be read. Returns Ok, Pending or Error.</summary>
+    /// <summary>
+    /// Puts a cursor that a write by another cursor of the connection saved back on its entry before its row is read, as the reference does for a
+    /// cursor that "requires seek" (lang_transaction: a pending SELECT sees the changes its own connection makes). The decoded record of the old
+    /// position is dropped, since the page may have been edited since.
+    /// </summary>
+    private static BtStatus Revive(VmCursor c)
+    {
+        if (c.Bt is not { State: CursorState.Saved } bt)
+        {
+            return BtStatus.Ok;
+        }
+
+        BtStatus s = bt.Restore();
+        if (s == BtStatus.Ok)
+        {
+            c.RecordReady = false;
+        }
+
+        return s;
+    }
+
     private static BtStatus EnsureRecord(VmCursor c)
     {
+        BtStatus rs = Revive(c);
+        if (rs != BtStatus.Ok)
+        {
+            return rs;
+        }
+
         if (c.RecordReady)
         {
             return BtStatus.Ok;
@@ -700,6 +727,13 @@ internal sealed partial class Machine
                         return BtFail(c.Bt!);
                     }
 
+                    if (c.Bt is { IsOnNeighbour: true })
+                    {
+                        Values.SetNull(ref r[ins.P3]);
+                        _pc++;
+                        continue;
+                    }
+
                     LoadColumn(c, ref ins);
                     _pc++;
                     continue;
@@ -708,7 +742,18 @@ internal sealed partial class Machine
                 case Op.Rowid:
                 {
                     VmCursor c = _cur[ins.P1];
-                    if (c.NullRow)
+                    BtStatus rs = c.NullRow ? BtStatus.Ok : Revive(c);
+                    if (rs == BtStatus.Pending)
+                    {
+                        return RunResult.Pending;
+                    }
+
+                    if (rs == BtStatus.Error)
+                    {
+                        return BtFail(c.Bt!);
+                    }
+
+                    if (c.NullRow || c.Bt is { IsOnNeighbour: true })
                     {
                         Values.SetNull(ref r[ins.P2]);
                     }
@@ -1229,7 +1274,25 @@ internal sealed partial class Machine
                     }
                     else
                     {
-                        Values.SetInt(ref r[ins.P2], c.Eph is { } ke ? ke.Pos + 1 : c.Bt!.Rowid);
+                        BtStatus rs = c.Eph is null ? Revive(c) : BtStatus.Ok;
+                        if (rs == BtStatus.Pending)
+                        {
+                            return RunResult.Pending;
+                        }
+
+                        if (rs == BtStatus.Error)
+                        {
+                            return BtFail(c.Bt!);
+                        }
+
+                        if (c.Bt is { IsOnNeighbour: true })
+                        {
+                            Values.SetNull(ref r[ins.P2]);
+                        }
+                        else
+                        {
+                            Values.SetInt(ref r[ins.P2], c.Eph is { } ke ? ke.Pos + 1 : c.Bt!.Rowid);
+                        }
                     }
 
                     _pc++;
