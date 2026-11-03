@@ -7,6 +7,7 @@
     <!-- A tool is not a library: no API surface to validate, and it is not published trimmed. -->
     <EnablePackageValidation>false</EnablePackageValidation>
     <IsTrimmable>false</IsTrimmable>
+    <TrimmerSingleWarn>false</TrimmerSingleWarn>
     <Description>The onelite command-line tool for OneLite, a pure-managed SQLite-compatible database: open, query, dump, import and recover database files. $(PackageDescriptionNotice)</Description>
   </PropertyGroup>
 
@@ -15,6 +16,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Analyze every shipped assembly in full when the tool is published trimmed or with NativeAOT, not only what it calls. -->
+    <TrimmerRootAssembly Include="RecursiveAI.OneLite" />
     <ProjectReference Include="../OneLite/OneLite.csproj" />
   </ItemGroup>
 
