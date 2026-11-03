@@ -174,7 +174,7 @@ internal sealed partial class Compiler
         // Observed: WHERE and ON of a query that is not an aggregate query give the plain misuse text; in an aggregate query they take the owner's aggregate.
         if (_scope!.NoAgg == AggClause.Filter && !_scope.IsAgg)
         {
-            throw Err("misuse of aggregate function " + name + "()");
+            throw ErrAt("misuse of aggregate function " + name + "()", f);
         }
 
         // Observed: an EXISTS in a query that cannot take the aggregate (its WHERE, say) does not look at its own result columns and ORDER BY for them.
@@ -186,7 +186,7 @@ internal sealed partial class Compiler
 
         if (owner.NoAgg != AggClause.None)
         {
-            throw Err("misuse of aggregate: " + name + "()");
+            throw ErrAt("misuse of aggregate: " + name + "()", f);
         }
 
         if (!planned)
@@ -196,14 +196,14 @@ internal sealed partial class Compiler
                 throw new OuterAggregateException(owner, name);
             }
 
-            throw Err("misuse of aggregate: " + name + "()");
+            throw ErrAt("misuse of aggregate: " + name + "()", f);
         }
 
         AggPlan plan = save!.Plan!;
         if (plan.Registering)
         {
             // an aggregate inside the arguments of another aggregate of the same query
-            throw Err("misuse of aggregate: " + name + "()");
+            throw ErrAt("misuse of aggregate: " + name + "()", f);
         }
 
         if (save.Discover)
@@ -231,7 +231,7 @@ internal sealed partial class Compiler
 
         if (!plan.Index.TryGetValue(f, out int idx) || idx >= plan.ResultRegs.Length)
         {
-            throw Err("misuse of aggregate function " + name + "()");
+            throw ErrAt("misuse of aggregate function " + name + "()", f);
         }
 
         // the value changes with the owner's group, so every subquery between here and the owner runs again per group

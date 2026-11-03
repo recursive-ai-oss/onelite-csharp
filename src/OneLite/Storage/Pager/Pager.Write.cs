@@ -87,7 +87,7 @@ public sealed partial class Pager
             return Fail(ResultCode.ReadOnly, "the database is read-only");
         }
 
-        PagerStatus s = _wal != null ? WalBeginWriteStep() : TakeLock(LockLevel.Reserved, !noWait);
+        PagerStatus s = _wal != null ? WalBeginWriteStep(noWait) : TakeLock(LockLevel.Reserved, !noWait);
         if (s != PagerStatus.Ok)
         {
             return s;

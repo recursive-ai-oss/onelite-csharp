@@ -502,7 +502,7 @@ internal sealed partial class Machine
             // statement, because the process that holds RESERVED may be waiting for exactly that lock to go (both would wait out the whole timeout).
             // It lets go of the read transaction, waits, and starts over. A connection that was already reading gets BUSY at once.
             _connWasWriting = _txStep == 2 && _conn.Pager.InWriteTransaction;
-            PagerStatus s = _conn.BeginWriteStep(exclusive, noWait: !_conn.IsWal);
+            PagerStatus s = _conn.BeginWriteStep(exclusive, noWait: !_conn.IsWal || !_ownRead);
             if (s == PagerStatus.Pending)
             {
                 return RunResult.Pending;

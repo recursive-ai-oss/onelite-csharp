@@ -732,7 +732,15 @@ internal sealed partial class Compiler
         string[] retNames = [];
         if (returning is not null)
         {
-            EmitReturningRow(w, returning, out retBase, out retCols, out retNames);
+            _noOffset++;   // the reference gives an INSERT's RETURNING errors no position
+            try
+            {
+                EmitReturningRow(w, returning, out retBase, out retCols, out retNames);
+            }
+            finally
+            {
+                _noOffset--;
+            }
         }
 
         Emit(Op.Goto, 0, skip);

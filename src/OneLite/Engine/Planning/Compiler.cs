@@ -51,6 +51,34 @@ internal sealed partial class Compiler
 
     private static OneLiteException Err(string message) => new(ResultCode.Error, message);
 
+    /// <summary>An error the reference library reports with the position of a token (c3ref error_offset): the node's start is kept for the caller to turn into a byte offset.</summary>
+    private static OneLiteException ErrAtNode(string message, SqlNode at) => new(ResultCode.Error, message) { NodeStart = at.Span.Start };
+
+    // The reference library reports no position for errors in a join's ON clause or in the RETURNING clause of an INSERT (observed), so those carry none.
+    private OneLiteException ErrAt(string message, SqlNode at) => _noOffset > 0 || InOnClause() ? Err(message) : ErrAtNode(message, at);
+
+    private int _noOffset;
+    private readonly HashSet<Expr> _onRoots = new(ReferenceEqualityComparer.Instance);
+
+    private bool InOnClause()
+    {
+        for (int i = _exprStack.Count - 1; i >= 0; i--)
+        {
+            Expr x = _exprStack[i];
+            if (x is SubqueryExpr or ExistsExpr or InSelectExpr)
+            {
+                break;
+            }
+
+            if (i == 0 || _exprStack[i - 1] is SubqueryExpr or ExistsExpr or InSelectExpr)
+            {
+                return _onRoots.Contains(x);
+            }
+        }
+
+        return false;
+    }
+
     private static OneLiteException Unsupported(string what) => new(ResultCode.Error, "unsupported: " + what);
 
     // ------------------------------------------------------------------ emission
@@ -1801,7 +1829,7 @@ internal sealed partial class Compiler
 
         if (IsWindowOnly(name, out _, out _, out _))
         {
-            throw Err("misuse of window function " + name + "()");
+            throw ErrAt("misuse of window function " + name + "()", f);
         }
 
         if (AggregateKind(f) is { } akind)
@@ -1835,7 +1863,7 @@ internal sealed partial class Compiler
             }
 
             // a name that exists with other argument counts is a wrong-arity call (c3ref create_function)
-            throw Err(_cat.Owner?.HasUserFunctionNamed(name) == true ? "wrong number of arguments to function " + name + "()" : "no such function: " + name);
+            throw ErrAt(_cat.Owner?.HasUserFunctionNamed(name) == true ? "wrong number of arguments to function " + name + "()" : "no such function: " + name, f);
         }
 
         int n = f.Args.Length;
@@ -1846,7 +1874,7 @@ internal sealed partial class Compiler
 
         if (n < def.MinArgs || n > def.MaxArgs)
         {
-            throw Err("wrong number of arguments to function " + name + "()");
+            throw ErrAt("wrong number of arguments to function " + name + "()", f);
         }
 
         int flags = 0;

@@ -136,7 +136,7 @@ internal sealed partial class Compiler
             bool grouped = !core.GroupBy.IsDefaultOrEmpty;
             if (core.Where is not null && FindAggregate(core.Where, owns) is { } wa)
             {
-                throw Err(AggregateMisuse(wa.Name.Text, hasAgg || grouped));
+                throw ErrAt(AggregateMisuse(wa.Name.Text, hasAgg || grouped), wa);
             }
 
             foreach (Expr on in joinPool.Concat(scope.Sources.SelectMany(s => s.On)))
@@ -1270,7 +1270,7 @@ internal sealed partial class Compiler
 
     // Expanding * looks every column up by schema, alias and name; two FROM items with the same alias that both have the column make that lookup
     // ambiguous, and the message spells the full path (a subquery has no schema and shows *). Tables of one schema only exist here: main.
-    private static void CheckStarColumn(Scope scope, Source s, int col)
+    private static void CheckStarColumn(Scope scope, Source s, int col, SqlNode star)
     {
         string name = s.Table.Columns[col].Name;
         foreach (Source o in scope.Sources)
@@ -1284,7 +1284,7 @@ internal sealed partial class Compiler
             {
                 if (!o.Hidden.Contains(j) && AsciiComparer.Instance.Equals(o.Table.Columns[j].Name, name))
                 {
-                    throw Err("ambiguous column name: " + (s.Kind == SourceKind.Table ? "main" : "*") + "." + s.Alias + "." + name);
+                    throw ErrAtNode("ambiguous column name: " + (s.Kind == SourceKind.Table ? "main" : "*") + "." + s.Alias + "." + name, star);
                 }
             }
         }
@@ -1313,7 +1313,7 @@ internal sealed partial class Compiler
                     continue;
                 }
 
-                CheckStarColumn(scope, s, i);
+                CheckStarColumn(scope, s, i, star);
 
                 // A column merged by USING in a RIGHT or FULL join reads as the coalesced value, which only an unqualified reference gets.
                 bool merged = star.Table is null && s.Coalesce.ContainsKey(i);

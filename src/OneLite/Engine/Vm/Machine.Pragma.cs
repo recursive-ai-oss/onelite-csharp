@@ -279,6 +279,7 @@ internal sealed partial class Machine
                     if (v > 0)
                     {
                         st.Set(sk, Math.Min(Math.Max(v, pc.Db == 1 ? 0 : pg.PageCount), 4294967294L));
+                        pg.MaxPageCount = (uint)st.Get(sk, 4294967294L);
                     }
                 }
 

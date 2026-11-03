@@ -92,6 +92,12 @@ internal sealed class WalGroup
     /// <summary>True after a sync failed: every commit not yet acknowledged fails, and the generation ends.</summary>
     public bool Failed;
 
+    /// <summary>
+    /// For each generation in which a sync failed: the value of <see cref="AckedTicket"/> when it did. A commit of that generation with a larger ticket failed,
+    /// even if a later generation's sync moves <see cref="AckedTicket"/> past it (its frames were cut off the log). Call under <see cref="Gate"/>.
+    /// </summary>
+    public readonly Dictionary<long, long> FailedAt = [];
+
     /// <summary>The header describing the log with every commit appended so far, published or not.</summary>
     public WalIndexHeader Tail;
 

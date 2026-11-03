@@ -56,7 +56,7 @@ internal sealed partial class Compiler
         _lazyTx = s_noFilePragmas.Contains(name) ? 64 : 0;
         if (ps.Schema is { } sch && _cat.SlotOf(sch.Text) < 0)
         {
-            throw Err("unknown database " + sch.Text);
+            throw ErrAt("unknown database " + sch.Text, sch);
         }
 
         if (CompilePragmaInfo(ps, name) is { } info)

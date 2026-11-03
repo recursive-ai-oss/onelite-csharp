@@ -378,24 +378,39 @@ internal sealed class VmProgram
             return false;
         }
 
+        // The generated code is a subroutine that does the writes (ending in Return), then the set-up that opens the table, evaluates the VALUES
+        // expressions and calls the subroutine. Expressions in that set-up run before the first write, wherever they sit in the array.
+        int bodyEnd = Array.FindIndex(Code, static c => c.Op == Op.Return);
+        int callAt = Array.FindIndex(Code, static c => c.Op == Op.Gosub);
         for (int i = 0; i < Code.Length; i++)
         {
             ref readonly Instr ins = ref Code[i];
             bool cannotFail = ins.Op is Op.Init or Op.Goto or Op.Halt or Op.Noop or Op.BumpCookie or Op.Insert or Op.IdxInsert or Op.OpenWrite
-                or Op.Variable or Op.Gosub or Op.Return or Op.Integer or Op.Real or Op.String8 or Op.Blob or Op.Null or Op.Copy or Op.Transaction;
+                or Op.Variable or Op.Gosub or Op.Return or Op.Integer or Op.Real or Op.String8 or Op.Blob or Op.Null or Op.Copy or Op.Transaction
+                or Op.SaveRowid;
             bool mayFail = ins.Op is Op.Affinity or Op.NotNull or Op.NewRowid or Op.RowidFix or Op.SeekRowid or Op.Raise or Op.IdxProbe or Op.MustBeInt or Op.StrictCheck;
+            bool expression = ins.Op is Op.Add or Op.Subtract or Op.Multiply or Op.Divide or Op.Remainder or Op.Concat or Op.BitAnd or Op.BitOr
+                or Op.ShiftLeft or Op.ShiftRight or Op.Negate or Op.BitNot or Op.Not or Op.Eq or Op.Ne or Op.Lt or Op.Le or Op.Gt or Op.Ge or Op.Is
+                or Op.IsNot or Op.And or Op.Or or Op.IsNullV or Op.NotNullV or Op.Like or Op.Glob or Op.Function or Op.Cast or Op.CompareAffinity
+                or Op.If or Op.IfNot or Op.IfNull;
+            bool beforeWrite = bodyEnd >= 0 && callAt > bodyEnd && i > bodyEnd && i < callAt;
+            if (expression && beforeWrite)
+            {
+                mayFail = true;
+            }
+
             if (!cannotFail && !mayFail)
             {
                 return false;
             }
 
-            if (i > firstWrite && !cannotFail)
+            if (i > firstWrite && !cannotFail && !(expression && beforeWrite))
             {
                 return false;
             }
 
             // Every jump but the one call of the subroutine goes forward, so each instruction runs at most once.
-            if (ins.Op is Op.Goto or Op.SeekRowid or Op.NotNull or Op.IdxProbe && ins.P2 <= i)
+            if (ins.Op is Op.Goto or Op.SeekRowid or Op.NotNull or Op.IdxProbe or Op.If or Op.IfNot or Op.IfNull && ins.P2 <= i)
             {
                 return false;
             }

@@ -216,7 +216,7 @@ internal sealed partial class Compiler
     {
         if (e is not null && FindWindowCall(e) is { } w)
         {
-            throw Err("misuse of window function " + w.Name.Text + "()");
+            throw ErrAtNode("misuse of window function " + w.Name.Text + "()", w);
         }
     }
 
@@ -477,7 +477,7 @@ internal sealed partial class Compiler
 
             if (nargs < min || nargs > max || f.Star)
             {
-                throw Err("wrong number of arguments to function " + name + "()");
+                throw ErrAt("wrong number of arguments to function " + name + "()", f);
             }
 
             if (f.Filter is not null)
@@ -509,7 +509,7 @@ internal sealed partial class Compiler
             {
                 if (nargs != 1 || f.Star)
                 {
-                    throw Err(name + "() may not be used as a window function");
+                    throw ErrAt(name + "() may not be used as a window function", f);
                 }
 
                 kind = AsciiComparer.Instance.Equals(name, "min") ? AggKind.Min : AggKind.Max;
@@ -526,7 +526,7 @@ internal sealed partial class Compiler
 
             if (kind is null)
             {
-                throw Err(known ? name + "() may not be used as a window function" : "no such function: " + name);
+                throw ErrAt(known ? name + "() may not be used as a window function" : "no such function: " + name, f);
             }
 
             if (f.Quantifier == CallQuantifier.Distinct)
@@ -536,7 +536,7 @@ internal sealed partial class Compiler
 
             if (!arity)
             {
-                throw Err("wrong number of arguments to function " + name + "()");
+                throw ErrAt("wrong number of arguments to function " + name + "()", f);
             }
 
             if (!f.OrderBy.IsDefaultOrEmpty)
@@ -600,7 +600,7 @@ internal sealed partial class Compiler
             {
                 if (FindAggregate(a) is not null && !_aggDiscover && _aggPlan is null)
                 {
-                    throw Err("misuse of aggregate function " + FindAggregate(a)!.Name.Text + "()");
+                    throw ErrAt("misuse of aggregate function " + FindAggregate(a)!.Name.Text + "()", FindAggregate(a)!);
                 }
 
                 Compile(a);
@@ -672,7 +672,7 @@ internal sealed partial class Compiler
         WinCompile? win = _win;
         if (win is null || win.Phase == WinPhase.Feed)
         {
-            throw Err("misuse of window function " + name + "()");
+            throw ErrAt("misuse of window function " + name + "()", f);
         }
 
         switch (win.Phase)

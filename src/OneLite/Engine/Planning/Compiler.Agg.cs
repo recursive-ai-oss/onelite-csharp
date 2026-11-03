@@ -80,7 +80,7 @@ internal sealed partial class Compiler
         string name = f.Name.Text;
         if (_aggPlan is null)
         {
-            throw Err("misuse of aggregate function " + name + "()");
+            throw ErrAt("misuse of aggregate function " + name + "()", f);
         }
 
         if (_aggDiscover)
@@ -118,7 +118,7 @@ internal sealed partial class Compiler
                 };
                 if (!arityOk)
                 {
-                    throw Err("wrong number of arguments to function " + name + "()");
+                    throw ErrAt("wrong number of arguments to function " + name + "()", f);
                 }
 
                 plan.Registering = true;
@@ -128,7 +128,7 @@ internal sealed partial class Compiler
                     {
                         if (FindAggregate(a) is { } inner)
                         {
-                            throw Err("misuse of aggregate function " + inner.Name.Text + "()");
+                            throw ErrAt("misuse of aggregate function " + inner.Name.Text + "()", inner);
                         }
 
                         RejectWindowCalls(a);
@@ -695,12 +695,8 @@ internal sealed partial class Compiler
     {
         if (left is not RowValueExpr l || right is not RowValueExpr r || l.Items.Length != r.Items.Length)
         {
-            if (left is RowValueExpr lx && right is RowValueExpr rx)
-            {
-                throw Err($"row value misused");
-            }
-
-            throw Err("row value misused");
+            // Observed: a plain left operand against a row value points at the comparison; any other shape has no position.
+            throw left is not RowValueExpr && right is RowValueExpr ? ErrAt("row value misused", left) : Err("row value misused");
         }
 
         int n = l.Items.Length;
