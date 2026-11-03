@@ -45,6 +45,7 @@ Each of these returns a documented result, never a silent success.
 | `set_authorizer` | A non-null authorizer fails with `SQLITE_ERROR`. |
 | `trace`, `profile` | Accepted and never called. |
 | `progress_handler` | Called once per `step`, not every N virtual-machine instructions. A non-zero result interrupts the statement as in SQLite. |
+| `last_insert_rowid` after a failed `INSERT` | When a single-row `INSERT ... VALUES` fails an immediate foreign-key check, SQLite leaves `last_insert_rowid` unchanged; OneLite reports the rowid of the rejected row. |
 | `serialize`, `deserialize` | `SQLITE_ERROR`; use the engine's backup API. |
 | Snapshots (`snapshot_get/open/cmp/free/recover`) | `SQLITE_ERROR`. |
 | `db_config` | `SQLITE_ERROR`. |
