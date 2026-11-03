@@ -47,9 +47,8 @@ internal static class ErrorDiagnostics
                 if (e.NodeStart >= 0 && e.NodeStart <= sql.Length && e.ErrorOffset < 0)
                 {
                     // The compiler named the token the reference library points at (sqlite3_error_offset).
+                    // Position keeps pointing at the part of a qualified name that is wrong; the offset is where the reference points (the start of the name).
                     e.ErrorOffset = Encoding.UTF8.GetByteCount(sql.AsSpan(0, e.NodeStart));
-                    Token t = Lexer.Next(sql, e.NodeStart);
-                    SetPosition(e, sql, e.NodeStart, Math.Max(1, Math.Min(t.End, sql.Length) - e.NodeStart));
                 }
             }
         }
