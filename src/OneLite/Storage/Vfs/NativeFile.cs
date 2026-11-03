@@ -250,6 +250,60 @@ internal static partial class NativeFile
         public nint Event;
     }
 
+    // The OS's name for a file, so that state kept in this process for a file is not used for another file that took over its path.
+    [SupportedOSPlatform("windows")]
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool GetFileInformationByHandle(SafeFileHandle file, ref byte information);
+
+    [LibraryImport("libc", EntryPoint = "fstat", SetLastError = true)]
+    private static partial int Fstat(int fd, ref byte buffer);
+
+    /// <summary>
+    /// The file's identity from the open handle: device and inode on Linux and macOS (<c>fstat</c>), volume serial number and 64-bit file index on Windows
+    /// (<c>GetFileInformationByHandle</c>, BY_HANDLE_FILE_INFORMATION). Null where the platform has neither or the call fails.
+    /// </summary>
+    internal static string? FileIdentity(SafeFileHandle handle)
+    {
+        try
+        {
+            var buf = new byte[256];
+            if (OperatingSystem.IsWindows())
+            {
+                // BY_HANDLE_FILE_INFORMATION: attributes (0), three FILETIMEs (4, 12, 20), volume serial (28), size (32, 36), links (40), index high (44), index low (48).
+                if (!GetFileInformationByHandle(handle, ref buf[0]))
+                {
+                    return null;
+                }
+
+                uint volume = System.Buffers.Binary.BinaryPrimitives.ReadUInt32LittleEndian(buf.AsSpan(28));
+                ulong index = ((ulong)System.Buffers.Binary.BinaryPrimitives.ReadUInt32LittleEndian(buf.AsSpan(44)) << 32) | System.Buffers.Binary.BinaryPrimitives.ReadUInt32LittleEndian(buf.AsSpan(48));
+                return "w" + volume.ToString("x", System.Globalization.CultureInfo.InvariantCulture) + ":" + index.ToString("x", System.Globalization.CultureInfo.InvariantCulture);
+            }
+
+            if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS())
+            {
+                if (Fstat((int)handle.DangerousGetHandle(), ref buf[0]) != 0)
+                {
+                    return null;
+                }
+
+                // struct stat starts with st_dev then st_ino at offset 8 on both: Linux (x86-64 and arm64) has a 64-bit st_dev, macOS a 32-bit one
+                // followed by st_mode and st_nlink.
+                ulong dev = OperatingSystem.IsMacOS()
+                    ? System.Buffers.Binary.BinaryPrimitives.ReadUInt32LittleEndian(buf)
+                    : System.Buffers.Binary.BinaryPrimitives.ReadUInt64LittleEndian(buf);
+                ulong ino = System.Buffers.Binary.BinaryPrimitives.ReadUInt64LittleEndian(buf.AsSpan(8));
+                return "u" + dev.ToString("x", System.Globalization.CultureInfo.InvariantCulture) + ":" + ino.ToString("x", System.Globalization.CultureInfo.InvariantCulture);
+            }
+        }
+        catch (Exception e) when (e is DllNotFoundException or EntryPointNotFoundException)
+        {
+        }
+
+        return null;
+    }
+
     [SupportedOSPlatform("windows")]
     [LibraryImport("kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
