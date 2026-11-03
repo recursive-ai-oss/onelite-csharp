@@ -41,14 +41,24 @@ public static class ConcShapes
         return o;
     }
 
-    private static DatabaseOptions Opts(string sync) => new()
-    {
-        JournalMode = JournalMode.Wal,
-        ConcurrentWrites = true,
-        Synchronous = sync == "full" ? SynchronousMode.Full : SynchronousMode.Normal,
-        BusyTimeoutMs = 60000,
-        ConcurrentCommitHoldLimitMs = 0,
-    };
+    // ONELITE_SHAPES_BUSY=spin swaps the usual growing busy delays (1, 2, 5, ... ms) for yielding retries first, to show how much of a wait is the delay schedule.
+    private static DatabaseOptions Opts(string sync) => Environment.GetEnvironmentVariable("ONELITE_SHAPES_BUSY") == "spin"
+        ? new()
+        {
+            JournalMode = JournalMode.Wal,
+            ConcurrentWrites = true,
+            Synchronous = sync == "full" ? SynchronousMode.Full : SynchronousMode.Normal,
+            Busy = retries => retries < 100_000 ? 0 : 1,
+            ConcurrentCommitHoldLimitMs = 0,
+        }
+        : new()
+        {
+            JournalMode = JournalMode.Wal,
+            ConcurrentWrites = true,
+            Synchronous = sync == "full" ? SynchronousMode.Full : SynchronousMode.Normal,
+            BusyTimeoutMs = 60000,
+            ConcurrentCommitHoldLimitMs = 0,
+        };
 
     public static int Run(string[] a)
     {
@@ -310,7 +320,7 @@ public static class ConcShapes
 
         double perAttempt = Math.Max(1, attempts);
         Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
-            $"conc-shapes shape={cfg.Shape} mode={(cfg.Concurrent ? "concurrent" : "immediate")} writers={cfg.Writers} body_us={cfg.BodyUs} sync={cfg.Sync} hot_pct={cfg.HotPct} isolate={isolate} secs={cfg.Seconds} " +
+            $"conc-shapes shape={cfg.Shape} mode={(cfg.Concurrent ? "concurrent" : "immediate")} writers={cfg.Writers} body_us={cfg.BodyUs} sync={cfg.Sync} hot_pct={cfg.HotPct} isolate={isolate} busy={(Environment.GetEnvironmentVariable("ONELITE_SHAPES_BUSY") ?? "default")} secs={cfg.Seconds} " +
             $"commits_s={commits / (double)cfg.Seconds:F0} aborts_s={aborts / (double)cfg.Seconds:F0} abort_pct={100.0 * aborts / perAttempt:F1} body_ms={body / perAttempt:F3} commit_ms={commit / perAttempt:F3} cores={Environment.ProcessorCount}"));
     }
 }
