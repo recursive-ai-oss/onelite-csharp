@@ -130,7 +130,10 @@ public static class ShmAccessor
             {
                 _base = null;
                 _view.SafeMemoryMappedViewHandle.ReleasePointer();
-                _view.Dispose();
+                // Release the mapping through its handle. Disposing the accessor would first msync the whole region (MS_SYNC), which on Linux
+                // waits for the file system to write the pages back (about 6 ms per close). A shared mapping is already coherent between
+                // processes without it, and the wal-index is rebuilt from the log if it is lost (walformat), so durability never rests on it.
+                _view.SafeMemoryMappedViewHandle.Dispose();
                 _file.Dispose();
             }
         }

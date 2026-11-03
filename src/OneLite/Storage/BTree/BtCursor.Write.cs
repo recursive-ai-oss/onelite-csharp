@@ -1188,9 +1188,51 @@ public sealed partial class BtCursor
                 return;
             }
 
-            BalanceNonRoot(EditAt(lvl - 1), _idx[lvl - 1], e);
+            Edit parentEdit = EditAt(lvl - 1);
+            if (!TryQuickBalance(parentEdit, _idx[lvl - 1], e))
+            {
+                BalanceNonRoot(parentEdit, _idx[lvl - 1], e);
+            }
+
             lvl--;
         }
+    }
+
+    /// <summary>
+    /// The append case of a table leaf split (fileformat2 §1.6 leaves the split rule to the writer): when the one cell that did not fit belongs after
+    /// the last cell of the rightmost leaf, the old page stays as it is, the cell starts a new rightmost leaf, and the parent gets one divider. That
+    /// keeps sequential inserts at full pages and touches two pages instead of rewriting three siblings.
+    /// </summary>
+    private bool TryQuickBalance(Edit parent, int ci, Edit self)
+    {
+        if (self.Type != Pg.TableLeaf || self.Ovfl.Count != 1 || parent.Ovfl.Count != 0)
+        {
+            return false;
+        }
+
+        int cells = self.PhysCount;
+        if (cells == 0 || self.Ovfl[0].Idx != cells || ci != parent.PhysCount)
+        {
+            return false;
+        }
+
+        // ci is the right pointer's slot, so this leaf is the parent's rightmost child.
+        CellInfo last = _ctx.ReadCell(self.Pg, self.H, self.Type, cells - 1, out _);
+        byte[] newCell = self.Ovfl[0].Bytes;
+        PageHandle np = _src.Allocate();
+        _pins.Add(np);
+        Pg.Zero(np.Data, 0, _ctx.Usable, self.Type);
+        InsertCell(new Edit(np), 0, newCell, 0, newCell.Length);
+        self.Ovfl.Clear();
+
+        var divider = new byte[4 + Varint.Length((ulong)last.Rowid)];
+        Varint.Write(divider.AsSpan(4), (ulong)last.Rowid);
+        Pg.PutU32(divider, 0, self.Pg.Number);
+        SetRightPtr(parent, np.Number);
+        InsertCell(parent, parent.PhysCount, divider, 0, divider.Length);
+        Rebalanced++;
+        Splits++;
+        return true;
     }
 
     /// <summary>The tree grows a level: the root's cells move to a new child, which is then split (fileformat2 §1.6: the root page number never changes).</summary>
