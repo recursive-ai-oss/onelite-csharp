@@ -844,8 +844,9 @@ internal sealed partial class Machine
                         _conn.Changes = _changes;
                         _conn.TotalChanges += _changes;
                     }
-                    else if (_dml && !_fwStmt)
+                    else if (_dml)
                     {
+                        // a failed INSERT, UPDATE or DELETE leaves changes() at 0, inside a transaction too
                         _conn.Changes = 0;
                     }
 

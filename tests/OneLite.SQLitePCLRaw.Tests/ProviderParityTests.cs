@@ -415,6 +415,42 @@ public class ProviderParityTests
     });
 
     [Fact]
+    public void ForeignKeysAfterRollbackAndStatementReuse() => Same(log =>
+    {
+        sqlite3 db = Open();
+        Exec(log, db, "PRAGMA foreign_keys=ON");
+        Exec(log, db, "CREATE TABLE p (id TEXT NOT NULL PRIMARY KEY, g INTEGER NOT NULL)");
+        Exec(log, db, "CREATE TABLE c (id TEXT NOT NULL PRIMARY KEY, pid TEXT NULL REFERENCES p (id))");
+        Exec(log, db, "INSERT INTO p VALUES ('a', 1)");
+        for (int round = 0; round < 3; round++)
+        {
+            Exec(log, db, "BEGIN IMMEDIATE");
+            Query(log, db, "INSERT INTO c (id, pid) VALUES (?, ?)", "k" + round, null);
+            Query(log, db, "INSERT INTO c (id, pid) VALUES (?, ?)", "m" + round, "a");
+            Query(log, db, "UPDATE c SET pid = ? WHERE id = ?", "zzz", "k" + round);
+            log.Append("bad insert: ").AppendLine(raw.sqlite3_exec(db, "INSERT INTO c (id, pid) VALUES ('bad" + round + "', 'nope'), ('bad2" + round + "', 'nope')").ToString());
+            Query(log, db, "select count(*) from c");
+            Exec(log, db, "ROLLBACK");
+            Query(log, db, "select count(*) from c");
+            Query(log, db, "PRAGMA foreign_keys");
+        }
+
+        // one prepared statement reused with different values
+        raw.sqlite3_prepare_v2(db, "UPDATE c SET pid = ?1 WHERE id = ?2", out sqlite3_stmt st);
+        Exec(log, db, "INSERT INTO c VALUES ('x', NULL)");
+        foreach (string? v in new string?[] { null, "a", "nope", "a", "nope2" })
+        {
+            raw.sqlite3_bind_text(st, 1, v);
+            raw.sqlite3_bind_text(st, 2, "x");
+            log.Append("step ").Append(raw.sqlite3_step(st)).Append(" reset ").AppendLine(raw.sqlite3_reset(st).ToString());
+        }
+
+        raw.sqlite3_finalize(st);
+        raw.sqlite3_close(db);
+        return "";
+    });
+
+    [Fact]
     public void ColumnMetadata() => Same(log =>
     {
         sqlite3 db = Open();
