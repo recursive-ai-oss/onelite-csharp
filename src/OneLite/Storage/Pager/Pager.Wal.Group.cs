@@ -25,6 +25,7 @@ public sealed partial class Pager
     private bool _grpBaton;
     private long _grpTicket;
     private long _grpGeneration;
+    private long _grpTicketGeneration;
     private static int s_grpIds;
     private readonly int _grpId = Interlocked.Increment(ref s_grpIds);
 
@@ -279,6 +280,7 @@ public sealed partial class Pager
         lock (g.Gate)
         {
             _grpTicket = ++g.TailTicket;
+            _grpTicketGeneration = g.Generation;
             g.Tail = w.Hdr;
             g.Active[_grpId] = g.SyncSeq;
             g.BatonHeld = false;
@@ -297,12 +299,15 @@ public sealed partial class Pager
             long targetTicket = 0;
             lock (g.Gate)
             {
-                if (_grpTicket <= g.AckedTicket)
+                // A sync that failed in this commit's generation fails it, even when a later generation has since synced past its ticket: the anchor
+                // that left a failed generation cut these frames off the log.
+                bool lost = g.FailedAt.TryGetValue(_grpTicketGeneration, out long ackedAtFailure) && _grpTicket > ackedAtFailure;
+                if (!lost && _grpTicket <= g.AckedTicket)
                 {
                     break;
                 }
 
-                if (g.Failed)
+                if (lost || g.Failed)
                 {
                     failed = true;
                 }
@@ -381,6 +386,18 @@ public sealed partial class Pager
             lock (g.Gate)
             {
                 g.Failed = true;
+                g.FailedAt.TryAdd(g.Generation, g.AckedTicket);
+                if (g.FailedAt.Count > 256)
+                {
+                    foreach (long old in new List<long>(g.FailedAt.Keys))
+                    {
+                        if (old < g.Generation - 4096)
+                        {
+                            g.FailedAt.Remove(old);
+                        }
+                    }
+                }
+
                 g.Closing = true;
                 g.Syncing = false;
                 g.Wake();

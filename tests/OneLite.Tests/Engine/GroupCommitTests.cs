@@ -186,6 +186,7 @@ public sealed class GroupCommitTests : IDisposable
             }
         });
         int failed = 0;
+        var acknowledged = new System.Collections.Concurrent.ConcurrentBag<int>();
         var tasks = new List<Task>();
         for (int w = 1; w <= 4; w++)
         {
@@ -204,6 +205,7 @@ public sealed class GroupCommitTests : IDisposable
                             Run(c, "BEGIN CONCURRENT");
                             Run(c, $"INSERT INTO t VALUES({me * 1000 + i}, {me}, zeroblob(200))");
                             Run(c, "COMMIT");
+                            acknowledged.Add(me * 1000 + i);
                             break;
                         }
                         catch (Exception e) when (e is OneLiteException || e is InvalidOperationException)
@@ -235,6 +237,18 @@ public sealed class GroupCommitTests : IDisposable
         using Database v = Database.Open(path, Opts(FileVfs.Instance, true));
         using Connection vc = v.Connect();
         Assert.Equal("ok", All(vc, "PRAGMA integrity_check"));
+        var present = new HashSet<int>();
+        using (Statement st = vc.Prepare("SELECT id FROM t"))
+        {
+            while (st.Step())
+            {
+                present.Add(int.Parse(st.GetString(0)!, System.Globalization.CultureInfo.InvariantCulture));
+            }
+        }
+
+        // Every COMMIT that returned success must be in the file.
+        Assert.True(acknowledged.All(present.Contains), "a COMMIT that returned success is missing from the file");
+        Assert.Equal(60, acknowledged.Count);
         Assert.Equal("60", One(vc, "SELECT count(*) FROM t"));
     }
 

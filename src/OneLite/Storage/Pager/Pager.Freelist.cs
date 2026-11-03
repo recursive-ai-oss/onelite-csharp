@@ -75,6 +75,11 @@ public sealed partial class Pager
     private PagerStatus ExtendOne(out PageFrame? frame)
     {
         frame = null;
+        if (_dbSize >= MaxPageCount)
+        {
+            return Fail(ResultCode.Full, "the database already has the most pages PRAGMA max_page_count allows");
+        }
+
         for (; ; )
         {
             uint next = _dbSize + 1;

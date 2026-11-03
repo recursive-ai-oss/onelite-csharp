@@ -152,6 +152,12 @@ public sealed partial class Pager : IDisposable, IAsyncDisposable
     /// <summary>The database size in pages as of the current transaction (0 for a new database).</summary>
     public uint PageCount => _dbSize;
 
+    /// <summary>
+    /// The most pages the database file may have (<c>PRAGMA max_page_count</c>); growing past it fails with SQLITE_FULL. Default 4294967294, the largest page
+    /// number fileformat2 allows.
+    /// </summary>
+    public uint MaxPageCount { get; set; } = 4294967294;
+
     /// <summary>True if the database has pointer-map pages (auto-vacuum).</summary>
     public bool AutoVacuum => _autoVacuum;
 
