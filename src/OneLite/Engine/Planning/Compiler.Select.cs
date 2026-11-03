@@ -30,6 +30,13 @@ internal enum SourceKind : byte
 /// <summary>One item of a FROM clause: a table or an ephemeral table, under its alias.</summary>
 internal sealed class Source
 {
+    // Sources are the keys of many planning tables. A number given at creation hashes much faster than the runtime's object hash, which is
+    // computed on first use; equality stays reference equality.
+    private static int s_nextHash;
+    private readonly int _hash = Interlocked.Increment(ref s_nextHash);
+
+    public override int GetHashCode() => _hash;
+
     internal string Alias = "";
     internal TableInfo Table = null!;
     internal int Cursor;

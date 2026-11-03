@@ -21,7 +21,7 @@ internal sealed class LoopLevel
 
 internal sealed partial class Compiler
 {
-    private readonly Dictionary<Source, AccessPlan> _planByCursor = new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<Source, AccessPlan> _planByCursor = [];
 
     // ------------------------------------------------------------------ FROM
 
@@ -499,7 +499,7 @@ internal sealed partial class Compiler
 
     private HashSet<Source> SourcesOf(Expr e, Scope scope)
     {
-        var found = new HashSet<Source>(ReferenceEqualityComparer.Instance);
+        var found = new HashSet<Source>();
         CollectSources(e, scope, found);
         return found;
     }
@@ -628,7 +628,7 @@ internal sealed partial class Compiler
         {
             _scope = scope;
             DryRun(() => CompileInto(e, NewReg()));
-            result = new HashSet<Source>(probe.Outer.Where(scope.Sources.Contains), ReferenceEqualityComparer.Instance);
+            result = new HashSet<Source>(probe.Outer.Where(scope.Sources.Contains));
         }
         catch (OneLiteException)
         {
@@ -767,7 +767,7 @@ internal sealed partial class Compiler
             };
         }
 
-        var bound = new HashSet<Source>(ReferenceEqualityComparer.Instance);
+        var bound = new HashSet<Source>();
         for (int i = 0; i < levels.Count; i++)
         {
             LoopLevel lv = levels[i];
@@ -971,7 +971,7 @@ internal sealed partial class Compiler
 
         var placed = new List<Source>();
         var remaining = new List<Source>(src);
-        var bound = new HashSet<Source>(ReferenceEqualityComparer.Instance);
+        var bound = new HashSet<Source>();
         while (remaining.Count > 0)
         {
             Source best = remaining[0];
@@ -987,10 +987,10 @@ internal sealed partial class Compiler
                 }
 
                 int score = 0;
-                var withC = new HashSet<Source>(bound, ReferenceEqualityComparer.Instance) { c };
+                var withC = new HashSet<Source>(bound) { c };
                 foreach (Expr e in conj)
                 {
-                    var refs = new HashSet<Source>(ReferenceEqualityComparer.Instance);
+                    var refs = new HashSet<Source>();
                     if (!CollectSources(e, scope, refs) || !refs.Contains(c) || !refs.IsSubsetOf(withC))
                     {
                         continue;
@@ -1029,7 +1029,7 @@ internal sealed partial class Compiler
     /// <summary>True when placing the function <paramref name="m"/> next lets another item be found through its rowid or an index.</summary>
     private bool EnablesLookup(Source m, List<Source> remaining, Scope scope, List<Expr> conj, HashSet<Source> bound)
     {
-        var withM = new HashSet<Source>(bound, ReferenceEqualityComparer.Instance) { m };
+        var withM = new HashSet<Source>(bound) { m };
         foreach (Source o in remaining)
         {
             if (IsCallForm(o))
@@ -1037,10 +1037,10 @@ internal sealed partial class Compiler
                 continue;
             }
 
-            var withO = new HashSet<Source>(withM, ReferenceEqualityComparer.Instance) { o };
+            var withO = new HashSet<Source>(withM) { o };
             foreach (Expr e in conj)
             {
-                var refs = new HashSet<Source>(ReferenceEqualityComparer.Instance);
+                var refs = new HashSet<Source>();
                 if (CollectSources(e, scope, refs) && refs.Contains(o) && refs.Contains(m) && refs.IsSubsetOf(withO) && TermScore(o, e, withM) >= 10)
                 {
                     return true;
@@ -1108,7 +1108,7 @@ internal sealed partial class Compiler
             {
                 if (ColumnOf(col, c) is { } ci && ci >= 0 && c.Table.Columns[ci].Hidden)
                 {
-                    var refs = new HashSet<Source>(ReferenceEqualityComparer.Instance);
+                    var refs = new HashSet<Source>();
                     if (CollectSources(val, scope, refs) && !refs.Contains(c) && !refs.IsSubsetOf(bound))
                     {
                         return true;
@@ -1124,7 +1124,7 @@ internal sealed partial class Compiler
     {
         foreach (Expr a in m.ModuleArgs)
         {
-            var refs = new HashSet<Source>(ReferenceEqualityComparer.Instance);
+            var refs = new HashSet<Source>();
             if (!CollectSources(a, scope, refs) || !refs.IsSubsetOf(bound))
             {
                 return false;
@@ -1141,7 +1141,7 @@ internal sealed partial class Compiler
             return false;
         }
 
-        var refs = new HashSet<Source>(ReferenceEqualityComparer.Instance);
+        var refs = new HashSet<Source>();
         return CollectSources(value, _scope, refs) && !refs.Contains(s) && refs.IsSubsetOf(bound) && found.TryAdd(col, value);
     }
 

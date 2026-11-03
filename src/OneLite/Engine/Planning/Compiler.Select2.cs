@@ -391,7 +391,7 @@ internal sealed partial class Compiler
 
                 cand.AddRange(joinPool);
                 _coverUsed = TryUsedColumns(only, cols, core, out HashSet<int>? usedCols) ? usedCols : null;
-                AccessPlan plan = MakePlan(only, cand, new HashSet<Source>(ReferenceEqualityComparer.Instance));
+                AccessPlan plan = MakePlan(only, cand, new HashSet<Source>());
                 _coverUsed = null;
                 if (!grouped && !hasAgg && core.Quantifier != SelectQuantifier.Distinct && plan.Kind == PlanKind.Scan)
                 {

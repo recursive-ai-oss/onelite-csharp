@@ -310,7 +310,7 @@ internal sealed partial class Compiler
         var whereOnly = new List<Expr>(cand);
         cand.AddRange(s.On);
         VTab vtab = _cat.Owner!.ConnectVirtual(s.Table);
-        var none = new HashSet<Source>(ReferenceEqualityComparer.Instance);
+        var none = new HashSet<Source>();
         List<VtTerm> terms = VtTerms(s, cand, none, vtab.AcceptsExtendedConstraints);
         AddVtLimitAndArgs(s, terms, vtab, none, whereOnly);
         var info = new BestIndexInfo([.. terms.Select(t => new IndexConstraint(t.Column, t.Op, t.Usable))], offer);
@@ -373,7 +373,7 @@ internal sealed partial class Compiler
 
     private bool VtUsable(Expr value, Source s, HashSet<Source> bound)
     {
-        var refs = new HashSet<Source>(ReferenceEqualityComparer.Instance);
+        var refs = new HashSet<Source>();
         bool saved = _subqueryKnown;
         _subqueryKnown = true;
         try

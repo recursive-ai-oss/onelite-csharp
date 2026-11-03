@@ -154,6 +154,12 @@ internal sealed class Fts5Cursor : VCursor
 
         if (_mode == 1)
         {
+            ModStatus pre = Preload();
+            if (pre == ModStatus.Pending)
+            {
+                return pre;
+            }
+
             ModStatus s = _run.Drive(ComputeMatches);
             if (s == ModStatus.Pending)
             {
@@ -167,6 +173,61 @@ internal sealed class Fts5Cursor : VCursor
         }
 
         return ScanStart();
+    }
+
+    private int _pre;
+
+    // A MATCH query always starts by reading the table's configuration, structure record and averages record, and then searches the
+    // segments for its terms. Those loads are known before the computation runs, so they are made first, one after another, instead of
+    // being discovered by the computation (each discovery throws and restarts it, which costs more than the loads themselves).
+    private ModStatus Preload()
+    {
+        while (_pre < 4)
+        {
+            ModStatus s;
+            switch (_pre)
+            {
+                case 0:
+                    s = _store.Satisfy(new Fetch(FetchKind.Config, 0, 0));
+                    break;
+                case 1:
+                    s = _store.Satisfy(new Fetch(FetchKind.Data, F5.StructureId, F5.StructureId, Point: true));
+                    break;
+                case 2:
+                    s = _store.Satisfy(new Fetch(FetchKind.Data, F5.AveragesId, F5.AveragesId, Point: true));
+                    break;
+                default:
+                    s = ModStatus.Ok;
+                    try
+                    {
+                        _t.ApplyPersisted(_store.Config());
+                        Structure st = _idx.ReadStructure();
+                        (_, List<QPhrase> phrases, _) = QueryParser.Parse(_cfg, _query ?? string.Empty, _queryCol);
+                        var ev = new QueryEval(_cfg, _idx, st, phrases.Count, _postings);
+                        var need = new List<(Seg, byte[])>();
+                        ev.CollectSeeks(phrases, need);
+                        if (need.Count > 0)
+                        {
+                            s = _store.Satisfy(new Fetch(FetchKind.SegSeek, 0, 0, Many: need));
+                        }
+                    }
+                    catch (Exception e) when (e is NeedFetch or OneLiteException)
+                    {
+                        // The computation itself loads what is missing and reports a bad query the way it always has.
+                    }
+
+                    break;
+            }
+
+            if (s == ModStatus.Pending)
+            {
+                return s;
+            }
+
+            _pre++;
+        }
+
+        return ModStatus.Ok;
     }
 
     private void ComputeMatches()
