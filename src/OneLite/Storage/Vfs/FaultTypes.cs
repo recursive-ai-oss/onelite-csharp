@@ -236,4 +236,7 @@ public sealed class FaultOptions
 
     /// <summary>If true every sync is silently ignored by the device while still reporting success.</summary>
     public bool LoseAllSyncs { get; init; }
+
+    /// <summary>Milliseconds every file sync waits before it reaches the inner VFS, to model a device whose flush is slow; tests that need overlapping commits use it so a fast local disk does not decide the outcome. Default 0.</summary>
+    public int SyncLatencyMs { get; init; }
 }

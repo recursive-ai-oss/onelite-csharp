@@ -17,7 +17,8 @@ namespace RecursiveAI.OneLite.Tests.Engine;
 /// </summary>
 public sealed class GroupCommitCrashTests(ITestOutputHelper output) : IDisposable
 {
-    private readonly string _dir = Path.Combine(Path.GetTempPath(), "onelite-groupcrash-" + Guid.NewGuid().ToString("N"));
+    // The crash images name files by the VFS's full path (symbolic links resolved, as on macOS where the temp folder sits behind /var), so the test uses that path throughout.
+    private readonly string _dir = Path.Combine(FileVfs.Instance.FullPathname(Path.GetTempPath()), "onelite-groupcrash-" + Guid.NewGuid().ToString("N"));
     private string Db => Path.Combine(_dir, "g.db");
 
     public void Dispose()

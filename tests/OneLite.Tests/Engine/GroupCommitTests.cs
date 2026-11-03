@@ -271,7 +271,8 @@ public sealed class GroupCommitTests : IDisposable
     public async Task TheAsyncDriverSharesSyncsToo()
     {
         string path = Path.Combine(_dir, "a.db");
-        var vfs = new FaultVfs(FileVfs.Instance);
+        // A 2 ms flush, as a slow device has, so that commits overlap whatever disk the test runs on.
+        var vfs = new FaultVfs(FileVfs.Instance, new FaultOptions { SyncLatencyMs = 2 });
         using (Database d0 = Database.Open(path, Opts(vfs, true)))
         using (Connection c0 = d0.Connect())
         {

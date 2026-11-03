@@ -418,6 +418,17 @@ readers; each read must show one committed state, and the states must never go b
   (`NEW.a` of a view column that was renamed) is not caught.
 - Subquery/expression nesting limits (`SQLITE_MAX_EXPR_DEPTH`) are those of the parser.
 
+## Open engine differences (checked against the pinned shell)
+
+Closed since the last list: `last_insert_rowid()` after a one-row `INSERT ... VALUES` that fails an immediate foreign key keeps its old value (other insert forms set it before failing, as the reference does); an unknown `COLLATE` name is an error only where the collating sequence is used; `PRAGMA index_list` names and orders a `WITHOUT ROWID` table's key as the reference does; the database path reported by `sqlite3_db_filename` has symbolic links resolved in every directory component. `PRAGMA schema_version = N` (with and without `writable_schema`) reads back as the reference does. Still open, with the behaviour as it is:
+
+- **`pragma_function_list` and `PRAGMA function_list`** are not implemented ("no such table"); the per-function flag columns would have to match the reference's registration table row for row.
+- **The progress handler** (`sqlite3_progress_handler` through the adapter) runs once per `step`, not every N virtual-machine instructions; a non-zero result interrupts the statement.
+- **Backup into a non-empty rollback-journal destination with a different page size** fails with `SQLITE_READONLY`; the reference succeeds. `VACUUM` cannot change `page_size` for the same reason.
+- **The statement journal** lives in memory and does not spill to a temporary file; a single statement that changes more pages than fit in memory is limited by memory, not by disk.
+- **Planner shapes** that only change which row a bare column comes from or the order rows are read in: `x IS NOT NULL` is not used as an index range; a secondary index of a `WITHOUT ROWID` table is not scanned for ordering. Results are the same except for the documented classes `planner-index-choice` and `order-by-index-scan-before-error` (rows produced before a runtime error).
+- **`Pager.Dispose`** is synchronous: on an async-only backend a closing checkpoint does not run; `Prepare` loads the schema synchronously there.
+
 ## Rowids under `BEGIN CONCURRENT`
 
 Rowids chosen by a `BEGIN CONCURRENT` transaction are not in commit order (see `docs/concurrency.md`): a poller that asks `WHERE id > :last` can skip a row that commits later with a smaller id. Plain `BEGIN` allocates as SQLite does.
