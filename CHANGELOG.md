@@ -4,6 +4,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.3.0-preview.2]
+
 ### Fixed
 
 - The happy path now works on a database opened with `Database.OpenReadOnlyAsync` / `OpenReadOnly`, over any storage backend including `HttpRangeVfs`: `QueryAsync`, `ScalarAsync`, `Table<T>().GetAsync/WhereAsync`, `SearchAsync` and their sync twins read as usual, and a write fails with `SQLITE_READONLY` ("attempt to write a readonly database"). The error for calling them on a `Database.Open` database now names the right methods. `OpenReadOnlyAsync` connects before it returns, so a backend that cannot open the file is reported there.
