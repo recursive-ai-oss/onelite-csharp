@@ -66,6 +66,26 @@ public sealed class ConcurrentTransactionTests : IDisposable
     }
 
     [Fact]
+    public void ReplayPastTheHoldLimitAbortsWithBusyTimeoutAndWritesNothing()
+    {
+        // One millisecond is shorter than replaying ten thousand inserts, so the stale commit gives up while it holds the lock.
+        var opts = new DatabaseOptions { JournalMode = JournalMode.Wal, ConcurrentWrites = true, Synchronous = SynchronousMode.Off, ConcurrentCommitHoldLimitMs = 1 };
+        using Database db = Database.Open(Path.Combine(_dir, "hold.db"), opts);
+        using Connection a = db.Connect();
+        using Connection b = db.Connect();
+        Setup(a);
+        Run(a, "BEGIN CONCURRENT");
+        Run(b, "BEGIN CONCURRENT");
+        Run(a, "INSERT INTO t SELECT 1000 + value, 1 FROM generate_series(1, 10000)");
+        Run(b, "UPDATE t SET v = v + 1 WHERE id = 3");
+        Run(b, "COMMIT");
+        OneLiteException e = Fails(() => Run(a, "COMMIT"));
+        Assert.Equal(ResultCode.BusyTimeout, e.ExtendedCode);
+        Run(a, "ROLLBACK");
+        Assert.Equal("3|31", Q(a, "SELECT count(*), max(v) FROM t"));
+    }
+
+    [Fact]
     public void DisjointRowsBothCommit()
     {
         using Database db = Open();

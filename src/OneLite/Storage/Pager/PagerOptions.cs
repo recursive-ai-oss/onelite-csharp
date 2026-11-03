@@ -45,6 +45,12 @@ public sealed class PagerOptions
     /// </summary>
     public Func<int, int>? Busy { get; init; }
 
+    /// <summary>
+    /// The longest a <c>BEGIN CONCURRENT</c> commit may hold the WAL write lock while it validates and replays, in milliseconds. Past it the commit aborts with
+    /// <c>SQLITE_BUSY_TIMEOUT</c> before anything is written to the log. Zero or negative: no limit. Default 5000. The phases that write and sync the log are not cut short.
+    /// </summary>
+    public int ConcurrentCommitHoldLimitMs { get; init; } = 5000;
+
     /// <summary>Test hook: every n-th cache hit becomes a suspend point (<see cref="IoKind.Yield"/>). 0 (the default) turns it off.</summary>
     public int YieldEvery { get; init; }
 

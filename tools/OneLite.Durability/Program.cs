@@ -13,6 +13,7 @@ using RecursiveAI.OneLite.Oracle;
 //   engine-coexist [--commits N] [--journal delete|wal] [--sync full|normal] [--ps N]   OneLite SQL and sqlite3 processes write one file at once while readers check it
 //   conc-kill [--kills N] [--writers W] [--seed S] [--max-delay-ms MS] [--sync full|normal] [--work DIR]   kill several BEGIN CONCURRENT writer processes at once, again and again; judged by the shell
 //   conc-throughput [--mode concurrent|immediate] [--writers W] [--seconds S] [--sync full|normal|off]   indicative commits per second
+//   conc-shapes --shape update|insert|mixed [--mode concurrent|immediate] [--writers W] [--body-us B] [--sync full|normal] [--seconds S] [--rows N] [--hot-pct P] [--isolate thread|process]   BEGIN CONCURRENT against BEGIN IMMEDIATE with a transaction body that takes time
 //   conc-coexist [--commits N] [--writers W] [--sync full|normal]   BEGIN CONCURRENT writers and a sqlite3 process with plain BEGIN write one file at once
 //   coexist [--commits N] [--journal M] [--ps N] [--av N]   OneLite and a sqlite3 process alternate commits on one file
 //   cipher-kill [--kills N] [--seed S] [--episode K] [--max-delay-ms MS] [--json F] name=value...   kill an encrypted writer, judged by the SQLCipher
@@ -35,6 +36,8 @@ try
         case "conc-kill": return ConcKill.Run(args[1..]);
         case "conc-coexist": return ConcKill.Coexist(args[1..]);
         case "conc-throughput": return ConcKill.Throughput(args[1..]);
+        case "conc-shapes": return ConcShapes.Run(args[1..]);
+        case "conc-shapes-writer": return ConcShapes.ChildWriter(args[1..]);
         case "conc-writer": return ConcKill.Writer(args[1..]);
         case "coexist": return Coexist.Run(args[1..]);
         case "engine-coexist": return EngineCoexist.Run(args[1..]);

@@ -83,10 +83,15 @@ public sealed partial class Connection
             default:
             {
                 ConcConflict? c = _replayer.Conflict;
+                bool timedOut = _replayer.TimedOut;
                 _replayer.Dispose();
                 _replayer = null;
                 t.Replaying = false;
-                if (c is not null)
+                if (timedOut)
+                {
+                    _pager.ConcurrentConflict = new OneLiteException(ResultCode.BusyTimeout, Pager.Msg(ResultCode.BusyTimeout), "the commit held the write lock longer than ConcurrentCommitHoldLimitMs while replaying; nothing was written");
+                }
+                else if (c is not null)
                 {
                     ConcurrentRowids.NoteCollision(_pager.FullPath, c);
                     _pager.ConcurrentConflict = new OneLiteException(ResultCode.BusySnapshot, Pager.Msg(ResultCode.BusySnapshot), "another transaction changed data this one used: " + c.Detail);

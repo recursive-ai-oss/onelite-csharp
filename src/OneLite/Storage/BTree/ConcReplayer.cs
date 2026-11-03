@@ -37,12 +37,19 @@ internal sealed class ConcReplayer
     private int _phase;
     private Mem[]? _keyMems;
 
+    private readonly long _deadline;
+    private int _sinceClock;
+
     internal ConcReplayer(ConcTrace trace, PagerClass pager, bool serializable)
     {
         _t = trace;
         _pager = pager;
         _serializable = serializable;
+        _deadline = pager.ConcurrentHoldDeadline;
     }
+
+    /// <summary>Set when the replay stopped because the write lock had been held longer than the hold limit; nothing has been written to the log.</summary>
+    internal bool TimedOut { get; private set; }
 
     /// <summary>Set when a read or a precondition did not hold.</summary>
     internal ConcConflict? Conflict { get; private set; }
@@ -109,6 +116,13 @@ internal sealed class ConcReplayer
         {
             while (_i < _t.Count)
             {
+                // The clock is read once per 256 entries (and on every call, which follows each page miss): cheap next to a B-tree seek.
+                if (_deadline != 0 && (_sinceClock++ & 255) == 0 && System.Diagnostics.Stopwatch.GetTimestamp() > _deadline)
+                {
+                    TimedOut = true;
+                    return BtStatus.Error;
+                }
+
                 BtStatus s = One(ref _t[_i], out bool ok);
                 if (s == BtStatus.Pending)
                 {

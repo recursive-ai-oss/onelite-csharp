@@ -23,6 +23,12 @@ public sealed partial class Pager
     /// <summary>The error a failed replay reports; the hook sets it before returning Error.</summary>
     internal OneLiteException? ConcurrentConflict { set => _ccConflict = value; }
 
+    /// <summary>
+    /// The <see cref="System.Diagnostics.Stopwatch.GetTimestamp"/> value after which a replay that holds the write lock gives up (0: no limit). Set when the
+    /// lock is taken, from <see cref="PagerOptions.ConcurrentCommitHoldLimitMs"/>. The clock only decides whether to abort; it never decides file content.
+    /// </summary>
+    internal long ConcurrentHoldDeadline { get; private set; }
+
     /// <summary>True between <see cref="BeginWriteConcurrent"/> and the end of the transaction.</summary>
     public bool IsConcurrent => _concurrent || _ccStep != 0;
 
@@ -149,6 +155,9 @@ public sealed partial class Pager
         w.Writing = true;
         w.RestartChecked = false;
         w.Restarted = false;
+        ConcurrentHoldDeadline = _opts.ConcurrentCommitHoldLimitMs > 0
+            ? System.Diagnostics.Stopwatch.GetTimestamp() + (_opts.ConcurrentCommitHoldLimitMs * System.Diagnostics.Stopwatch.Frequency / 1000)
+            : 0;
         _ccStale = !w.Index.TryReadHeader(out WalIndexHeader cur) || cur != w.Snap;
         if (!_ccStale)
         {
