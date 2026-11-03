@@ -107,7 +107,7 @@ internal sealed partial class Compiler
         if (whole)
         {
             // lang_analyze: a schema name analyses everything in that schema
-            tables.AddRange(TablesOf(0).Where(Analyzable));
+            tables.AddRange(SchemaHashOrder.Order(TablesOf(0).Where(t => !IsSchemaTable(t)).ToList(), t => t.Name).Where(Analyzable));
         }
         else
         {
@@ -539,6 +539,10 @@ internal sealed partial class Compiler
         Emit(Op.Halt);
         return new VmProgram { Code = Finish(), RegisterCount = _nReg + 1, ColumnNames = [], ResultBase = cnt, ResultCount = 0, ParameterNames = [], Encoding = _enc };
     }
+
+    // The schema table itself (under either of its names) is listed by the catalog but is the hash order's own first entry.
+    private static bool IsSchemaTable(TableInfo t)
+        => t.Name.Equals("sqlite_master", StringComparison.OrdinalIgnoreCase) || t.Name.Equals("sqlite_schema", StringComparison.OrdinalIgnoreCase);
 
     private static bool Analyzable(TableInfo t)
         => t.View is null && t.Unsupported is null && !t.Name.StartsWith("sqlite_", StringComparison.OrdinalIgnoreCase);

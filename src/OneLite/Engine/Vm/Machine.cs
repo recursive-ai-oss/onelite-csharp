@@ -1705,7 +1705,7 @@ internal sealed partial class Machine
         if (_txStep == 1)
         {
             // fileformat2 §1.3.8: the schema cookie says whether the schema this program was compiled from is still the file's.
-            if (!_conn.GeometryMatches() && (ins.P5 & 4) == 0)
+            if ((!_conn.GeometryMatches() || _conn.Context!.Encoding != _prog.Encoding) && (ins.P5 & 4) == 0)
             {
                 return RunResult.Stale;
             }

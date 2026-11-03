@@ -242,6 +242,23 @@ public sealed partial class Pager : IDisposable, IAsyncDisposable
         return true;
     }
 
+    /// <summary>
+    /// Sets the text encoding of a database that has no pages yet (pragma: the encoding can be chosen before the database is created).
+    /// Once the first page exists the encoding is fixed.
+    /// </summary>
+    /// <param name="encoding">The encoding.</param>
+    /// <returns>True if applied.</returns>
+    public bool TrySetEncoding(TextEncoding encoding)
+    {
+        if (_dbSize != 0 || _state == TxState.Write && _dirty.Count != 0)
+        {
+            return false;
+        }
+
+        _encoding = encoding;
+        return true;
+    }
+
     /// <summary>Closes the files. A write transaction in progress is abandoned without rollback; call <see cref="Rollback"/> first if the file may have been modified.</summary>
     public void Dispose()
     {

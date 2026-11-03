@@ -945,6 +945,13 @@ public sealed partial class Connection : IDisposable, IAsyncDisposable
         return s;
     }
 
+    /// <summary>Rebuilds the B-tree context after the pager's geometry changed under it (pragma encoding on a database with no pages).</summary>
+    internal void RefreshContext()
+    {
+        _engine.EnsureContext();
+        _ctx = _engine.Context;
+    }
+
     private TextEncoding Enc() => (TextEncoding)(byte)_pager.DatabaseEncoding;
 
     internal bool GeometryMatches()
