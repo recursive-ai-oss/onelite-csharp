@@ -382,22 +382,22 @@ public class ProviderParityTests
     public void SharedCacheMemoryDatabase() => Same(log =>
     {
         int flags = raw.SQLITE_OPEN_READWRITE | raw.SQLITE_OPEN_CREATE | raw.SQLITE_OPEN_URI;
-        raw.sqlite3_open_v2("file:u54shared?mode=memory&cache=shared", out sqlite3 a, flags, null);
-        raw.sqlite3_open_v2("file:u54shared?mode=memory&cache=shared", out sqlite3 b, flags, null);
+        raw.sqlite3_open_v2("file:adaptershared?mode=memory&cache=shared", out sqlite3 a, flags, null);
+        raw.sqlite3_open_v2("file:adaptershared?mode=memory&cache=shared", out sqlite3 b, flags, null);
         Exec(log, a, "create table t(x); insert into t values (1)");
         Query(log, b, "select x from t");
-        raw.sqlite3_open_v2("file:u54other?mode=memory&cache=shared", out sqlite3 c, flags, null);
+        raw.sqlite3_open_v2("file:adapterother?mode=memory&cache=shared", out sqlite3 c, flags, null);
         Query(log, c, "select x from t");
         raw.sqlite3_close(a);
         Query(log, b, "select x from t");
         raw.sqlite3_close(b);
         raw.sqlite3_close(c);
-        raw.sqlite3_open_v2("file:u54shared?mode=memory&cache=shared", out sqlite3 d, flags, null);
+        raw.sqlite3_open_v2("file:adaptershared?mode=memory&cache=shared", out sqlite3 d, flags, null);
         Query(log, d, "select x from t");
         raw.sqlite3_close(d);
         flags = raw.SQLITE_OPEN_READWRITE | raw.SQLITE_OPEN_CREATE | 0x80 | 0x20000 | 0x40;
-        raw.sqlite3_open_v2("file:u54flagshared", out sqlite3 e, flags, null);
-        raw.sqlite3_open_v2("file:u54flagshared", out sqlite3 f, flags, null);
+        raw.sqlite3_open_v2("file:adapterflagshared", out sqlite3 e, flags, null);
+        raw.sqlite3_open_v2("file:adapterflagshared", out sqlite3 f, flags, null);
         Exec(log, e, "create table t(x); insert into t values (7)");
         Query(log, f, "select x from t");
         raw.sqlite3_close(e);
@@ -528,11 +528,11 @@ public class ProviderParityTests
         log.Append("ro ").AppendLine(raw.sqlite3_db_readonly(db, "main").ToString());
         raw.sqlite3_close(db);
 
-        int rc = raw.sqlite3_open_v2("/nonexistent-dir-u54/x.db", out sqlite3 bad, raw.SQLITE_OPEN_READWRITE, null);
+        int rc = raw.sqlite3_open_v2("/nonexistent-dir-adapter/x.db", out sqlite3 bad, raw.SQLITE_OPEN_READWRITE, null);
         log.Append("open bad ").Append(rc).Append(' ').AppendLine(raw.sqlite3_errmsg(bad).utf8_to_string());
         raw.sqlite3_close(bad);
 
-        string path = Path.Combine(Path.GetTempPath(), "u54-parity-" + Guid.NewGuid().ToString("N") + ".db");
+        string path = Path.Combine(Path.GetTempPath(), "adapter-parity-" + Guid.NewGuid().ToString("N") + ".db");
         try
         {
             rc = raw.sqlite3_open_v2(path, out sqlite3 f, raw.SQLITE_OPEN_READWRITE | raw.SQLITE_OPEN_CREATE, null);

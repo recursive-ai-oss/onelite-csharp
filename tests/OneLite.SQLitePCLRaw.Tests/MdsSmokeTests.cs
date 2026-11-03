@@ -87,7 +87,7 @@ public class MdsSmokeTests
     [Fact]
     public void TableRoundTrip()
     {
-        string path = Path.Combine(Path.GetTempPath(), "u54-" + Guid.NewGuid().ToString("N") + ".db");
+        string path = Path.Combine(Path.GetTempPath(), "adapter-" + Guid.NewGuid().ToString("N") + ".db");
         try
         {
             using (var c = new SqliteConnection("Data Source=" + path))
@@ -123,7 +123,7 @@ public class MdsSmokeTests
     [Fact]
     public void SharedMemoryAcrossConnections()
     {
-        const string cs = "Data Source=u54serialized;Mode=Memory;Cache=Shared";
+        const string cs = "Data Source=adapterserialized;Mode=Memory;Cache=Shared";
         using var a = new SqliteConnection(cs);
         using var b = new SqliteConnection(cs);
         a.Open();
