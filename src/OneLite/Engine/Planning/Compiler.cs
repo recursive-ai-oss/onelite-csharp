@@ -267,6 +267,7 @@ internal sealed partial class Compiler
         FunctionCall => true,
         ParenExpr p => HasCall(p.Inner),
         UnaryExpr u => HasCall(u.Operand),
+        BinaryExpr { Op: BinaryOp.Arrow or BinaryOp.Arrow2 } => true,   // -> and ->> are calls of the JSON functions
         BinaryExpr b => HasCall(b.Left) || HasCall(b.Right),
         CollateExpr c => HasCall(c.Operand),
         CastExpr c => HasCall(c.Operand),

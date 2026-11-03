@@ -21,7 +21,7 @@ namespace RecursiveAI.OneLite.AotSmoke;
 /// <summary>Runs the shipped libraries under NativeAOT. Published with warnings as errors, so any trim or AOT warning fails the build.</summary>
 internal static class Program
 {
-    private static int Main()
+    internal static int Main()
     {
         Console.WriteLine($"{LibraryInfo.Name} {DataLibraryInfo.Name}");
         return VfsSmoke() && PagerSmoke() && WalSmoke() && BTreeSmoke() && SqlSmoke() && EngineSmoke() && HttpRangeSmoke() && ForensicSmoke() && CipherSmoke() && PagerBTreeSmoke() && EncryptedPagerSmoke() && RTreeSmoke() && VecSmoke() && Fts5Smoke() && Fts3Smoke() && DataSmoke.Run() ? 0 : 1;

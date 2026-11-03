@@ -17,7 +17,7 @@ internal static class SqliteOracle
             string? p = Environment.GetEnvironmentVariable("ONELITE_SQLITE3");
             if (string.IsNullOrEmpty(p))
             {
-                p = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "onelite", "oracles", "sqlite-3.53.4", "sqlite3");
+                p = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "onelite", "oracles", "sqlite-3.53.4", OperatingSystem.IsWindows() ? "sqlite3.exe" : "sqlite3");
             }
 
             return File.Exists(p) ? p : null;

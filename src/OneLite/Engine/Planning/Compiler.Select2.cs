@@ -551,7 +551,11 @@ internal sealed partial class Compiler
                 inCandidates.AddRange(inTable.Indexes);
                 foreach (IndexInfo ix in inCandidates)
                 {
-                    if (ix.Where is null && ix.Columns.Length > 0 && ix.Columns[0] == inColumn && AsciiComparer.Instance.Equals(ix.Collations[0] ?? "BINARY", ownColl))
+                    // An index on a virtual generated column keeps its key as an expression naming the column.
+                    bool firstIsColumn = ix.Columns.Length > 0 && (ix.Columns[0] == inColumn
+                        || (ix.Columns[0] == -1 && inTable.Columns[inColumn].Generated == GeneratedKind.Virtual && ix.Terms.Length > 0
+                            && ix.Terms[0] is ColumnRef { Table: null } tr && AsciiComparer.Instance.Equals(tr.Column.Text, inTable.Columns[inColumn].Name)));
+                    if (ix.Where is null && firstIsColumn && AsciiComparer.Instance.Equals(ix.Collations[0] ?? "BINARY", ownColl))
                     {
                         lookup = ix;
                     }
