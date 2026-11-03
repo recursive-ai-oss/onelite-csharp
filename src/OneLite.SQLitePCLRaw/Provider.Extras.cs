@@ -645,6 +645,7 @@ public sealed partial class OneLiteSqlite3Provider
 /// <summary>SQLitePCLRaw offers no public way to make a <c>sqlite3_blob</c> (its constructor and <c>From</c> are internal), so one is made with its own parameterless constructor and given its handle through <see cref="System.Runtime.InteropServices.Marshal.InitHandle"/>. The constructor is named by a constant type, which the trimmer and NativeAOT keep.</summary>
 internal static class BlobHandle
 {
+    [System.Diagnostics.CodeAnalysis.DynamicDependency(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.NonPublicConstructors, typeof(SQLitePCL.sqlite3_blob))]
     internal static SQLitePCL.sqlite3_blob Create(nint handle)
     {
         var blob = (SQLitePCL.sqlite3_blob)Activator.CreateInstance(typeof(SQLitePCL.sqlite3_blob), true)!;
