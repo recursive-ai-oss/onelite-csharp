@@ -727,10 +727,15 @@ internal sealed partial class Compiler
         int set = NewSet();
         var spec = new SetSpec();
         SelectMeta meta;
+        Dest d;
         try
         {
             Emit(Op.SetOpen, set, 0, 0, spec);
-            var d = new Dest { Kind = DestKind.Set, Set = set, UseOperandAff = width == 1, OperandAff = operandAff, OperandColl = hasColl ? operandColl : null };
+            d = new Dest { Kind = DestKind.Set, Set = set, UseOperandAff = width == 1, OperandAff = operandAff, OperandColl = hasColl ? operandColl : null };
+            if (width > 1 && operandCore is RowValueExpr affRow)
+            {
+                d.OperandAffs = [.. affRow.Items.Select(CmpAffOf)];
+            }
             meta = CompileSelectStmt(sel, d);
         }
         finally
@@ -788,6 +793,17 @@ internal sealed partial class Compiler
             for (int i = 0; i < width; i++)
             {
                 CompileInto(items[i], xs + i);
+            }
+        }
+
+        if (d.Affs is { } rowAffs)
+        {
+            for (int i = 0; i < width; i++)
+            {
+                if (rowAffs[i] != Affinity.None)
+                {
+                    Emit(Op.CompareAffinity, xs + i, 0, 0, null, (int)rowAffs[i]);
+                }
             }
         }
 

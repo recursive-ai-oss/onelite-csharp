@@ -516,7 +516,10 @@ internal sealed class AggState
         if (obj)
         {
             Span<byte> scratch = stackalloc byte[Values.MaxRealText];
-            JsonFunctions.PutString(_json, args[0].Kind == StorageClass.Blob ? args[0].Bytes : Values.AsText(args[0], scratch));
+            // Observed: the label is read as a C string, so it ends at its first NUL byte (json_object keeps the whole text).
+            ReadOnlySpan<byte> label = args[0].Kind == StorageClass.Blob ? args[0].Bytes : Values.AsText(args[0], scratch);
+            int nul = label.IndexOf((byte)0);
+            JsonFunctions.PutString(_json, nul >= 0 ? label[..nul] : label);
             JsonFunctions.PutValue(args[1], _json);
         }
         else

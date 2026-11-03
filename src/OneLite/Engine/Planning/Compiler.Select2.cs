@@ -366,6 +366,8 @@ internal sealed partial class Compiler
                 dest.Aff = Values.InSetAffinity(dest.OperandAff, meta.Aff[0]);
             }
 
+            SetRowAffinities(dest, meta);
+
             var pipe = new Pipe { Cols = cols, N = cols.Count, Core = core, Dest = dest };
             int limReg = 0, offReg = 0;
             int end = NewLabel();
@@ -1151,7 +1153,17 @@ internal sealed partial class Compiler
                 Emit(Op.EphInsert, d.Cursor, bas, n);
                 break;
             case DestKind.Set:
-                if (d.Aff != Affinity.None)
+                if (d.Affs is { } affs)
+                {
+                    for (int i = 0; i < n && i < affs.Length; i++)
+                    {
+                        if (affs[i] != Affinity.None)
+                        {
+                            Emit(Op.CompareAffinity, bas + i, 0, 0, null, (int)affs[i]);
+                        }
+                    }
+                }
+                else if (d.Aff != Affinity.None)
                 {
                     for (int i = 0; i < n; i++)
                     {
@@ -1185,6 +1197,15 @@ internal sealed partial class Compiler
         if (skipLabel == 0)
         {
             Mark(skip);
+        }
+    }
+
+    /// <summary>For <c>(a, b) IN (SELECT x, y ...)</c>: each column of the set takes the comparison affinity of its pair, as the single-column form does.</summary>
+    private static void SetRowAffinities(Dest dest, SelectMeta meta)
+    {
+        if (dest.OperandAffs is { } oa && oa.Length == meta.Aff.Length)
+        {
+            dest.Affs = [.. oa.Select((a, i) => Values.InSetAffinity(a, meta.Aff[i]))];
         }
     }
 

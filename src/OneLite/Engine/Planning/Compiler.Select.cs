@@ -186,6 +186,12 @@ internal sealed class Dest
     internal bool UseOperandAff;
     internal Affinity OperandAff;
 
+    /// <summary>For the set behind <c>(a, b) IN (SELECT ...)</c>: the affinity of each operand column; the stored side's conversion per column follows from the SELECT's columns.</summary>
+    internal Affinity[]? OperandAffs;
+
+    /// <summary>The conversion each column of that set takes (set once the SELECT's columns are known).</summary>
+    internal Affinity[]? Affs;
+
     /// <summary>For the same set: the collation of x when it has one (a column's or an explicit COLLATE), otherwise null.</summary>
     internal CollKind? OperandColl;
 
@@ -195,7 +201,7 @@ internal sealed class Dest
     /// <summary>LIMIT and OFFSET registers and the exit label of a compound select whose rows stream through this destination.</summary>
     internal int LimReg, OffReg, End;
 
-    internal Dest WithLimit(int lim, int off, int end) => new() { Kind = Kind, Cursor = Cursor, Reg = Reg, Width = Width, Set = Set, Aff = Aff, Replace = Replace, UseOperandAff = UseOperandAff, OperandAff = OperandAff, LimReg = lim, OffReg = off, End = end };
+    internal Dest WithLimit(int lim, int off, int end) => new() { Kind = Kind, Cursor = Cursor, Reg = Reg, Width = Width, Set = Set, Aff = Aff, Replace = Replace, UseOperandAff = UseOperandAff, OperandAff = OperandAff, OperandAffs = OperandAffs, Affs = Affs, LimReg = lim, OffReg = off, End = end };
 }
 
 /// <summary>What a SELECT's result columns look like to whoever reads them.</summary>
@@ -654,6 +660,8 @@ internal sealed partial class Compiler
         {
             dest.Aff = Values.InSetAffinity(dest.OperandAff, meta0.Aff[0]);
         }
+
+        SetRowAffinities(dest, meta0);
 
         EmitCompoundOutput(cur, meta0, order, dest, limReg, offReg, end);
         Mark(end);
