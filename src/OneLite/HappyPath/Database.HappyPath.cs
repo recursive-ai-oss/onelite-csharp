@@ -8,7 +8,7 @@ public sealed partial class Database : ISession
 {
     // Write transactions are BEGIN CONCURRENT when the database was opened for it (the happy-path options do, in WAL mode): a conflict is a
     // SQLITE_BUSY_SNAPSHOT at COMMIT, which WriteAsync retries. Otherwise they take the write lock up front with BEGIN IMMEDIATE.
-    private string BeginWrite => _options.ConcurrentWrites && _options.JournalMode == JournalMode.Wal ? "BEGIN CONCURRENT" : "BEGIN IMMEDIATE";
+    private string BeginWrite => _options.ConcurrentWrites && _options.JournalMode == JournalMode.Wal && !_memory ? "BEGIN CONCURRENT" : "BEGIN IMMEDIATE";
 
     private static readonly AsyncLocal<Database?> s_inWrite = new();
 
