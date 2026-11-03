@@ -603,7 +603,7 @@ internal sealed partial class Compiler
             return false;
         }
 
-        var refs = new HashSet<Source>();
+        var refs = new HashSet<Source>(ReferenceEqualityComparer.Instance);
         if (_scope is null || !CollectSources(e, _scope, refs) || refs.Contains(s) || !refs.IsSubsetOf(bound))
         {
             return false;

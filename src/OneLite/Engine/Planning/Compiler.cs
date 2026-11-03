@@ -19,8 +19,8 @@ internal sealed partial class Compiler
     private readonly Catalog _cat;
     private string _sql;
     private readonly TextEncoding _enc;
-    private readonly List<Instr> _code = new(128);
-    private readonly List<int> _labels = new(64);
+    private readonly List<Instr> _code = [];
+    private readonly List<int> _labels = [];
     private readonly List<CursorSpec> _cursors = [];
     private List<string?> _params = [];
     private Dictionary<int, int>? _anonPos;
@@ -349,12 +349,9 @@ internal sealed partial class Compiler
             _labels.RemoveRange(labels, _labels.Count - labels);
             _nReg = regs;
             _params.RemoveRange(pars, _params.Count - pars);
-            if (_anonymous.Count > 0)
+            foreach (VariableExpr stale in _anonymous.Where(kv => kv.Value > pars).Select(kv => kv.Key).ToList())
             {
-                foreach (VariableExpr stale in _anonymous.Where(kv => kv.Value > pars).Select(kv => kv.Key).ToList())
-                {
-                    _anonymous.Remove(stale);
-                }
+                _anonymous.Remove(stale);
             }
 
             _columnsAllowed = col;
