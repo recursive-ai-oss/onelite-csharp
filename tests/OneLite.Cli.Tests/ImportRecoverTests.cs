@@ -150,6 +150,7 @@ public class RecoverHostileFileTests
     [Fact]
     public void DamagedFilesAreReportedNotCrashedOn()
     {
+        Assert.SkipUnless(Harness.OracleAvailable, "the pinned sqlite3 is not installed");
         string good = Harness.MakeDb("hostile-src.db", "create table t(a,b);\n" + string.Concat(Enumerable.Range(0, 500).Select(i => $"insert into t values({i},'row {i} with some padding text to fill pages');\n")) + "delete from t where a%2=0;\n");
         byte[] bytes = File.ReadAllBytes(good);
         var rnd = new Random(7);
