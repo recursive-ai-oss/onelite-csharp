@@ -308,6 +308,57 @@ internal sealed partial class Machine
         _finished = true;
     }
 
+    /// <summary>
+    /// Like <see cref="Close"/>, but the cursors and the machine's buffers are kept for the next statement that runs the same program
+    /// (see <see cref="Unpark"/>). The cursors are parked: they hold no pages and are not told about changes.
+    /// </summary>
+    internal void Park()
+    {
+        _writing = false;
+        DropTransient();
+        foreach (VmCursor c in _cur)
+        {
+            c.Bt?.Park();
+            c.VCur?.Dispose();
+            c.VCur = null;
+        }
+
+        if (_holdsRead)
+        {
+            _conn.AbortRead();
+            _holdsRead = false;
+            _conn.ReaderDone();
+        }
+
+        _finished = true;
+    }
+
+    /// <summary>Makes a parked machine ready to run its program from the start for a new statement.</summary>
+    internal void Unpark(Statement owner)
+    {
+        foreach (VmCursor c in _cur)
+        {
+            if (c.Bt is null)
+            {
+                continue;
+            }
+
+            // A cursor is kept only while the connection still has the context it was opened in (a page size change, say, builds a new one).
+            if (ReferenceEquals(_conn.ContextOf(c.Spec.Table.Db), c.Bt.Context))
+            {
+                c.Bt.Unpark();
+            }
+            else
+            {
+                c.Bt = null;
+                c.Tree = null;
+            }
+        }
+
+        _owner = owner;
+        Rewind();
+    }
+
     internal void ReleaseForReset()
     {
         DropTransient();

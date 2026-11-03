@@ -114,6 +114,7 @@ public sealed partial class Pager
 
     private void ResetWriteState()
     {
+        _hdrSnapOk = false;
         _rcActive = false;
         _jBits.Clear();
         _rsvRecords = 0;

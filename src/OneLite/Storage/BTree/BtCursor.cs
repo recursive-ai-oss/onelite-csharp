@@ -119,6 +119,22 @@ public sealed partial class BtCursor : IDisposable
         ReleasePins();
     }
 
+    /// <summary>The context the cursor was opened in.</summary>
+    internal BtContext Context => _ctx;
+
+    /// <summary>
+    /// Puts the cursor away for reuse: pages released, no longer told about changes to the tree. <see cref="Unpark"/> makes it live again. A parked cursor
+    /// holds nothing of the database, so it may wait while the connection does other things.
+    /// </summary>
+    internal void Park()
+    {
+        Reset();
+        _ctx.Unregister(this);
+    }
+
+    /// <summary>Registers a parked cursor again.</summary>
+    internal void Unpark() => _ctx.Register(this);
+
     /// <summary>Releases the cursor's pages and unregisters it.</summary>
     public void Dispose()
     {

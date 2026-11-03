@@ -33,6 +33,10 @@ internal sealed class Source
     internal string Alias = "";
     internal TableInfo Table = null!;
     internal int Cursor;
+
+    /// <summary>While the body of a covered index loop is emitted: the index cursor the columns are read from, and the index (see AccessPlan.Covered).</summary>
+    internal int CoverCursor = -1;
+    internal IndexInfo? CoverIndex;
     internal SourceKind Kind;
 
     /// <summary>Position in the FROM clause as written.</summary>

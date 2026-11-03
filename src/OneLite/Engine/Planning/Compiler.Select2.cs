@@ -392,6 +392,14 @@ internal sealed partial class Compiler
                     }
                 }
 
+                // Rows are read from the index alone when it holds every column the query uses. The rows and their order are those of the plan as it is.
+                if (!NoCover && _win is null && plan.Kind is PlanKind.Index or PlanKind.IndexIn && plan.Index is { Where: null } cover && !only.Table.WithoutRowid
+                    && TryUsedColumns(only, cols, core, out HashSet<int>? coverUsed) && IndexCovers(only.Table, cover, coverUsed))
+                {
+                    plan.Covered = true;
+                    plan.Notes.Add($"the rows are read from {cover.Name} alone: it holds every column the query uses");
+                }
+
                 _planByCursor[only] = plan;
             }
 

@@ -43,6 +43,17 @@ public enum ColumnType
     Null = 5,
 }
 
+/// <summary>What a finalized statement leaves for the next prepare of the same text: its program and the buffers that run it (see Connection.TakeProgram).</summary>
+internal sealed class RetiredStatement
+{
+    internal VmProgram Program = null!;
+    internal string Tail = "";
+    internal Machine Machine = null!;
+    internal Mem[] Vars = [];
+    internal byte[]?[] VarBytes = [];
+    internal byte[]?[] Convert = [];
+}
+
 /// <summary>
 /// A compiled SQL statement. Run it with <see cref="Step"/> (blocking driver) or with <see cref="Advance"/> and the I/O slot
 /// (<see cref="PendingIo"/>, <see cref="Complete"/>), which never blocks and never awaits.
@@ -90,6 +101,27 @@ public sealed class Statement : IDisposable, IAsyncDisposable
         string tail;
         try
         {
+            if (planMode == PlanMode.Off && conn.TakeProgram(sql, out RetiredStatement? kept))
+            {
+                _prog = kept.Program;
+                tail = kept.Tail;
+                _vars = kept.Vars;
+                _varBytes = kept.VarBytes;
+                _convert = kept.Convert;
+                Array.Clear(_vars);
+                Array.Clear(_varBytes);
+                _machine = kept.Machine;
+                _shell = kept;
+                _machine.Unpark(this);
+                Tail = tail;
+                if (_prog.Code.Length == 1 && _prog.Code[0].Op == Op.Halt)
+                {
+                    _phase = Phase.Ready;
+                }
+
+                return;
+            }
+
             _prog = conn.CompileSql(sql, out tail, out _, planMode);
         }
         catch (OneLiteException e)
@@ -482,6 +514,12 @@ public sealed class Statement : IDisposable, IAsyncDisposable
     {
         VmProgram p = _conn.CompileSql(_sql, out _, out _, _planMode);
         _prog = p;
+        if (_convert.Length != p.ResultCount)
+        {
+            // The schema changed under the statement: SELECT * can now have another number of columns.
+            _convert = new byte[p.ResultCount][];
+        }
+
         _machine = new Machine(_conn, p, _vars) { _owner = this };
     }
 
@@ -539,9 +577,14 @@ public sealed class Statement : IDisposable, IAsyncDisposable
             await _machine.FinishWriteAsync().ConfigureAwait(false);
         }
 
-        await _conn.WithAsyncAbort(_machine.Close).ConfigureAwait(false);
+        bool keep = _planMode == PlanMode.Off && _conn.CanKeep(_prog);
+        await _conn.WithAsyncAbort(keep ? _machine.Park : _machine.Close).ConfigureAwait(false);
         _disposed = true;
         _conn.Forget(this);
+        if (keep)
+        {
+            Retire();
+        }
     }
 
     /// <summary>Finalizes the statement.</summary>
@@ -559,10 +602,39 @@ public sealed class Statement : IDisposable, IAsyncDisposable
             _machine.FinishWriteSync();
         }
 
-        _machine.Close();
+        bool keep = _planMode == PlanMode.Off && _conn.CanKeep(_prog);
+        if (keep)
+        {
+            _machine.Park();
+        }
+        else
+        {
+            _machine.Close();
+        }
+
         _disposed = true;
         _conn.Forget(this);
+        if (keep)
+        {
+            Retire();
+        }
     }
+
+    // Leaves the program and the buffers that run it with the connection for the next statement of the same text (Connection.TakeProgram).
+    private void Retire()
+    {
+        RetiredStatement r = _shell ?? new RetiredStatement();
+        r.Program = _prog;
+        r.Tail = Tail;
+        r.Machine = _machine;
+        r.Vars = _vars;
+        r.VarBytes = _varBytes;
+        r.Convert = _convert;
+        _shell = null;
+        _conn.KeepProgram(_sql, r);
+    }
+
+    private RetiredStatement? _shell;
 
     // ------------------------------------------------------------------ columns
 

@@ -634,12 +634,103 @@ public sealed partial class Connection : IDisposable, IAsyncDisposable
 
     internal void Forget(Statement s) => _statements.Remove(s);
 
+    // ---- programs kept between prepares ----------------------------------------------------------------------------------------------
+    // Preparing the same text again is the common case (a statement per call, a command per query). When a statement is finalized its program goes
+    // back here, and the next prepare of the same text takes it instead of parsing and planning again. A program is taken out of the table, so it
+    // belongs to one statement at a time, exactly as a freshly compiled one does. It is used again only if everything compilation read is unchanged:
+    // the connection still holds the same schema object (every schema change builds a new one) at the same cookie, with the same foreign-key
+    // setting and text encoding. Anything else compiles again. A program that read other connection state (virtual tables, the statistics log
+    // behind PRAGMA optimize) is never kept. c3ref/prepare: the schema is checked when the statement runs, which the kept program still does.
+    private const int ProgramTableLimit = 32;
+    private readonly Dictionary<string, RetiredStatement> _programs = new(StringComparer.Ordinal);
+
+    /// <summary>Set by the compiler when it reads connection state a kept program could not account for.</summary>
+    internal bool CompileTaint;
+    private bool _noCover;
+
+    /// <summary>The tables the compile in progress added to <see cref="StatsUsed"/>; a kept program adds them again when it is taken.</summary>
+    internal readonly List<string> CompileStatsTables = [];
+
+    internal bool TakeProgram(string sql, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out RetiredStatement? retired)
+    {
+        if (_programs.Count != 0 && _programs.Remove(sql, out RetiredStatement? e))
+        {
+            VmProgram p = e.Program;
+            Catalog? cat = _catalog;
+            if (cat is not null && ReferenceEquals(p.CompiledAgainst, cat) && p.SchemaCookie == cat.Cookie && p.ForeignKeysAtCompile == ForeignKeysEnabled
+                && p.Encoding == (_ctx?.Encoding ?? TextEncoding.Utf8))
+            {
+                if (p.StatsTables is { } st)
+                {
+                    foreach (string name in st)
+                    {
+                        StatsUsed.Add(name);
+                    }
+                }
+
+                retired = e;
+                return true;
+            }
+        }
+
+        retired = null;
+        return false;
+    }
+
+    /// <summary>True if a finalized statement with this program would be kept for the next prepare of its text.</summary>
+    internal bool CanKeep(VmProgram program) => program.Reusable && ReferenceEquals(program.CompiledAgainst, _catalog);
+
+    internal void KeepProgram(string sql, RetiredStatement retired)
+    {
+        if (_programs.Count >= ProgramTableLimit && !_programs.ContainsKey(sql))
+        {
+            using Dictionary<string, RetiredStatement>.Enumerator it = _programs.GetEnumerator();
+            it.MoveNext();
+            _programs.Remove(it.Current.Key);
+        }
+
+        _programs[sql] = retired;
+    }
+
+    private void MarkReusable(VmProgram p, Catalog cat)
+    {
+        p.CompiledAgainst = cat;
+        p.ForeignKeysAtCompile = ForeignKeysEnabled;
+        bool ok = !CompileTaint;
+        foreach (CursorSpec c in p.Cursors)
+        {
+            if (c.Module is not null || c.Table?.Virtual is not null)
+            {
+                ok = false;
+            }
+        }
+
+        p.Reusable = ok;
+        p.StatsTables = CompileStatsTables.Count == 0 ? null : [.. CompileStatsTables];
+    }
+
     /// <summary>Compiles one statement (parse, then name resolution against the schema).</summary>
     internal VmProgram CompileSql(string sql, out string tail, out bool empty, PlanMode mode = PlanMode.Off)
     {
         try
         {
-            return CompileSqlCore(sql, out tail, out empty, mode);
+            try
+            {
+                return CompileSqlCore(sql, out tail, out empty, mode);
+            }
+            catch (CoverMissException)
+            {
+                // A loop that reads an index alone was asked for a column the index lacks: compile again, reading the table too.
+                _noCover = true;
+                try
+                {
+                    return CompileSqlCore(sql, out tail, out empty, mode);
+                }
+                finally
+                {
+                    _noCover = false;
+                }
+            }
         }
         catch (OneLiteException e) when (e.Code == ResultCode.Error && _catalog != null
             && (e.Message.StartsWith("no such ", StringComparison.Ordinal) || e.Message.Contains(" already exists", StringComparison.Ordinal)))
@@ -762,17 +853,24 @@ public sealed partial class Connection : IDisposable, IAsyncDisposable
 
         Catalog cat = _catalog ?? new Catalog();
         TextEncoding enc = _ctx?.Encoding ?? TextEncoding.Utf8;
-        var compiler = new Compiler(cat, sql, enc);
+        var compiler = new Compiler(cat, sql, enc) { NoCover = _noCover };
         if (mode != PlanMode.Off)
         {
             compiler.StartPlan("SELECT", mode == PlanMode.Count);
         }
 
+        CompileTaint = false;
+        CompileStatsTables.Clear();
         VmProgram p = compiler.CompileSelect(sel);
         p.Plan = compiler.FinishPlan();
         p.PlanCounterCount = p.Plan?.CounterCount ?? 0;
         p.SchemaCookie = cat.Cookie;
         p.Encoding = enc;
+        if (mode == PlanMode.Off)
+        {
+            MarkReusable(p, cat);
+        }
+
         return p;
     }
 

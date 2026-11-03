@@ -1177,6 +1177,12 @@ internal sealed partial class Compiler
             return;
         }
 
+        if (src.CoverCursor >= 0)
+        {
+            EmitCoveredColumn(src, col, dest);
+            return;
+        }
+
         if (col < 0)
         {
             Emit(Op.Rowid, src.Cursor, dest);
@@ -1191,6 +1197,32 @@ internal sealed partial class Compiler
 
     /// <summary>While generating code that runs after grouping: the register that holds each column.</summary>
     private Dictionary<(Source, int), int>? _colMap;
+
+    /// <summary>
+    /// Reads a column from the index entry a covered loop stands on. The planner decided from the query's text that the index holds every column the
+    /// query reads; if code generation asks for another one, <see cref="CoverMissException"/> makes the statement compile again without covering.
+    /// </summary>
+    private void EmitCoveredColumn(Source src, int col, int dest)
+    {
+        TableInfo table = src.Table;
+        if (col < 0 || col == table.RowidAlias)
+        {
+            Emit(Op.IdxRowid, src.CoverCursor, dest);
+            return;
+        }
+
+        int at = Array.IndexOf(src.CoverIndex!.Columns, col);
+        ColumnInfo c = table.Columns[col];
+        if (at < 0 || c.Generated != GeneratedKind.None)
+        {
+            throw new CoverMissException();
+        }
+
+        Emit(Op.Column, src.CoverCursor, at, dest, null, c.Affinity == Affinity.Real ? 1 : 0);
+    }
+
+    /// <summary>Set when a statement is compiled again after a covered index loop was asked for a column its index lacks.</summary>
+    internal bool NoCover { get; init; }
 
     private void CompileTableColumn(Source src, int col, int dest)
     {

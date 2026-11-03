@@ -24,7 +24,7 @@ Reproduce with `bench/run.sh --rows <a,b|all> --levels engine,app --reps 3 --out
 - **`fsync` against `fdatasync`.** On Linux the pinned `libe_sqlite3` issues `fsync` for each commit sync and OneLite issues `fdatasync`. The number of syncs is the same (about 2,012 for 2 × 1,000 commits in `strace`), but `fdatasync` skips the file-metadata flush, so `wal_commit_full` (0.28× on x64) and `insert_autocommit` (0.85×) are faster than native for a reason that is not engine speed. It is a property of the reference build, not a durability gap by count. On macOS the two sides are close (1.9× and 1.1×).
 - **Concurrent writers.** The `BEGIN CONCURRENT` throughput row is not part of this baseline. It is pending until the feature's measurements are ready; there is no number for it here.
 - **Short rows include JIT.** `insert_tx_10k` runs about 80 ms, and the warm-up is a single run, so tier-0 code is part of the timing. `insert_tx_100k` shows the steadier ratio (3.9× against 18.7× on x64).
-- **Allocation.** The cached hot path allocates nothing per *row stepped* (`scan_filter` 0.2 B/op, `join` 0.4 B/op). It does not yet allocate nothing per *statement execution*: a point lookup (bind, step, reset) costs 600 B at engine level and 15–19 KB through `.Data`. `fts5_top10` allocates 5.7 MB per query and a prepare costs about 23 KB.
+- **Allocation.** The cached hot path allocates nothing per *row stepped* (`scan_filter` 0.2 B/op, `join` 0.4 B/op) and, since the tuning below, nothing per *statement execution* of a point lookup (bind, step, reset: 0 B at engine level). Preparing a statement that was prepared before on the connection allocates about 140 B; a first prepare about 23 KB. `fts5_top10` allocates 5.7 MB per query.
 - **Mac load.** The Mac was not idle by itself: its 1-minute load average sat near 2 before, during and after both groups, with no other queue job running. Treat the arm64 numbers as slightly less quiet than the x64 ones.
 
 ## x64: AMD Ryzen 9 7950X3D, 32 cores, Linux Mint 22.3
@@ -147,13 +147,39 @@ Reproduce with `bench/run.sh --rows <a,b|all> --levels engine,app --reps 3 --out
 
 No fixes have been made; each is a candidate for its own tuning unit. Ratios are x64 / arm64.
 
-1. **`prepare_cost` (19.5× / 17.5×)**: parse, plan and code generation allocate about 23 KB per statement; there is no statement or plan cache, and the three statements include a join.
+1. **`prepare_cost` (19.5× / 17.5×)**: parse, plan and code generation allocate about 23 KB per statement. Fixed for repeated prepares by statement reuse, see "Tuning: prepare and point lookups"; a first prepare of a text still costs this much.
 2. **`insert_tx_10k` (18.7× / 15.6×)**: the row is short (about 80 ms) so JIT and tier-0 code dominate; the same insert path is 3.9× / 5.1× at 100,000 rows, where the remaining gap is per-row allocation (435 B/op) and the record build.
 3. **`fts5_top10` (10.9× / 15.1×)**: 5.7 MB allocated per query, which points at the FTS5 segment and doclist readers copying into fresh buffers instead of reading spans in place.
 4. **`group_by` (5.7× / 5.2×)**: the aggregation and the grouping sorter or hash path (122 B per row), not the scan.
-5. **`range_scan` (4.5× / 6.5×)**: each execution re-seeks and allocates about 600 B, and the per-row index-to-table lookup is dearer than the native cursor's; the unindexed `scan_filter` (4.4× / 6.0×) points at the dispatch loop's per-row cost rather than I/O.
+5. **`range_scan` (4.5× / 6.5×)**: each execution re-seeked and allocated about 600 B, and every index entry was followed to the table row. Both fixed, see "Tuning: prepare and point lookups"; the unindexed `scan_filter` (4.4× / 6.0×) points at the dispatch loop's per-row cost rather than I/O.
 
 Also visible: `open_time` is 36× on Linux and about 1.2× on macOS, so a Linux-only open or close cost (locks, `-shm`, recovery on open or the closing checkpoint) is suspected.
+
+## Tuning: prepare and point lookups
+
+Three changes, measured on the same machine in one run, before and after: (1) a finalized statement leaves its program, machine and cursors with the connection and the next prepare of the same text takes them (schema, `foreign_keys` and encoding unchanged; at most 32 texts); (2) a read transaction in WAL mode starts and ends without allocating and, while the wal-index snapshot is unchanged, skips re-reading the database size and page 1; (3) a query on one rowid table that an index answers completely reads the index alone. x64 only (AMD Ryzen 9 7950X3D, 32 cores, Linux Mint 22.3), .NET 10.0.13, SQLite 3.53.4, `Microsoft.Data.Sqlite` 10.0.14, 3 repetitions after a warm-up, the run alone on the machine (load average 2.2 before the first half and 1.6 before the second, CPU idle when it started). The ratios are against native SQLite; `B/op` is OneLite's allocation per operation.
+
+`prepare_cost` prepares the same three texts 1,000 times, so after the first round every prepare is a reuse; native SQLite compiles each time. Read its ratio as the cost of preparing a text again, not of compiling.
+
+### Engine level
+
+| Row | Before ms | After ms | Native ms (before / after) | Ratio before | Ratio after | B/op before | B/op after |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| prepare_cost | 153.77 | 0.65 | 7.17 / 7.35 | 21.43× | 0.09× | 23,600 | 136 |
+| lookup_rowid | 725.39 | 402.49 | 488.64 / 478.77 | 1.48× | 0.84× | 600 | 0 |
+| lookup_index | 913.31 | 494.50 | 371.26 / 373.00 | 2.46× | 1.33× | 600 | 0 |
+| range_scan | 72.96 | 31.46 | 16.59 / 16.08 | 4.40× | 1.96× | 610 | 0.1 |
+
+### App level (`RecursiveAI.OneLite.Data` against `Microsoft.Data.Sqlite`)
+
+| Row | Before ms | After ms | MDS ms (before / after) | Ratio before | Ratio after | B/op before | B/op after |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| prepare_cost | 196.55 | 20.99 | 21.71 / 22.24 | 9.06× | 0.94× | 27,504 | 1,712 |
+| lookup_rowid | 1550.08 | 465.45 | 590.09 / 582.47 | 2.63× | 0.80× | 15,520 | 376 |
+| lookup_index | 1922.49 | 550.40 | 462.86 / 462.66 | 4.15× | 1.19× | 18,920 | 272 |
+| range_scan | 115.42 | 36.63 | 30.64 / 30.50 | 3.77× | 1.20× | 20,768 | 296 |
+
+What is left. `lookup_index` and `range_scan` still evaluate the whole `WHERE` clause on every index entry, as the engine always does (a plan can change speed, never the answer). Every read transaction costs two `fcntl` calls (taking and releasing the wal-index read mark), as it does in the native library; on this machine starting and ending a read transaction around a trivial query takes about 1.8 µs, most of it those calls.
 
 ## Where OneLite is faster
 

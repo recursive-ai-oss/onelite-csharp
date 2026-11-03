@@ -240,6 +240,21 @@ internal readonly record struct SortTerm(bool Descending, bool NullsFirst, CollK
 /// <summary>A compiled statement: code, register and cursor counts and the result description.</summary>
 internal sealed class VmProgram
 {
+    /// <summary>
+    /// The schema this program was compiled against. A program is kept for the next prepare of the same text only while the connection still holds
+    /// this very schema object, at the same cookie, with the same foreign-key setting (see Connection.TakeProgram).
+    /// </summary>
+    internal object? CompiledAgainst;
+
+    /// <summary>The foreign_keys setting in force when the program was compiled.</summary>
+    internal bool ForeignKeysAtCompile;
+
+    /// <summary>True for a SELECT, INSERT, UPDATE or DELETE that touches no virtual table and records nothing in the connection while compiling.</summary>
+    internal bool Reusable;
+
+    /// <summary>The tables whose statistics the planner weighed (PRAGMA optimize counts them as queried), replayed when a kept program is used again.</summary>
+    internal string[]? StatsTables;
+
     internal Instr[] Code = [];
     internal int RegisterCount;
     internal CursorSpec[] Cursors = [];
