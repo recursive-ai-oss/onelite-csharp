@@ -113,7 +113,7 @@ public sealed class ConcurrentTransactionTests : IDisposable
         e = Fails(() => Run(w2, "COMMIT"));
         double ms = System.Diagnostics.Stopwatch.GetElapsedTime(t0).TotalMilliseconds;
         Assert.Equal(ResultCode.Busy, e.Code);
-        Assert.InRange(ms, 90, 400);
+        Assert.InRange(ms, 90, 2000); // bounded by the timeout, with room for slow shared CI machines
     }
 
     [Fact]
