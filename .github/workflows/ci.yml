@@ -70,3 +70,30 @@ jobs:
       - name: Run AOT smoke app
         shell: bash
         run: '"$RUNNER_TEMP/smoke/OneLite.AotSmoke"'
+
+  windows-interop:
+    # Live locking against a running reference shell on Windows (LockFileEx byte ranges, sqlite.org lockingv3). The shell is the pinned precompiled
+    # sqlite-tools build, fetched and hash-checked by tools/scripts/fetch_oracles.py. The job reports without failing the run until it has passed once on
+    # the hosted runner; then drop continue-on-error.
+    runs-on: windows-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Artifacts directory
+        shell: bash
+        run: echo "ONELITE_ARTIFACTS=$RUNNER_TEMP/artifacts" >> "$GITHUB_ENV"
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+      - name: Fetch the pinned reference shell
+        shell: bash
+        run: python tools/scripts/fetch_oracles.py --root "$RUNNER_TEMP/onelite"
+      - name: Build
+        run: dotnet build tests/OneLite.Tests -c Release
+      - name: Lock interop with a live shell
+        shell: bash
+        env:
+          ONELITE_SQLITE3_DIR: ${{ runner.temp }}/onelite/oracles/sqlite-3.53.4
+        run: ONELITE_SQLITE3="$ONELITE_SQLITE3_DIR/sqlite3.exe" dotnet test --project tests/OneLite.Tests -c Release --no-build --filter-class "*LockInteropTests"

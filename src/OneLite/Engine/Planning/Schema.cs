@@ -97,6 +97,9 @@ internal sealed class IndexInfo
     internal string Name = "";
     internal uint Root;
 
+    /// <summary>For a WITHOUT ROWID table's key: an entry in AutoIndexes that only holds the constraint's number (the key is the table itself and has no index of its own).</summary>
+    internal bool KeyPlaceholder;
+
     /// <summary>The table column of each key column, in key order.</summary>
     internal int[] Columns = [];
 
@@ -368,10 +371,21 @@ internal static class SchemaBuilder
     private static List<IndexInfo> AutoIndexColumns(CreateTableStatement s, TableInfo t, int[] pk, bool[] pkDesc)
     {
         var result = new List<IndexInfo>();
+        int[]? keyCols = null;
+
+        // A WITHOUT ROWID table's PRIMARY KEY takes its number among the constraints but has no index of its own.
+        void AddKey(int[] cols)
+        {
+            if (cols.Length > 0 && keyCols is null)
+            {
+                keyCols = cols;
+                result.Add(new IndexInfo { Columns = [], Collations = [], Usable = false, KeyPlaceholder = true });
+            }
+        }
 
         void Add(int[] cols, bool[] desc, string?[]? colls, ConflictAction? onConflict, bool isPk)
         {
-            if (cols.Length == 0)
+            if (cols.Length == 0 || (keyCols is not null && keyCols.AsSpan().SequenceEqual(cols)))
             {
                 return;
             }
@@ -400,6 +414,10 @@ internal static class SchemaBuilder
         }
 
         bool hasTablePk = s.Constraints.Any(c => c is PrimaryKeyTableConstraint);
+
+        // Observed against the shell: a lone, ascending INTEGER key of a WITHOUT ROWID table is numbered after every other constraint, as if it were declared last.
+        bool lateKey = t.WithoutRowid && pk.Length == 1 && !pkDesc[0] && pk[0] < s.Columns.Length
+            && s.Columns[pk[0]].Type is { Words.Length: 1, Sizes.Length: 0 } kt && string.Equals(kt.Words[0], "INTEGER", StringComparison.OrdinalIgnoreCase);
         for (int i = 0; i < s.Columns.Length; i++)
         {
             foreach (ColumnConstraint k in s.Columns[i].Constraints)
@@ -407,6 +425,10 @@ internal static class SchemaBuilder
                 if (k is PrimaryKeyColumnConstraint pc && !hasTablePk && t.RowidAlias != i && !t.WithoutRowid)
                 {
                     Add([i], [pc.Order == SortOrder.Desc], null, pc.OnConflict, true);
+                }
+                else if (k is PrimaryKeyColumnConstraint && !hasTablePk && t.WithoutRowid && !lateKey)
+                {
+                    AddKey(pk);
                 }
                 else if (k is UniqueColumnConstraint uc)
                 {
@@ -421,6 +443,9 @@ internal static class SchemaBuilder
             {
                 case PrimaryKeyTableConstraint ptc when pk.Length > 0 && !(pk.Length == 1 && t.RowidAlias == pk[0]) && !t.WithoutRowid:
                     Add(pk, pkDesc, null, ptc.OnConflict, true);
+                    break;
+                case PrimaryKeyTableConstraint when t.WithoutRowid && !lateKey:
+                    AddKey(pk);
                     break;
                 case UniqueTableConstraint u:
                 {
@@ -463,6 +488,11 @@ internal static class SchemaBuilder
                     break;
                 }
             }
+        }
+
+        if (lateKey)
+        {
+            AddKey(pk);
         }
 
         return result;

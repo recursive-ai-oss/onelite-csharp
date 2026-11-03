@@ -267,6 +267,7 @@ internal sealed partial class Compiler
         FunctionCall => true,
         ParenExpr p => HasCall(p.Inner),
         UnaryExpr u => HasCall(u.Operand),
+        BinaryExpr { Op: BinaryOp.Arrow or BinaryOp.Arrow2 } => true,   // -> and ->> are calls of the JSON functions
         BinaryExpr b => HasCall(b.Left) || HasCall(b.Right),
         CollateExpr c => HasCall(c.Operand),
         CastExpr c => HasCall(c.Operand),
@@ -803,7 +804,7 @@ internal sealed partial class Compiler
             case ParenExpr p:
                 return Compile(p.Inner);
             case CollateExpr c:
-                ParseColl(c.Collation.Text);
+                // Only a use of the collating sequence (a comparison, ORDER BY, GROUP BY, DISTINCT, min/max) looks it up; a bare COLLATE of an unknown name is not an error.
                 return Compile(c.Operand);
             case UnaryExpr { Op: UnaryOp.Plus } u:
                 return Compile(u.Operand);
@@ -884,7 +885,6 @@ internal sealed partial class Compiler
                 CompileInto(p.Inner, dest);
                 return;
             case CollateExpr c:
-                ParseColl(c.Collation.Text);
                 CompileInto(c.Operand, dest);
                 return;
             case LiteralExpr lit:
@@ -1590,7 +1590,9 @@ internal sealed partial class Compiler
             r = Compile(b.Right);
         }
 
-        int flags = op is >= Op.Eq and <= Op.IsNot ? CmpFlags(Values.CompareAffinity(CmpAffOf(b.Left), CmpAffOf(b.Right)), PairColl(b.Left, b.Right)) : 0;
+        // `x IS NULL` compares nothing by collation, so an unknown COLLATE on x is not looked up.
+        bool nullTest = b.Op is BinaryOp.Is or BinaryOp.IsNot && StripParens(b.Right) is LiteralExpr { Kind: LiteralKind.Null };
+        int flags = op is >= Op.Eq and <= Op.IsNot ? CmpFlags(Values.CompareAffinity(CmpAffOf(b.Left), CmpAffOf(b.Right)), nullTest ? CollKind.Binary : PairColl(b.Left, b.Right)) : 0;
         Emit(op, l, r, dest, null, flags);
     }
 

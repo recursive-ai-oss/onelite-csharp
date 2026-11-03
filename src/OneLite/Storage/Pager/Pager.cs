@@ -68,7 +68,7 @@ public sealed partial class Pager : IDisposable, IAsyncDisposable
         _autoVacuum = opts.AutoVacuum;
         _incremental = opts.IncrementalVacuum;
         _largestRoot = opts.AutoVacuum ? 1u : 0u;
-        _journalMode = opts.JournalMode;
+        _journalMode = opts.JournalMode == JournalMode.Wal ? JournalMode.Delete : opts.JournalMode;
         _sync = opts.Synchronous;
         _cacheLimitSetting = opts.CacheSize;
         InitCipher(opts);

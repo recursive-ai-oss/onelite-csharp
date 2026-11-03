@@ -6,6 +6,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Added
 
+- A hosted-runner job runs the lock tests against a live reference shell on Windows, `tools/scripts/ios_smoke.sh` runs the libraries in an iOS simulator app (`tests/OneLite.IosSmoke`), and `tools/scripts/android_smoke.sh` in an Android emulator app (`tests/OneLite.AndroidSmoke`).
 - The `onelite` command-line tool (`RecursiveAI.OneLite.Cli`, not yet published): a shell used like `sqlite3`. Output in the `list`, `csv`, `tabs`, `ascii`, `line`, `json`, `column`, `box`, `table`, `markdown`, `quote` and `html` modes is byte for byte the pinned `sqlite3` shell's; `.dump` is identical on Chinook, Northwind and Sakila and loads in either direction; `.import` (CSV and plain) matches the shell's; `.recover` writes live rows and rows carved from free space as SQL without touching the file. See `docs/cli.md`.
 - `RecursiveAI.OneLite.SQLitePCLRaw`: an `ISQLite3Provider` for SQLitePCLRaw that runs on OneLite, so `Microsoft.Data.Sqlite` and EF Core's SQLite provider use it without a native library (`OneLiteBatteries.Init()`). `Microsoft.Data.Sqlite`'s own tests pass 670 of 687 and EF Core's SQLite functional tests 37,121 of 37,418 (289 skipped by the suites; the 8 failures are classified in `docs/adapter.md`). Connections through the adapter start with `foreign_keys` on, as the native library bundled with SQLitePCLRaw does; the core and `.Data` keep SQLite's default (off).
 - `X REGEXP Y` calls a user function `regexp(Y, X)` as SQLite documents; without one it fails with "no such function: regexp".
@@ -20,6 +21,12 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Fixed
 
+- `sqlite3_db_filename`, `Pager.FullPath` and the journal and WAL names resolve symbolic links in every directory component of a database path, as the reference does (on macOS `/var/...` is reported as `/private/var/...`), so the core, `.Data` and the SQLitePCLRaw adapter agree and two names for one file share one lock table.
+- An unknown `COLLATE` name is an error only where the collating sequence is used (a comparison, `ORDER BY`, `GROUP BY`, `DISTINCT`, a compound select, an outer query reading a subquery column), not where it is merely written: `SELECT 'a' COLLATE nosuch` and `x COLLATE nosuch IS NULL` run, as in SQLite.
+- A one-row `INSERT ... VALUES` that fails its immediate foreign key leaves `last_insert_rowid()` unchanged, as the reference does (other forms of insert still set it before failing).
+- `PRAGMA index_list` and the automatic index names of a `WITHOUT ROWID` table number the key among the table's constraints as the reference does, including a lone `INTEGER PRIMARY KEY`, which is numbered last.
+- Growing an in-memory file with a truncate no longer allocates the new size (a hostile journal can claim a database of up to a gigabyte); `PagerOptions.JournalMode = Wal` no longer reports WAL before WAL is entered.
+- The failed-sync group-commit test no longer depends on thread timing.
 - `PRAGMA writable_schema=ON` is honoured (it was ignored): the schema table can be written and `sqlite_` names created, so the shell's `.dump` of `AUTOINCREMENT` and virtual-table databases loads.
 - The `sql` stored for `CREATE INDEX` and `CREATE VIEW` keeps the text before the closing `;` as the reference does (white space and comments after the last token).
 - `PRAGMA table_info` and `table_xinfo` list the columns of virtual tables (hidden columns in `table_xinfo` only).

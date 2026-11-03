@@ -179,6 +179,9 @@ internal enum Op : byte
     FkCheck,
     FkRun,
     FkAdd,
+
+    /// <summary>Remembers the connection's last_insert_rowid in register P1, for an FkCheck (P3 = P1 + 1) that must give it back.</summary>
+    SaveRowid,
     MaxReg,
     SchemaDelete,
     TempView,

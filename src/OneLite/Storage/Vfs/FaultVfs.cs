@@ -20,6 +20,8 @@ public sealed class FaultVfs : VfsBase
 {
     private readonly object _gate = new();
     private readonly FaultOptions _options;
+
+    internal int SyncLatencyMs => _options.SyncLatencyMs;
     private readonly List<LogEntry> _log = [];
     private readonly List<FaultOp> _ops = [];
     private readonly List<FaultRule> _rules = [];
@@ -482,6 +484,11 @@ internal sealed class FaultFile : VfsFileBase
     {
         _vfs.Begin(FaultCall.Sync, 0, out _);
         bool lost = _vfs.NextSyncLost();
+        if (_vfs.SyncLatencyMs > 0)
+        {
+            Thread.Sleep(_vfs.SyncLatencyMs);
+        }
+
         _inner.Sync(mode);
         _vfs.RecordSync(_path, _node, lost);
     }
@@ -490,6 +497,11 @@ internal sealed class FaultFile : VfsFileBase
     {
         _vfs.Begin(FaultCall.Sync, 0, out _);
         bool lost = _vfs.NextSyncLost();
+        if (_vfs.SyncLatencyMs > 0)
+        {
+            await Task.Delay(_vfs.SyncLatencyMs, ct).ConfigureAwait(false);
+        }
+
         await _inner.SyncAsync(mode, ct).ConfigureAwait(false);
         _vfs.RecordSync(_path, _node, lost);
     }

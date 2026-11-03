@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The shipped libraries inside an iOS app bundle on the simulator: tools/scripts/ios_smoke.sh builds, installs and launches it. Not part of the solution
+       (it needs the ios workload and a Mac). The checks are the ones of the NativeAOT smoke app. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-ios</TargetFramework>
+    <RuntimeIdentifier>iossimulator-arm64</RuntimeIdentifier>
+    <OutputType>Exe</OutputType>
+    <!-- The core grants internal access to this assembly name (the NativeAOT smoke app uses it too; the two are never built together). -->
+    <AssemblyName>OneLite.AotSmoke</AssemblyName>
+    <RootNamespace>RecursiveAI.OneLite.AotSmoke</RootNamespace>
+    <StartupObject>RecursiveAI.OneLite.IosSmoke.Entry</StartupObject>
+    <ApplicationId>dev.recursiveai.onelite.smoke</ApplicationId>
+    <SupportedOSPlatformVersion>15.0</SupportedOSPlatformVersion>
+    <MtouchLink>SdkOnly</MtouchLink>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <CodesignKey>-</CodesignKey>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InterfaceOrientation Include="Portrait" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="../OneLite.AotSmoke/Program.cs" Link="Program.cs" />
+    <Compile Include="../OneLite.AotSmoke/DataSmoke.cs" Link="DataSmoke.cs" />
+    <ProjectReference Include="../../src/OneLite/OneLite.csproj" />
+    <ProjectReference Include="../../src/OneLite.Data/OneLite.Data.csproj" />
+    <ProjectReference Include="../../src/OneLite.Generators/OneLite.Generators.csproj" ReferenceOutputAssembly="false" OutputItemType="Analyzer" />
+  </ItemGroup>
+
+</Project>

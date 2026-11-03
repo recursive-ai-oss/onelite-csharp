@@ -146,6 +146,10 @@ internal sealed class MemoryFileData
 {
     private byte[] _buf = [];
 
+    // Bytes of _buf that hold file content; the file reads as zeros from here up to Length, so growing a file with SetLength costs nothing
+    // (a hostile journal can claim a huge database size).
+    private int _filled;
+
     public MemoryFileData(string key)
     {
         Key = key;
@@ -172,7 +176,13 @@ internal sealed class MemoryFileData
             }
 
             int n = (int)Math.Min(dst.Length, Length - offset);
-            _buf.AsSpan((int)offset, n).CopyTo(dst);
+            int have = (int)Math.Max(0, Math.Min(n, _filled - offset));
+            if (have > 0)
+            {
+                _buf.AsSpan((int)offset, have).CopyTo(dst);
+            }
+
+            dst.Slice(have, n - have).Clear();
             return n;
         }
     }
@@ -188,12 +198,13 @@ internal sealed class MemoryFileData
             }
 
             EnsureCapacity((int)end);
-            if (offset > Length)
+            if (offset > _filled)
             {
-                _buf.AsSpan((int)Length, (int)(offset - Length)).Clear(); // a gap reads as zeros
+                _buf.AsSpan(_filled, (int)(offset - _filled)).Clear(); // a gap reads as zeros
             }
 
             src.CopyTo(_buf.AsSpan((int)offset));
+            _filled = Math.Max(_filled, (int)end);
             if (end > Length)
             {
                 Length = end;
@@ -210,13 +221,8 @@ internal sealed class MemoryFileData
                 throw new VfsException(VfsCodes.Full, "the in-memory file is too large");
             }
 
-            if (size > Length)
-            {
-                EnsureCapacity((int)size);
-                _buf.AsSpan((int)Length, (int)(size - Length)).Clear();
-            }
-
             Length = size;
+            _filled = (int)Math.Min(_filled, size);
         }
     }
 
@@ -224,7 +230,9 @@ internal sealed class MemoryFileData
     {
         lock (Gate)
         {
-            return _buf.AsSpan(0, (int)Length).ToArray();
+            var all = new byte[(int)Length];
+            _buf.AsSpan(0, _filled).CopyTo(all);
+            return all;
         }
     }
 

@@ -336,8 +336,8 @@ internal sealed partial class Compiler
             {
                 Names = [.. cols.Select(c => c.Name)],
                 Aff = [.. cols.Select(c => CmpAffOf(c.Expr))],
-                Coll = [.. cols.Select(c => CollOf(c.Expr, out _))],
-                CollNames = [.. cols.Select(c => CollOf(c.Expr, out bool any) is var ck && any ? CollName(ck) : null)],
+                Coll = [.. cols.Select(c => ResultCollOf(c.Expr, dest, core.Quantifier, out _))],
+                CollNames = [.. cols.Select(c => ResultCollName(c.Expr, dest, core.Quantifier))],
                 Decl = [.. cols.Select(c => DeclTypeOf(c.Expr))],
                 Origins = [.. cols.Select(c => OriginOf(c.Expr))],
             };
@@ -551,7 +551,11 @@ internal sealed partial class Compiler
                 inCandidates.AddRange(inTable.Indexes);
                 foreach (IndexInfo ix in inCandidates)
                 {
-                    if (ix.Where is null && ix.Columns.Length > 0 && ix.Columns[0] == inColumn && AsciiComparer.Instance.Equals(ix.Collations[0] ?? "BINARY", ownColl))
+                    // An index on a virtual generated column keeps its key as an expression naming the column.
+                    bool firstIsColumn = ix.Columns.Length > 0 && (ix.Columns[0] == inColumn
+                        || (ix.Columns[0] == -1 && inTable.Columns[inColumn].Generated == GeneratedKind.Virtual && ix.Terms.Length > 0
+                            && ix.Terms[0] is ColumnRef { Table: null } tr && AsciiComparer.Instance.Equals(tr.Column.Text, inTable.Columns[inColumn].Name)));
+                    if (ix.Where is null && firstIsColumn && AsciiComparer.Instance.Equals(ix.Collations[0] ?? "BINARY", ownColl))
                     {
                         lookup = ix;
                     }
@@ -649,6 +653,61 @@ internal sealed partial class Compiler
         }
 
         return false;
+    }
+
+    // A result column that carries an unknown COLLATE is not an error until something compares or sorts by it, as in the reference (`SELECT 'a' COLLATE nosuch` runs).
+    // Only the statement's own result rows get this: a subquery, view or compound arm looks the collation up at once, as the reference does.
+    private CollKind ResultCollOf(Expr e, Dest dest, SelectQuantifier quantifier, out bool any)
+    {
+        if (quantifier != SelectQuantifier.Distinct && dest.Kind is DestKind.Output or DestKind.Scalar or DestKind.Exists && MissingCollName(e) != null)
+        {
+            any = false;
+            return CollKind.Binary;
+        }
+
+        return CollOf(e, out any);
+    }
+
+    private string? ResultCollName(Expr e, Dest dest, SelectQuantifier quantifier) => (quantifier != SelectQuantifier.Distinct && dest.Kind is DestKind.Output or DestKind.Scalar or DestKind.Exists ? MissingCollName(e) : null) ?? (CollOf(e, out bool any) is var ck && any ? CollName(ck) : null);
+
+    // The unknown collation name that CollOf would trip over for this expression, or null.
+    private static string? MissingCollName(Expr e)
+    {
+        switch (e)
+        {
+            case ParenExpr p:
+                return MissingCollName(p.Inner);
+            case CollateExpr c:
+                return ParseCollOrNull(c.Collation.Text) == null ? c.Collation.Text : null;
+            case UnaryExpr { Op: UnaryOp.Plus } u:
+                return MissingCollName(u.Operand);
+            case CastExpr ce:
+                return MissingCollName(ce.Operand);
+            case ColumnRef:
+                return null;
+            default:
+                foreach (Expr child in CollationChildren(e))
+                {
+                    if (MissingCollName(child) is { } n)
+                    {
+                        return n;
+                    }
+                }
+
+                return null;
+        }
+    }
+
+    private static CollKind? ParseCollOrNull(string name)
+    {
+        try
+        {
+            return ParseColl(name);
+        }
+        catch (OneLiteException ex) when (ex.ExtendedCode == ResultCode.ErrorMissingCollSeq)
+        {
+            return null;
+        }
     }
 
     private CollKind OrderCollation(Expr e, bool post) => CollOf(e, out _);

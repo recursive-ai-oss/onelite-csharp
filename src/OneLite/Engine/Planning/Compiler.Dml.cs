@@ -626,6 +626,13 @@ internal sealed partial class Compiler
         }
 
         Emit(Op.Transaction, 0, 0, 0, null, 1 | 8);
+        // A one-row VALUES insert with immediate foreign keys fails before its row is written in the reference, so last_insert_rowid() keeps its old value.
+        if (ins.Returning is null && mode != ConflictAction.Replace && ins.Source.Select is { With: null, Cores: [ValuesCore { Rows.Length: 1 }] } && !t.ForeignKeys.Any(f => f.Deferred))
+        {
+            _fkRestoreRowid = NewReg();
+            Emit(Op.SaveRowid, _fkRestoreRowid);
+        }
+
         int main = NewLabel();
         Emit(Op.Goto, 0, main);
 
@@ -1082,7 +1089,7 @@ internal sealed partial class Compiler
     {
         if (_fkUsed)
         {
-            Emit(Op.FkCheck);
+            Emit(Op.FkCheck, 0, 0, _fkRestoreRowid == 0 ? 0 : _fkRestoreRowid + 1);
         }
 
         if (retCols > 0)

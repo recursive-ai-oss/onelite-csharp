@@ -464,7 +464,10 @@ internal sealed class PqsCheck : Check
         }
 
         string engine = !oursHas && !theirsHas ? "both" : !oursHas ? "ours" : "sqlite3";
-        string cls = engine == "ours" ? Classifier.Known(q, ours, theirs, "pivot", Utf16) : Verdict.Unexplained;
+        // Neither engine returns the pivot when a blob is read as text in a UTF-16 database: the reference's own answer for the rectified condition
+        // does not match the one it gave for the bare predicate (docs/engine.md, utf16-blob-text).
+        string cls = engine == "ours" ? Classifier.Known(q, ours, theirs, "pivot", Utf16)
+            : engine == "both" && Utf16 && q.Contains("x'", StringComparison.OrdinalIgnoreCase) ? "utf16-blob-text" : Verdict.Unexplained;
         return Verdict.Fail(engine, cls, $"pivot row id={_pivot} missing from the result of the rectified condition");
     }
 

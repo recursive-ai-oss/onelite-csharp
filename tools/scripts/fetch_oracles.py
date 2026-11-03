@@ -36,6 +36,11 @@ TOOLS = {
         url="https://sqlite.org/2026/sqlite-tools-osx-arm64-3530400.zip",
         sha3_256="58d53e0eb69c17cabebed2754bf399e4d44939be42dcf194769c00078bfd776d",
         sha256="e56768d61017ab3dbd9ff5690b5551846d9945830fdc0b8a9610df722f05e33b"),
+    # Windows runs only the lock-interop tests against a live shell (no native library, no SQLCipher).
+    "win-x64": dict(
+        url="https://sqlite.org/2026/sqlite-tools-win-x64-3530400.zip",
+        sha3_256="88b4659fe747896b853af10157316b4ade143553efb89c1c8ca7423a278dcc8b",
+        sha256="f46ee2475de4cbe287e6e5f7d43c838796b14e7379cd216bdbb28d391429f9fc"),
 }
 
 # The same SQLite release as a native library, from the SQLite package that SQLitePCLRaw's e_sqlite3 bundle uses.
@@ -62,6 +67,8 @@ def detect_platform():
         return "linux-x64"
     if sysname == "Darwin" and machine == "arm64":
         return "osx-arm64"
+    if sysname == "Windows" and machine in ("amd64", "x86_64"):
+        return "win-x64"
     die("unsupported platform %s/%s" % (sysname, machine))
 
 
@@ -75,7 +82,7 @@ def install_sqlite_tools(oracles, plat):
     zip_path = os.path.join(oracles, "dl", os.path.basename(t["url"]))
     present = fetch_verified(t["url"], zip_path, [("sha3_256", t["sha3_256"]), ("sha256", t["sha256"])])
     log("sqlite tools %s: sha3-256 %s.. sha-256 %s.. ok (%s)" % (plat, t["sha3_256"][:12], t["sha256"][:12], "present" if present else "downloaded"))
-    exe = os.path.join(dest_dir, "sqlite3")
+    exe = os.path.join(dest_dir, "sqlite3.exe" if plat == "win-x64" else "sqlite3")
     if os.path.isfile(exe) and version_of(exe) == SQLITE_VERSION:
         log("  %s: %s, no-op" % (exe, SQLITE_VERSION))
         return
@@ -204,8 +211,11 @@ def main():
     oracles = os.path.join(os.path.expanduser(a.root), "oracles")
     os.makedirs(os.path.join(oracles, "dl"), exist_ok=True)
     install_sqlite_tools(oracles, plat)
-    install_native(oracles, plat)
-    if not a.skip_sqlcipher:
+    if plat != "win-x64":
+        install_native(oracles, plat)
+    if plat == "win-x64":
+        pass
+    elif not a.skip_sqlcipher:
         if plat == "linux-x64":
             install_sqlcipher_linux(oracles)
         else:

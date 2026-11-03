@@ -316,21 +316,28 @@ internal sealed partial class Compiler
         return pk?.Columns ?? [];
     }
 
-    // PRAGMA index_list order: the schema's order reversed (the newest index first); a WITHOUT ROWID table's key comes last.
+    // PRAGMA index_list order: the schema's order reversed (the newest index first). A WITHOUT ROWID table's key is listed under the number its
+    // constraint has among the table's constraints, so it sits between the automatic indexes numbered around it (observed against the shell).
     private static List<IndexInfo> ListedIndexes(TableInfo t)
     {
         var l = new List<IndexInfo>(t.Indexes);
-        l.Reverse();
-        if (t.PrimaryKey is { } pk && t.WithoutRowid)
+        if (t.PrimaryKey is { } pk && t.WithoutRowid && !t.Indexes.Any(i => i.IsPrimaryKey))
         {
-            int n = Math.Max(t.AutoIndexes.FindIndex(a => a.IsPrimaryKey) + 1, 1);
-            if (!t.Indexes.Any(i => i.IsPrimaryKey))
-            {
-                l.Add(new IndexInfo { Name = "sqlite_autoindex_" + t.Name + "_" + n, Columns = pk.Columns, Collations = pk.Collations, Desc = pk.Desc, Terms = pk.Terms, Unique = true, IsPrimaryKey = true });
-            }
+            int n = Math.Max(t.AutoIndexes.FindIndex(a => a.KeyPlaceholder) + 1, 1);
+            var key = new IndexInfo { Name = "sqlite_autoindex_" + t.Name + "_" + n, Columns = pk.Columns, Collations = pk.Collations, Desc = pk.Desc, Terms = pk.Terms, Unique = true, IsPrimaryKey = true };
+            int at = l.FindIndex(i => AutoNumber(i) is var k && (k == -1 || k > n));
+            l.Insert(at < 0 ? l.Count : at, key);
         }
 
+        l.Reverse();
         return l;
+    }
+
+    // The N of an index named sqlite_autoindex_TABLE_N, or -1 for any other index.
+    private static int AutoNumber(IndexInfo i)
+    {
+        int us = i.Name.LastIndexOf('_');
+        return i.Name.StartsWith("sqlite_autoindex_", StringComparison.Ordinal) && us > 0 && int.TryParse(i.Name.AsSpan(us + 1), out int k) ? k : -1;
     }
 
     private (TableInfo, IndexInfo)? FindIndex(string name, string? schema = null)

@@ -144,7 +144,14 @@ public sealed class Fts5Tests : IDisposable
     }
 
     // The shell prints the failing position after an error; OneLite's message is the same text without it.
-    private static string Normalize(string s) => string.Join('\n', s.Split('\n').Where(l => !l.StartsWith("  ", StringComparison.Ordinal) && !l.Contains("error here ---", StringComparison.Ordinal)));
+    private static string Normalize(string s)
+    {
+        string text = string.Join('\n', s.Split('\n').Where(l => !l.StartsWith("  ", StringComparison.Ordinal) && !l.Contains("error here ---", StringComparison.Ordinal)));
+        // On arm64 a bm25 score can differ from the reference shell in its last digit (docs/fts5.md): compare 15 significant digits there.
+        return System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture == System.Runtime.InteropServices.Architecture.Arm64
+            ? System.Text.RegularExpressions.Regex.Replace(text, @"-?\d\.\d{14,}e[-+]\d+", m => double.Parse(m.Value, System.Globalization.CultureInfo.InvariantCulture).ToString("E13", System.Globalization.CultureInfo.InvariantCulture))
+            : text;
+    }
 
     /// <summary>The reference parser's stack holds 100 entries: plain nesting is fine to 97 levels, then "parser stack overflow"; a hostile query must never recurse without bound.</summary>
     [Fact]
