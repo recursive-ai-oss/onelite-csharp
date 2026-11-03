@@ -824,6 +824,14 @@ internal static class Values
         return Affinity.None;
     }
 
+    /// <summary>
+    /// The affinity applied to the values of the set that <c>x IN (SELECT ...)</c> builds. It is the comparison affinity, except that a REAL left side
+    /// with a right side of no affinity keeps REAL, so integers in the set become floating point (observed against the shell:
+    /// <c>realcol IN (SELECT 9007199254740993)</c> matches 9007199254740992.0, while <c>realcol = 9007199254740993</c> does not).
+    /// </summary>
+    internal static Affinity InSetAffinity(Affinity left, Affinity right)
+        => left == Affinity.Real && right == Affinity.None ? Affinity.Real : CompareAffinity(left, right);
+
     // ------------------------------------------------------------------ comparison
 
     private static int Fold(byte c) => c is >= (byte)'A' and <= (byte)'Z' ? c + 32 : c;

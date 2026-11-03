@@ -12,6 +12,9 @@ internal sealed class AggPlan
     internal List<FunctionCall> Calls = [];
     internal Dictionary<FunctionCall, int> Index = new(ReferenceEqualityComparer.Instance);
     internal int[] ResultRegs = [];
+
+    /// <summary>True while the arguments of a call are resolved: an aggregate of the same query inside them is misuse.</summary>
+    internal bool Registering;
 }
 
 internal sealed partial class Compiler
@@ -80,10 +83,23 @@ internal sealed partial class Compiler
             throw Err("misuse of aggregate function " + name + "()");
         }
 
-        int nargs = f.Args.IsDefaultOrEmpty ? 0 : f.Args.Length;
         if (_aggDiscover)
         {
-            if (!_aggPlan.Index.ContainsKey(f))
+            RegisterAggregate(_aggPlan, f, kind);
+            Emit(Op.Null, 0, dest);
+            return;
+        }
+
+        Emit(Op.Copy, _aggPlan.ResultRegs[_aggPlan.Index[f]], dest);
+    }
+
+    /// <summary>Checks an aggregate call and adds it to the plan of the query that owns it, resolving its arguments so the columns they read are planned.</summary>
+    private void RegisterAggregate(AggPlan plan, FunctionCall f, AggKind kind)
+    {
+        string name = f.Name.Text;
+        int nargs = f.Args.IsDefaultOrEmpty ? 0 : f.Args.Length;
+        {
+            if (!plan.Index.ContainsKey(f))
             {
                 bool distinct = f.Quantifier == CallQuantifier.Distinct;
                 if (distinct && (nargs != 1 || kind == AggKind.CountStar))
@@ -105,37 +121,40 @@ internal sealed partial class Compiler
                     throw Err("wrong number of arguments to function " + name + "()");
                 }
 
-                foreach (Expr a in f.Args)
+                plan.Registering = true;
+                try
                 {
-                    if (FindAggregate(a) is { } inner)
+                    foreach (Expr a in f.Args)
                     {
-                        throw Err("misuse of aggregate function " + inner.Name.Text + "()");
+                        if (FindAggregate(a) is { } inner)
+                        {
+                            throw Err("misuse of aggregate function " + inner.Name.Text + "()");
+                        }
+
+                        RejectWindowCalls(a);
+
+                        Compile(a);
                     }
 
-                    RejectWindowCalls(a);
+                    if (f.Filter is not null)
+                    {
+                        Compile(f.Filter);
+                    }
 
-                    Compile(a);
+                    foreach (OrderingTerm ot in f.OrderBy)
+                    {
+                        Compile(ot.Expr);
+                    }
                 }
-
-                if (f.Filter is not null)
+                finally
                 {
-                    Compile(f.Filter);
+                    plan.Registering = false;
                 }
 
-                foreach (OrderingTerm ot in f.OrderBy)
-                {
-                    Compile(ot.Expr);
-                }
-
-                _aggPlan.Index[f] = _aggPlan.Calls.Count;
-                _aggPlan.Calls.Add(f);
+                plan.Index[f] = plan.Calls.Count;
+                plan.Calls.Add(f);
             }
-
-            Emit(Op.Null, 0, dest);
-            return;
         }
-
-        Emit(Op.Copy, _aggPlan.ResultRegs[_aggPlan.Index[f]], dest);
     }
 
     private void EmitAggregate(SimpleSelect core, Scope scope, List<Expr> joinPool, Expr[] groupExprs, ImmutableArray<OrderingTerm> order, Pipe pipe, bool orderedGroups)
@@ -507,14 +526,14 @@ internal sealed partial class Compiler
 
     /// <summary>The state of the grouped query around a subquery in one of its expressions, kept while the subquery is compiled.</summary>
     private sealed record AggSave(Dictionary<(Source, int), int>? RecordCols, Dictionary<(Source, int), int>? ColMap, AggPlan? Plan, bool Discover,
-        List<(Expr Expr, int Reg)>? GroupKeys, HashSet<Source> Sources);
+        List<(Expr Expr, int Reg)>? GroupKeys, HashSet<Source> Sources, Scope? Owner);
 
     private readonly List<AggSave> _aggSaves = [];
 
     private int BeginSubquery(out Probe probe, out int guard, PlanNodeKind kind = PlanNodeKind.Subquery, string title = "", string detail = "")
     {
         // The subquery has its own FROM items and its own aggregates; the columns of the grouped query it refers to are still read from the group.
-        _aggSaves.Add(new AggSave(_recordCols, _colMap, _aggPlan, _aggDiscover, _groupKeyRegs, _scope is null ? [] : [.. _scope.Sources]));
+        _aggSaves.Add(new AggSave(_recordCols, _colMap, _aggPlan, _aggDiscover, _groupKeyRegs, _scope is null ? [] : [.. _scope.Sources], _scope));
         _recordCols = null;
         _colMap = null;
         _aggPlan = null;
@@ -638,7 +657,7 @@ internal sealed partial class Compiler
             _ = explicitColl;
             int x = NewReg();
             CompileInto(operand, x);
-            Affinity aff = Values.CompareAffinity(CmpAffOf(operand), meta.Aff[0]);
+            Affinity aff = Values.InSetAffinity(CmpAffOf(operand), meta.Aff[0]);
             if (aff != Affinity.None)
             {
                 Emit(Op.CompareAffinity, x, 0, 0, null, (int)aff);
