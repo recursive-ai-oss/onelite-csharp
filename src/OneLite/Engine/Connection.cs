@@ -77,6 +77,13 @@ public sealed record DatabaseOptions
     /// </summary>
     public int ConcurrentCommitHoldLimitMs { get; init; } = 5000;
 
+    /// <summary>
+    /// Let <c>BEGIN CONCURRENT</c> commits made through connections of this process share one WAL sync when <c>synchronous</c> is FULL or EXTRA
+    /// (docs/concurrency.md, group commit). A commit is still acknowledged only after a sync that covers its frames, and readers see it only after that sync.
+    /// Default true; it has no effect at lower <c>synchronous</c> levels, for plain transactions, or for connections in other processes.
+    /// </summary>
+    public bool ConcurrentGroupCommit { get; init; } = true;
+
     /// <summary>Pages after which a commit in WAL mode checkpoints (<c>PRAGMA wal_autocheckpoint</c>). Default 1000.</summary>
     public int WalAutoCheckpoint { get; init; } = 1000;
 }
@@ -271,6 +278,7 @@ public sealed partial class Database : IDisposable, IAsyncDisposable
             Synchronous = _options.Synchronous,
             WalAutoCheckpoint = _options.WalAutoCheckpoint,
             ConcurrentCommitHoldLimitMs = _options.ConcurrentCommitHoldLimitMs,
+            GroupCommit = _options.ConcurrentGroupCommit,
             CacheSize = _options.CacheSize,
             Busy = busy.Next,
             BusySpinBudgetUs = busy.SpinBudgetUs,

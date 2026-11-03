@@ -8,6 +8,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 - `RecursiveAI.OneLite.SQLitePCLRaw`: an `ISQLite3Provider` for SQLitePCLRaw that runs on OneLite, so `Microsoft.Data.Sqlite` and EF Core's SQLite provider use it without a native library (`OneLiteBatteries.Init()`). `Microsoft.Data.Sqlite`'s own tests pass 670 of 687 and EF Core's SQLite functional tests 37,117 of 37,418 (289 skipped by the suites; the 12 failures are classified in `docs/adapter.md`). Connections through the adapter start with `foreign_keys` on, as the native library bundled with SQLitePCLRaw does; the core and `.Data` keep SQLite's default (off).
 - `X REGEXP Y` calls a user function `regexp(Y, X)` as SQLite documents; without one it fails with "no such function: regexp".
+- Group commit for `BEGIN CONCURRENT` at `synchronous=FULL` or EXTRA: concurrent commits of one process share WAL syncs. A commit is acknowledged only after a sync that covers it, and readers see it only after that sync, so durability is unchanged; on the test disk eight threads commit 3.4 to 3.7 times as fast as with `BEGIN IMMEDIATE` (before: no gain at FULL). It affects nothing unless `ConcurrentWrites` is on and `BEGIN CONCURRENT` is used; plain `BEGIN`, `BEGIN IMMEDIATE`, autocommit and `synchronous=NORMAL` are unchanged. `DatabaseOptions.ConcurrentGroupCommit = false` turns it off. See `docs/wal.md` and `docs/concurrency.md`.
 
 ### Fixed
 

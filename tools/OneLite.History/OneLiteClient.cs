@@ -22,7 +22,8 @@ public sealed class OneLiteClientFactory : IHistoryClientFactory
     {
         JournalMode = JournalMode.Wal,
         ConcurrentWrites = true,
-        Synchronous = SynchronousMode.Normal,
+        // ONELITE_HISTORY_SYNC=full runs the same workloads with WAL commits that share syncs (group commit).
+        Synchronous = Environment.GetEnvironmentVariable("ONELITE_HISTORY_SYNC") == "full" ? SynchronousMode.Full : SynchronousMode.Normal,
         BusyTimeoutMs = 30000,
     };
 

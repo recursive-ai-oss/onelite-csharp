@@ -84,6 +84,12 @@ public sealed partial class Pager
                         return s;
                     }
 
+                    if (_ccStep == 4)
+                    {
+                        // A concurrent commit rebasing inside a group reads the log including commits that are appended but not published yet.
+                        GroupAdoptTail();
+                    }
+
                     if (_hdrSnapOk && _hasHeader && _cipher is null && _wal!.Snap == _hdrSnap)
                     {
                         // The snapshot is the one page 1 was parsed under: nothing it holds can have changed, so the size and header reads are

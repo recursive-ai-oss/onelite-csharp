@@ -550,6 +550,18 @@ public sealed partial class Pager : IDisposable, IAsyncDisposable
                 case IoKind.ShmLock:
                     c.Value = r.Shm!.Lock((int)r.Offset, r.Length, (ShmLockOptions)r.Arg) ? 1 : 0;
                     break;
+                case IoKind.GroupWait:
+                    // A wait on another thread of this process; the sync driver may block here, as for any backend call.
+                    if (r.Length > 0)
+                    {
+                        r.Wait!.Wait(r.Length);
+                    }
+                    else
+                    {
+                        r.Wait!.Wait();
+                    }
+
+                    break;
                 default:
                     throw new InvalidOperationException("unknown request " + r.Kind);
             }
@@ -634,6 +646,24 @@ public sealed partial class Pager : IDisposable, IAsyncDisposable
                     break;
                 case IoKind.ShmLock:
                     c.Value = await r.Shm!.LockAsync((int)r.Offset, r.Length, (ShmLockOptions)r.Arg, t).ConfigureAwait(false) ? 1 : 0;
+                    break;
+                case IoKind.GroupWait:
+                    if (r.Length > 0)
+                    {
+                        try
+                        {
+                            await r.Wait!.WaitAsync(TimeSpan.FromMilliseconds(r.Length), t).ConfigureAwait(false);
+                        }
+                        catch (TimeoutException)
+                        {
+                            // The wait was only a bounded wait for company.
+                        }
+                    }
+                    else
+                    {
+                        await r.Wait!.WaitAsync(t).ConfigureAwait(false);
+                    }
+
                     break;
                 default:
                     throw new InvalidOperationException("unknown request " + r.Kind);

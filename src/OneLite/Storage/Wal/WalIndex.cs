@@ -211,6 +211,11 @@ internal sealed class WalIndex
 
     private Memory<byte> Region0 => _regions[0]!.Memory;
 
+    private WalGroup? _group;
+
+    /// <summary>The group-commit state shared by every connection of this process on the same wal-index. Region 0 must be mapped.</summary>
+    public WalGroup Group => _group ??= WalGroup.For(Region0);
+
     /// <summary>
     /// Reads the header: both copies must be equal, checksummed, initialised and of the supported version. Returns false if they are not (the caller
     /// retries, then recovers).
