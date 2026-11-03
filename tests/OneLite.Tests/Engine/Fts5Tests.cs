@@ -418,6 +418,50 @@ public sealed class Fts5Tests : IDisposable
         Assert.Equal("ok\n", RTreeTests.Shell(s, "PRAGMA integrity_check"));
     }
 
+    /// <summary>Small and large pages and UTF-16 text make multi-level segments and long structure records; each engine writes into the other's index and both still accept it.</summary>
+    [Theory]
+    [InlineData(512, "UTF-16le")]
+    [InlineData(65536, "UTF-16be")]
+    [InlineData(4096, "UTF-8")]
+    public void CrossWrittenIndexesPassBothIntegrityChecks(int pageSize, string encoding)
+    {
+        NeedOracle();
+        string o = Path.Combine(_dir, "ours.db"), s = Path.Combine(_dir, "shell.db");
+        string setup = $"PRAGMA encoding='{encoding}'; PRAGMA page_size={pageSize}; CREATE VIRTUAL TABLE t USING fts5(a, b, prefix='2 3'); BEGIN; " +
+            "WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i+1 FROM n WHERE i < 6000) " +
+            "INSERT INTO t(rowid, a, b) SELECT i, 'w' || (i % 97) || ' x' || (i % 389) || ' y' || (i * 7 % 1013) || ' common', 'z' || (i % 31) FROM n; COMMIT; " +
+            "DELETE FROM t WHERE rowid % 17 = 0;";
+        string more = "INSERT INTO t(rowid, a, b) SELECT 10000 + value, 'w' || (value % 53) || ' later', 'q' FROM generate_series(1, 400); " +
+            "DELETE FROM t WHERE rowid % 5 = 1; INSERT INTO t(t) VALUES('optimize'); INSERT INTO t(t, rank) VALUES('merge', 4);";
+        using (var db = Database.Open(o))
+        {
+            Assert.Equal(string.Empty, Script(db, setup));
+        }
+
+        Assert.Equal(string.Empty, RTreeTests.Shell(s, setup));
+        Assert.Equal(string.Empty, RTreeTests.Shell(o, more));
+        using (var db = Database.Open(s))
+        {
+            Assert.Equal(string.Empty, Script(db, more));
+        }
+
+        foreach (string f in new[] { o, s })
+        {
+            Assert.Equal(string.Empty, RTreeTests.Shell(f, "INSERT INTO t(t) VALUES('integrity-check')"));
+            Assert.Equal("ok\n", RTreeTests.Shell(f, "PRAGMA integrity_check"));
+            using var db = Database.Open(f);
+            using Connection c = db.Connect();
+            Assert.Equal(string.Empty, RTreeTests.Ours(c, "INSERT INTO t(t) VALUES('integrity-check')"));
+        }
+
+        const string q = "SELECT count(*), sum(rowid) FROM t WHERE t MATCH 'common OR later OR w1*'";
+        using (var db = Database.Open(o))
+        using (Connection c = db.Connect())
+        {
+            Assert.Equal(RTreeTests.Shell(s, q), RTreeTests.Ours(c, q));
+        }
+    }
+
     [Theory]
     [InlineData(1)]
     [InlineData(3)]

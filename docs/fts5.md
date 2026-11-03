@@ -70,3 +70,8 @@ modified by both engines. Tokenizers (`unicode61`, `ascii`, `porter`, `trigram`)
 auxiliary functions, vocab tables) and compares rows and error text per statement with the shell, then runs the shell's `integrity-check` and
 `PRAGMA integrity_check` on the file OneLite wrote and OneLite's `integrity-check` on the shell's file.
 `tests/OneLite.Tests/Engine/Fts5Tests.cs` runs the same comparisons over a fixed corpus.
+
+`tools/fts/fts_interop.py` builds the same index with both engines (20,000 documents; any page size, `utf8`/`utf16le`/`utf16be`, `detail` full/column/none),
+lets each engine write into the other's file (inserts, deletes, `optimize`, `merge`) and requires the `integrity-check` command and
+`PRAGMA integrity_check` to pass on both sides and 600 seeded queries to agree on all four engine/file pairings. `CrossWrittenIndexesPassBothIntegrityChecks`
+is the small version of it (512/UTF-16le, 65536/UTF-16be, 4096/UTF-8) that runs with the unit tests.
