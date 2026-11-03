@@ -70,7 +70,7 @@ Run against `Microsoft.Data.Sqlite` 10.0.14's and EF Core 10.0.14's tests, with 
 | `Microsoft.Data.Sqlite` | 687 | 670 | 10 | 7 |
 | EF Core SQLite, not `Query` | 20,580 | 20,374 | 7 | 199 |
 | EF Core SQLite, `Query` Northwind and Gears of War | 8,313 | 8,290 | 2 | 21 |
-| EF Core SQLite, other `Query` | 8,525 | 8,452 | 4 | 69 |
+| EF Core SQLite, other `Query` | 8,525 | 8,453 | 3 | 69 |
 
 Every failure, classified:
 
