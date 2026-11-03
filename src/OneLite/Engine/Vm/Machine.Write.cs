@@ -613,6 +613,13 @@ internal sealed partial class Machine
         return RunResult.Done;
     }
 
+    // An I/O error undoes the whole transaction, as the reference does (rescode, c3ref sqlite3_get_autocommit): the shell shows it too, a failed
+    // write in the middle of an INSERT leaves no row of the transaction behind.
+    private static bool IsIoError(Exception? e) => e is OneLiteException { ExtendedCode: var code } && (code & 0xff) == ResultCode.IoErr;
+
+    private static bool IsStorageFault(Exception? e) =>
+        e is OneLiteException { ExtendedCode: var code } && (code & 0xff) is ResultCode.IoErr or ResultCode.Full or ResultCode.Corrupt or ResultCode.NoMem or ResultCode.CantOpen;
+
     /// <summary>Ends the write side of the statement: commit in autocommit mode, statement rollback or transaction rollback after an error.</summary>
     private RunResult FinishWrite(bool error)
     {
@@ -636,10 +643,11 @@ internal sealed partial class Machine
                         {
                             _fwWhole = true;
                         }
-                        else if (_noStmtSp && _stmtDirty)
+                        else if (IsIoError(Error) || (_noStmtSp && (_stmtDirty || IsStorageFault(Error))))
                         {
-                            // No savepoint to go back to and a write has begun: only an I/O or storage fault can get here, and those undo the whole
-                            // transaction (c3ref sqlite3_get_autocommit, rescode).
+                            // No savepoint to go back to. Once a write has begun only an I/O or storage fault can get here, and those undo the whole
+                            // transaction (c3ref sqlite3_get_autocommit, rescode). A storage fault before the first write (a failed cache spill or
+                            // journal flush while the pages were being fetched) leaves the pager in an unknown state, so it undoes the transaction too.
                             _fwWhole = true;
                         }
                         else if (!_noStmtSp)
@@ -1094,6 +1102,17 @@ internal sealed partial class Machine
                         {
                             // A refused concurrent commit has given up its work already; only ROLLBACK is left.
                             _conn.ConcDoomed = true;
+                        }
+
+                        if (IsIoError(Error))
+                        {
+                            // An I/O error during COMMIT undoes the transaction, as the reference does (the shell leaves autocommit mode back on and
+                            // none of the rows). The rollback runs first; the COMMIT then reports the error.
+                            _hookAsked = false;
+                            _hookErr = Error;
+                            Error = null;
+                            _wstep = 20;
+                            break;
                         }
 
                         _wstep = 0;

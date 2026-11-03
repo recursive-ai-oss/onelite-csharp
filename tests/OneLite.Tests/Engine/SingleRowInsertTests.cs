@@ -1,5 +1,8 @@
 using System;
 using System.IO;
+using System.Linq;
+using RecursiveAI.OneLite.Storage.Pager;
+using RecursiveAI.OneLite.Storage.Vfs;
 using Xunit;
 
 namespace RecursiveAI.OneLite.Tests.Engine;
@@ -108,5 +111,91 @@ public sealed class SingleRowInsertTests : IDisposable
         using Statement q = c.Prepare("select group_concat(b, '|') from (select b from t order by id)");
         Assert.True(q.Step());
         Assert.Equal("aaaa|bbbb|cc|dddd|é", q.GetString(0));
+    }
+    /// <summary>
+    /// A storage error in the middle of a savepoint-free single-row insert, inside an explicit transaction, rolls the whole transaction back (the shell
+    /// does the same when a write fails with an I/O error: the rows of the earlier statements are gone, the connection is back in autocommit mode,
+    /// and the file passes integrity_check).
+    /// </summary>
+    [Theory]
+    [InlineData(JournalMode.Delete, 1)]
+    [InlineData(JournalMode.Delete, 3)]
+    [InlineData(JournalMode.Delete, 9)]
+    [InlineData(JournalMode.Wal, 1)]
+    [InlineData(JournalMode.Wal, 2)]
+    public void AWriteErrorInsideATransactionRollsBackTheWholeTransaction(JournalMode jm, int nthWrite)
+    {
+        var fault = new FaultVfs(new MemoryVfs());
+        var opts = new DatabaseOptions { Vfs = fault, PageSize = 512, JournalMode = jm, CacheSize = 4 };
+        using (Database db = Database.Open("f.db", opts))
+        using (Connection c = db.Connect())
+        {
+            Exec(c, "create table t(id integer primary key, a text)");
+            Exec(c, "insert into t select value * 100, hex(randomblob(60)) from generate_series(1, 4000)");
+        }
+
+        // A fresh connection starts with a cold cache: the inserts below miss, and a miss over the cache limit pushes dirty pages to the journal or WAL.
+        using (Database db = Database.Open("f.db", opts))
+        using (Connection c = db.Connect())
+        {
+            Exec(c, "pragma cache_size = 4");
+            fault.AddRule(new FaultRule { Call = FaultCall.Write, Nth = 1 + (int)CountWrites(fault) + nthWrite - 1, ExtendedCode = VfsCodes.IoErrWrite });
+            Exec(c, "begin");
+            Exec(c, "insert into t values(-1, 'first')");
+            bool failed = false;
+            for (int i = 0; i < 3000 && !failed; i++)
+            {
+                try
+                {
+                    Exec(c, "insert into t values(" + (1 + (i * 7919 % 200003) * 2) + ", hex(randomblob(60)))");
+                }
+                catch (OneLiteException e)
+                {
+                    failed = true;
+                    Assert.Equal(10, e.ExtendedCode & 0xff);
+                }
+            }
+
+            if (!failed)
+            {
+                // The WAL commit writes its frames in one go and no page was pushed out before it, so the failure shows up at COMMIT.
+                Assert.Equal(JournalMode.Wal, jm);
+                Assert.Equal(10, Assert.Throws<OneLiteException>(() => Exec(c, "commit")).ExtendedCode & 0xff);
+            }
+            Assert.True(c.AutoCommit, "the failed transaction should be over");
+            Assert.Equal(4000, Count(c, "select count(*) from t"));
+            Assert.Equal("ok", Text(c, "pragma integrity_check"));
+            Exec(c, "insert into t values(-2, 'later')");
+            Assert.Equal(4001, Count(c, "select count(*) from t"));
+        }
+
+        using (Database db = Database.Open("f.db", opts with { Vfs = fault.Inner }))
+        using (Connection c = db.Connect())
+        {
+            Assert.Equal(4001, Count(c, "select count(*) from t"));
+            Assert.Equal(0, Count(c, "select count(*) from t where id = -1"));
+            Assert.Equal("ok", Text(c, "pragma integrity_check"));
+        }
+    }
+
+    private static long CountWrites(FaultVfs v)
+    {
+        long n = 0;
+        foreach (FaultOp o in v.Ops)
+        {
+            if (o.Kind == FaultOpKind.Write)
+            {
+                n++;
+            }
+        }
+
+        return n;
+    }
+
+    private static string Text(Connection c, string sql)
+    {
+        using Statement st = c.Prepare(sql);
+        Assert.True(st.Step());
+        return st.GetString(0)!;
     }
 }

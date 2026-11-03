@@ -191,7 +191,7 @@ internal sealed partial class Machine
         }
     }
 
-    private RunResult BtFail(BtCursor c) => Fail(c.Error ?? new InvalidOperationException("cursor failed without an error"));
+    private RunResult BtFail(BtCursor c) => Fail(c.Error ?? c.SourceError ?? new InvalidOperationException("cursor failed without an error"));
 
     private VmCursor Cursor(int i) => _cur[i];
 

@@ -128,6 +128,9 @@ public sealed partial class BtCursor : IDisposable
     /// <summary>The failure behind <see cref="CursorState.Fault"/> or the last <see cref="BtStatus.Error"/>.</summary>
     public Exception? Error { get; private set; }
 
+    /// <summary>The error the page source (the pager) holds, for a failure that reached the caller without passing through this cursor.</summary>
+    public Exception? SourceError => _src.LastError;
+
     /// <summary>Releases every pinned page and returns the cursor to <see cref="CursorState.Invalid"/>, abandoning any operation in progress.</summary>
     public void Reset()
     {
