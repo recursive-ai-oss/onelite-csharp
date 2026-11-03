@@ -109,3 +109,77 @@ public class RecoverTests
         Assert.Equal(before, Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(db))));
     }
 }
+
+public class ImportFuzzTests
+{
+    /// <summary>Random text over the characters that matter to the reader: the same file imported by both shells must give the same table and the same warnings.</summary>
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    public void RandomDelimitedTextImportsLikeTheShell(int seed)
+    {
+        Assert.SkipUnless(Harness.OracleAvailable, "the pinned sqlite3 is not installed");
+        var rnd = new Random(seed);
+        string alphabet = "ab,\"\n\r ;|\t1";
+        string path = Harness.PathIn("fuzz" + seed + ".csv");
+        for (int i = 0; i < 150; i++)
+        {
+            var sb = new System.Text.StringBuilder();
+            int n = rnd.Next(0, 40);
+            for (int k = 0; k < n; k++)
+            {
+                sb.Append(alphabet[rnd.Next(alphabet.Length)]);
+            }
+
+            File.WriteAllText(path, sb.ToString());
+            foreach (string opt in new[] { "--csv", "--csv --skip 1", "" })
+            {
+                Harness.Compare($"fuzz {seed}/{i} [{opt}] {sb.ToString().Replace("\n", "\\n", StringComparison.Ordinal).Replace("\r", "\\r", StringComparison.Ordinal)}",
+                    [":memory:", $".import {opt} {path} t", ".mode quote", "select * from t"]);
+            }
+        }
+    }
+}
+
+public class RecoverHostileFileTests
+{
+    [Fact]
+    public void DamagedFilesAreReportedNotCrashedOn()
+    {
+        string good = Harness.MakeDb("hostile-src.db", "create table t(a,b);\n" + string.Concat(Enumerable.Range(0, 500).Select(i => $"insert into t values({i},'row {i} with some padding text to fill pages');\n")) + "delete from t where a%2=0;\n");
+        byte[] bytes = File.ReadAllBytes(good);
+        var rnd = new Random(7);
+        for (int i = 0; i < 40; i++)
+        {
+            byte[] copy = (byte[])bytes.Clone();
+            switch (i % 4)
+            {
+                case 0:
+                    for (int k = 0; k < 20; k++)
+                    {
+                        copy[100 + rnd.Next(copy.Length - 100)] ^= (byte)(1 << rnd.Next(8));
+                    }
+
+                    break;
+                case 1:
+                    Array.Resize(ref copy, rnd.Next(1, copy.Length));
+                    break;
+                case 2:
+                    rnd.NextBytes(copy.AsSpan(rnd.Next(100, copy.Length - 64), 64));
+                    break;
+                default:
+                    rnd.NextBytes(copy.AsSpan(0, 120));
+                    break;
+            }
+
+            string path = Harness.PathIn("hostile.db");
+            File.WriteAllBytes(path, copy);
+            string hash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(copy));
+            Harness.Outcome r = Harness.Ours([path, ".recover"]);
+            Assert.True(r.Exit is 0 or 1, "unexpected exit code " + r.Exit);
+            Assert.DoesNotContain("Unhandled exception", r.Stderr, StringComparison.Ordinal);
+            Assert.Equal(hash, Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(path))));
+            Assert.False(File.Exists(path + "-wal") || File.Exists(path + "-shm") || File.Exists(path + "-journal"));
+        }
+    }
+}

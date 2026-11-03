@@ -36,6 +36,12 @@ internal sealed partial class Shell
         /// <summary>The 1-based line on which the last record read started.</summary>
         public int Line { get; private set; } = 1;
 
+        /// <summary>True if the last record read ended with the end of the text rather than a newline.</summary>
+        public bool EndedAtEof { get; private set; }
+
+        /// <summary>True if the last record ended with a separator and then the end of the text: its last field is empty and, when the record is short, NULL.</summary>
+        public bool EndsInSeparator { get; private set; }
+
         private bool At(int i, string s) => s.Length > 0 && string.CompareOrdinal(_text, i, s, 0, s.Length) == 0;
 
         private int RowEndLength(int i)
@@ -51,6 +57,8 @@ internal sealed partial class Shell
         public bool Next(List<string> fields)
         {
             fields.Clear();
+            EndedAtEof = false;
+            EndsInSeparator = false;
             if (_pos >= _text.Length)
             {
                 return false;
@@ -115,6 +123,7 @@ internal sealed partial class Shell
                 fields.Add(sb.ToString());
                 if (_pos >= _text.Length)
                 {
+                    EndedAtEof = true;
                     return true;
                 }
 
@@ -124,6 +133,8 @@ internal sealed partial class Shell
                     if (_pos >= _text.Length)
                     {
                         fields.Add(string.Empty);
+                        EndedAtEof = true;
+                        EndsInSeparator = true;
                         return true;
                     }
 
@@ -252,6 +263,12 @@ internal sealed partial class Shell
                 return false;
             }
 
+            if (reader.EndedAtEof && fields.Count > 1 && fields[^1].Length == 0)
+            {
+                // A header line cut off by the end of the file right after a separator names no column after it.
+                fields.RemoveAt(fields.Count - 1);
+            }
+
             var names = fields.Select(f => f.Length == 0 ? "?" : f).ToList();
             var renamed = new List<string>();
             var counts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
@@ -313,9 +330,10 @@ internal sealed partial class Shell
                     ErrLine($"{file}:{reader.Line}: expected {ncol} columns but found {fields.Count} - " + (fields.Count < ncol ? "filling the rest with NULL" : "extras ignored"));
                 }
 
+                int present = reader.EndsInSeparator && fields.Count < ncol ? fields.Count - 1 : fields.Count;
                 for (int i = 0; i < ncol; i++)
                 {
-                    if (i < fields.Count)
+                    if (i < present)
                     {
                         ins.Bind(i + 1, fields[i]);
                     }
