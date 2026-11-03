@@ -342,7 +342,7 @@ internal static class FunctionTable
     {
         "sqlite_offset", "avg", "count", "group_concat", "string_agg", "sum", "total", "median", "mode", "percentile", "percentile_cont",
         "percentile_disc", "row_number", "rank", "dense_rank", "percent_rank", "cume_dist", "ntile", "lag", "lead", "first_value",
-        "last_value", "nth_value", "regexp", "match", "highlight", "snippet", "bm25", "rtreecheck",
+        "last_value", "nth_value", "match", "highlight", "snippet", "bm25", "rtreecheck",
     };
 
     internal static bool IsKnownUnsupported(string name)

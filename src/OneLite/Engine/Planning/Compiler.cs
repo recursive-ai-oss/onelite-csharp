@@ -1683,7 +1683,14 @@ internal sealed partial class Compiler
 
         if (l.Op == LikeOp.Regexp)
         {
-            throw Unsupported("REGEXP");
+            // lang_expr: X REGEXP Y is the user function regexp(Y, X); without one the call fails as any missing function does.
+            CompileCall(new FunctionCall(new Name("regexp"), CallQuantifier.None, false, [l.Pattern, l.Left], default, null, null), dest);
+            if (l.Negated)
+            {
+                Emit(Op.Not, dest, dest);
+            }
+
+            return;
         }
 
         // LIKE and GLOB are calls of like(pattern, text): the pattern's names are resolved first.

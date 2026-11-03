@@ -224,6 +224,23 @@ public class ProviderParityTests
     });
 
     [Fact]
+    public void RegexpCallsTheUserFunction() => Same(log =>
+    {
+        sqlite3 db = Open();
+        Query(log, db, "select 'abc' regexp 'b'");
+        raw.sqlite3_create_function(db, "regexp", 2, null, (ctx, user, args) =>
+        {
+            // regexp(pattern, text): the operator swaps the operands.
+            string pat = raw.sqlite3_value_text(args[0]).utf8_to_string() ?? "";
+            string txt = raw.sqlite3_value_text(args[1]).utf8_to_string() ?? "";
+            raw.sqlite3_result_int(ctx, txt.Contains(pat, StringComparison.Ordinal) ? 1 : 0);
+        });
+        Query(log, db, "select 'abc' regexp 'b', 'abc' not regexp 'z', 'abc' regexp 'z'");
+        raw.sqlite3_close(db);
+        return "";
+    });
+
+    [Fact]
     public void UserFunctionsAggregatesCollations() => Same(log =>
     {
         sqlite3 db = Open();
