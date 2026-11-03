@@ -68,20 +68,20 @@ A commit has the cost of an ordinary WAL commit, and with `synchronous=FULL` the
 
 ## When it helps
 
-Indicative numbers from one 16-core x64 machine (Linux, local NVMe, WAL, 4 KiB pages, default cache), threads of one process with one connection each, matched settings on both modes, 5 s per run, a few other jobs running on the machine. The table is `BEGIN CONCURRENT` commits per second divided by `BEGIN IMMEDIATE` commits per second. Each transaction reads 10 rows and updates 5 rows in the writer's own key range of a 400,000-row table; **B** is a busy loop of that many microseconds of application work inside the transaction.
+Indicative numbers from one 16-core x64 machine (Linux, local NVMe, WAL, 4 KiB pages, default cache, other jobs running), threads of one process with one connection each, matched settings on both modes, 5 s per run, a few other jobs running on the machine. The table is `BEGIN CONCURRENT` commits per second divided by `BEGIN IMMEDIATE` commits per second. Each transaction reads 10 rows and updates 5 rows in the writer's own key range of a 400,000-row table; **B** is a busy loop of that many microseconds of application work inside the transaction.
 
 | `synchronous=NORMAL` | W=2 | W=4 | W=8 |
 |---|---|---|---|
-| B = 0 µs | 0.85 | 0.75 | 0.72 |
-| B = 100 µs | 0.97 | 1.29 | 1.41 |
-| B = 1000 µs | 1.12 | 2.83 | 5.54 |
+| B = 0 µs | 0.81 | 0.93 | 0.86 |
+| B = 100 µs | 0.97 | 2.23 | 3.35 |
+| B = 1000 µs | 1.08 | 2.91 | 6.31 |
 
-- Writers on disjoint pages win once a transaction's body is long enough to overlap: about 1.3x to 1.4x at 100 µs of work and 2.8x to 5.5x at 1 ms with four to eight writers. Inserts into each writer's own key range behave the same (1.2x at 100 µs and 4.6x at 1 ms with eight writers). Abort rates were 0%.
-- With no work in the body (B = 0) concurrent is 15% to 28% slower: every commit that follows another also replays its trace.
-- When 5% or 20% of the transactions also update one shared row the gain shrinks a little (1 ms, eight writers: 5.4x at 5%, 4.7x at 20%, with 1% and 10% of the attempts aborting).
-- With writers in separate processes the ratios are 1.5x to 1.6x at 100 µs and 2.8x to 5.3x at 1 ms.
-- **With `synchronous=FULL` there is no gain yet**: the write lock is held through the sync, so both modes commit at one sync per commit (150 commits per second on this disk) whatever the number of writers.
-- Much of what is left of the gap at short bodies is how a waiting writer retries for the write lock. With `busy_timeout` it sleeps 1, 2, 5, ... ms between tries, although the lock is usually free again within tens of microseconds. With yielding retries instead (a busy handler that returns 0), eight writers at 100 µs of work reach 3.9x and at 1 ms 6.7x.
+- Writers on disjoint pages win once a transaction's body is long enough to overlap: about 2.2x to 3.4x at 100 µs of work and 2.9x to 6.3x at 1 ms with four to eight writers (at 100 µs, eight writers commit about 24,800 times a second against 7,400). With two writers the gain is small. Abort rates on disjoint ranges were 0%.
+- With no work in the body (B = 0) concurrent is 7% to 19% slower: every commit that follows another also replays its trace.
+- With writers in separate processes the ratios are the same within noise (B = 100 µs: 2.4x at four writers, 3.6x at eight; B = 1 ms: 2.9x and 6.4x).
+- When 20% of the transactions also update one shared row, eight writers at 1 ms still gain 5.6x, with 11% of the attempts aborting and retried.
+- **With `synchronous=FULL` there is no gain yet**: the write lock is held through the sync, so both modes commit at one sync per commit (about 50 commits per second on the disk used here) whatever the number of writers.
+- A commit that finds the write lock busy first retries it for up to a millisecond with only a yield between tries, because the holder is usually a replay of a few microseconds; only then does the usual busy schedule (1, 2, 5, ... ms) apply. The spin counts against `busy_timeout`, and without a timeout or a busy handler a busy lock still fails at once. Plain `BEGIN IMMEDIATE` and every other wait use the schedule alone.
 
 The workloads are `conc-shapes` in `OneLite.Durability`; they say nothing about other hardware, and the publishable comparison is the benchmark suite's.
 
