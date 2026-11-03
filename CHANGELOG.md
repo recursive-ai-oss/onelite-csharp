@@ -13,6 +13,9 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Fixed
 
+- `PRAGMA writable_schema=ON` is honoured (it was ignored): the schema table can be written and `sqlite_` names created, so the shell's `.dump` of `AUTOINCREMENT` and virtual-table databases loads.
+- The `sql` stored for `CREATE INDEX` and `CREATE VIEW` keeps the text before the closing `;` as the reference does (white space and comments after the last token).
+- `PRAGMA table_info` and `table_xinfo` list the columns of virtual tables (hidden columns in `table_xinfo` only).
 - `PRAGMA index_xinfo` and `index_info` name the column of an index key on a virtual generated column (they reported an expression with a NULL name).
 - `LIMIT` and `OFFSET` can no longer refer to columns of the query or of an outer query ("no such column", as SQLite).
 

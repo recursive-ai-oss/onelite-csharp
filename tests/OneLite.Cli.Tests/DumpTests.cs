@@ -32,22 +32,24 @@ public class DumpTests
         analyze;
         """;
 
-    /// <summary>
-    /// The shell's dump creates <c>sqlite_sequence</c> with <c>PRAGMA writable_schema=ON</c>, which the engine does not support; the table exists by itself
-    /// once an AUTOINCREMENT table has been created, so those three lines are dropped before loading with onelite.
-    /// </summary>
-    private static string WithoutSchemaWrites(string dump)
-        => string.Join('\n', dump.Split('\n').Where(l => l is not ("PRAGMA writable_schema=ON;" or "PRAGMA writable_schema=OFF;" or "CREATE TABLE IF NOT EXISTS sqlite_sequence(name,seq);")));
-
-    /// <summary>
-    /// White space between the end of a CREATE INDEX statement and its semicolon is part of the SQL text the reference library stores; the engine drops it
-    /// (a known difference), so dumps of a database loaded by onelite are compared with that white space removed.
-    /// </summary>
-    private static string Normalized(string dump) => System.Text.RegularExpressions.Regex.Replace(dump, @"\s+;\n", ";\n");
+    /// <summary>Virtual tables (their shadow tables are dumped with <c>PRAGMA writable_schema</c>), AUTOINCREMENT and white space the schema text keeps.</summary>
+    private const string VirtualTables = """
+        create table docs(id integer primary key autoincrement, body text);
+        insert into docs(body) values('overdue invoice'),('paid invoice'),('lunch');
+        create virtual table docs_fts using fts5(body, content='docs', content_rowid='id');
+        insert into docs_fts(rowid, body) select id, body from docs;
+        create virtual table plain_fts using fts5(a, b);
+        insert into plain_fts values('one two','three'),('four','five six');
+        create virtual table box using rtree(id, x0, x1, y0, y1);
+        insert into box values(1,0,1,0,1),(2,0.5,2.5,1,3),(3,10,11,10,11);
+        create index docs_body on docs(body)  ;
+        create view v as select id from docs  ;
+        """;
 
     private static IEnumerable<(string Name, string Script)> Databases()
     {
         yield return ("rich", Rich);
+        yield return ("vtab", VirtualTables);
         yield return ("plain", Rich.Replace("autoincrement", string.Empty, StringComparison.Ordinal));
         for (int seed = 21; seed <= 24; seed++)
         {
@@ -91,7 +93,7 @@ public class DumpTests
             // the shell's dump, loaded by us
             string y2 = Harness.PathIn(name + ".y2.db");
             File.Delete(y2);
-            Harness.Outcome back = Harness.Ours([y2], WithoutSchemaWrites(expected));
+            Harness.Outcome back = Harness.Ours([y2], expected);
             Assert.True(back.Stderr.Length == 0, name + ": we rejected the shell's dump: " + back.Stderr);
             Assert.Equal(expected, Harness.Oracle([y2, ".dump"]).Stdout);
             Assert.True(Harness.IntegrityOk(y2, out detail), detail);
@@ -99,7 +101,7 @@ public class DumpTests
             files++;
         }
 
-        Assert.Equal(6, files);
+        Assert.Equal(7, files);
     }
 
     /// <summary>The real-world files (Chinook, Northwind, Sakila) when the corpus has been fetched.</summary>
@@ -125,8 +127,8 @@ public class DumpTests
 
             string y2 = Harness.PathIn("rw-y2.db");
             File.Delete(y2);
-            Assert.Equal(string.Empty, Harness.Ours([y2], WithoutSchemaWrites(expected)).Stderr);
-            Assert.Equal(Normalized(expected), Normalized(Harness.Oracle([y2, ".dump"]).Stdout));
+            Assert.Equal(string.Empty, Harness.Ours([y2], expected).Stderr);
+            Assert.Equal(expected, Harness.Oracle([y2, ".dump"]).Stdout);
             Assert.True(Harness.IntegrityOk(y2, out string d2), d2);
         }
     }

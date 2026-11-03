@@ -146,6 +146,11 @@ internal sealed partial class Shell
 
                     _out.Write("INSERT INTO sqlite_schema(type,name,tbl_name,rootpage,sql)VALUES('table'," + SqlText.QuoteString(name) + "," + SqlText.QuoteString(name) + ",0," + Encoding.UTF8.GetString(Renderer.QuoteText(Encoding.UTF8.GetBytes(sql))) + ");\n");
                 }
+                else if (!schemaOnly)
+                {
+                    // --data-only dumps what the module returns for the table, as for any other table (the shadow tables come as plain tables).
+                    DumpRows(name, rowids);
+                }
 
                 continue;
             }

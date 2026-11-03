@@ -71,11 +71,15 @@ internal sealed partial class Shell
                 if (!_raw && _text[_pos] == '"')
                 {
                     _pos++;
+                    int fieldLine = _line;
                     while (true)
                     {
                         if (_pos >= _text.Length)
                         {
+                            int recordLine = Line;
+                            Line = fieldLine;
                             _report("unterminated \"-quoted field");
+                            Line = recordLine;
                             break;
                         }
 
@@ -96,7 +100,16 @@ internal sealed partial class Shell
                                 break;
                             }
 
-                            _report("unescaped \" character");
+                            // A quote before a carriage return that does not end the row is kept without a message, as the shell does.
+                            if (_text[next] != '\r')
+                            {
+                                // reported at the line the quote is on; "unterminated" is reported at the line the field began on
+                                int began = Line;
+                                Line = _line;
+                                _report("unescaped \" character");
+                                Line = began;
+                            }
+
                             sb.Append('"');
                             _pos++;
                             continue;
@@ -146,6 +159,23 @@ internal sealed partial class Shell
                 return true;
             }
         }
+    }
+
+    /// <summary>The column names for the table .import creates, four to a line as the shell lays them out.</summary>
+    private static string ColumnList(List<string> names)
+    {
+        var sb = new StringBuilder();
+        for (int i = 0; i < names.Count; i++)
+        {
+            if (i > 0)
+            {
+                sb.Append(i % 4 == 0 ? ",\n " : ", ");
+            }
+
+            sb.Append(SqlText.AlwaysQuoteIdent(names[i]));
+        }
+
+        return sb.ToString();
     }
 
     private bool DotImport(string[] a)
@@ -263,7 +293,7 @@ internal sealed partial class Shell
                 return false;
             }
 
-            if (reader.EndedAtEof && fields.Count > 1 && fields[^1].Length == 0)
+            if (reader.EndsInSeparator && fields.Count > 1 && fields[^1].Length == 0)
             {
                 // A header line cut off by the end of the file right after a separator names no column after it.
                 fields.RemoveAt(fields.Count - 1);
@@ -277,13 +307,36 @@ internal sealed partial class Shell
                 counts[n] = counts.GetValueOrDefault(n) + 1;
             }
 
-            var seen = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            // A name used more than once is renamed in every column that has it, to name_N with N the column's position; the number is
+            // zero-padded to the narrowest width at which none of the new names equals a name the header already has.
+            var original = new HashSet<string>(names, StringComparer.OrdinalIgnoreCase);
+            var widths = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            foreach (string dup in counts.Where(kv => kv.Value > 1).Select(kv => kv.Key))
+            {
+                int w = 0;
+                for (; ; w++)
+                {
+                    bool clash = false;
+                    for (int i = 0; i < names.Count && !clash; i++)
+                    {
+                        clash = string.Equals(names[i], dup, StringComparison.OrdinalIgnoreCase)
+                            && original.Contains(names[i] + "_" + (i + 1).ToString(CultureInfo.InvariantCulture).PadLeft(w, '0'));
+                    }
+
+                    if (!clash)
+                    {
+                        break;
+                    }
+                }
+
+                widths[dup] = w;
+            }
+
             for (int i = 0; i < names.Count; i++)
             {
                 if (counts[names[i]] > 1)
                 {
-                    int k = seen[names[i]] = seen.GetValueOrDefault(names[i]) + 1;
-                    string nn = names[i] + "_" + k.ToString(CultureInfo.InvariantCulture);
+                    string nn = names[i] + "_" + (i + 1).ToString(CultureInfo.InvariantCulture).PadLeft(widths[names[i]], '0');
                     renamed.Add($"\"{names[i]}\" to \"{nn}\"");
                     names[i] = nn;
                 }
@@ -294,7 +347,7 @@ internal sealed partial class Shell
                 ErrLine($"Columns renamed during .import {file} due to duplicates:\n" + string.Join(",\n", renamed));
             }
 
-            string ddl = $"CREATE TABLE {target}(\n" + string.Join(", ", names.Select(SqlText.AlwaysQuoteIdent)) + ");";
+            string ddl = $"CREATE TABLE {target}(\n" + ColumnList(names) + ");";
             try
             {
                 RunSilent(ddl);

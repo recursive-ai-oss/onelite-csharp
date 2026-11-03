@@ -116,6 +116,10 @@ public class ImportFuzzTests
     [Theory]
     [InlineData(1)]
     [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    [InlineData(5)]
+    [InlineData(6)]
     public void RandomDelimitedTextImportsLikeTheShell(int seed)
     {
         Assert.SkipUnless(Harness.OracleAvailable, "the pinned sqlite3 is not installed");

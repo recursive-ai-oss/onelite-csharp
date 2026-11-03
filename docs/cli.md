@@ -52,13 +52,12 @@ Known differences, all in the display of unusual input:
 * `.tables` and `.indexes` lay names out in columns by the same idea (down the columns, gap of 3 to 5 spaces inside 80 columns); the exact gap rule is a guess that matches the samples tried.
 * `.mode tcl`, `qbox`, `insert` follow the shell's output on the cases tried, which are fewer than for the modes above.
 * `.eqp` prints OneLite's plan tree, not the shell's `QUERY PLAN` text.
-* `.dump --data-only` does not dump the rows of virtual tables as plain `INSERT`s as the shell does. In the default mode a virtual table is dumped as the shell does, with `PRAGMA writable_schema=ON` and its shadow tables.
 
 ## `.dump`
 
 The script is the shell's: `PRAGMA foreign_keys=OFF; BEGIN TRANSACTION;`, the tables in schema order with their rows (as `INSERT` statements with values written the way `quote()` writes them, `unistr('...')` for control characters), `sqlite_sequence` and `sqlite_stat1` last, then views, triggers and indexes, `COMMIT;`. For every file tried the dump is identical to the shell's, and a dump loaded by either program gives a database whose dump is identical and that passes `PRAGMA integrity_check` (tests: generated databases, a database using every kind of schema object, and Chinook, Northwind and Sakila when the corpus is present).
 
-Loading a dump that contains `PRAGMA writable_schema=ON` (written for `AUTOINCREMENT` and virtual tables) needs `writable_schema`, which the engine does not support yet; the `CREATE TABLE IF NOT EXISTS sqlite_sequence` line fails, and virtual tables cannot be restored. Everything else loads. Also, white space between the end of a `CREATE INDEX` statement and its `;` is kept in `sqlite_schema.sql` by the reference library and dropped by the engine, so a dump of a database that onelite loaded can differ from the original in that white space.
+A dump of `AUTOINCREMENT` or virtual tables uses `PRAGMA writable_schema=ON` to restore `sqlite_sequence` and the virtual tables' schema rows; the engine supports that pragma (see `docs/engine.md`), so the shell's dumps load in onelite as they are, and the other way round. The shell turns the pragma away unless its input starts with the dump's `SQLITE_DBCONFIG_DEFENSIVE` warning comment; onelite has no defensive mode and honours the pragma wherever it is written. `.dump --data-only` also writes the rows of virtual tables, as the shell does.
 
 ## `.import`
 
@@ -78,6 +77,7 @@ The tables therefore hold live rows only; carved rows never mix in unless asked 
 ## Differences from the `sqlite3` shell that are on purpose
 
 * `.recover` has its own format (above).
+* `PRAGMA writable_schema=ON` works from any input (the shell ignores it unless defensive mode was switched off).
 * Hints (`did you mean ...`) are added to error output.
 * `-key` / `.key` exist for SQLCipher-format files.
 * Statements are run by the OneLite engine, so every difference listed in `docs/compatibility.md` applies.

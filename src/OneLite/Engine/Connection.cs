@@ -704,7 +704,7 @@ public sealed partial class Connection : IDisposable, IAsyncDisposable
     {
         p.CompiledAgainst = cat;
         p.ForeignKeysAtCompile = ForeignKeysEnabled;
-        bool ok = !CompileTaint;
+        bool ok = !CompileTaint && !PragmaSettings.WritableSchema;
         foreach (CursorSpec c in p.Cursors)
         {
             if (c.Module is not null || c.Table?.Virtual is not null)
