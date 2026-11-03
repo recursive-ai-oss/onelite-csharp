@@ -178,6 +178,9 @@ internal sealed class FuncDef
 
     /// <summary>The implementation of a function registered through Connection.CreateFunction; null for a built-in.</summary>
     internal UserScalarFunction? User { get; init; }
+
+    /// <summary>For a user function: registered as deterministic.</summary>
+    internal bool Deterministic { get; init; }
 }
 
 /// <summary>The function table (lang_corefunc). A static table: no reflection, nothing registered at run time.</summary>

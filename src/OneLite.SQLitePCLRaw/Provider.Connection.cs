@@ -36,6 +36,7 @@ public sealed partial class OneLiteSqlite3Provider : ISQLite3Provider
     private const int OpenCreate = 0x4;
     private const int OpenUri = 0x40;
     private const int OpenMemory = 0x80;
+    private const int OpenSharedCache = 0x20000;
 
     /// <inheritdoc />
     public string GetNativeLibraryName() => "OneLite (managed)";
@@ -53,6 +54,12 @@ public sealed partial class OneLiteSqlite3Provider : ISQLite3Provider
         db = d.Id;
         try
         {
+            string? vfsName = vfs.utf8_to_string();
+            if (!string.IsNullOrEmpty(vfsName) && vfsName is not ("unix" or "unix-excl" or "unix-none" or "unix-dotfile" or "unix-namedsem" or "win32" or "win32-longpath" or "win32-none" or "win32-longpath-none" or "memdb"))
+            {
+                throw new OneLiteException(ResultCode.Error, "no such vfs: " + vfsName);
+            }
+
             OpenInto(d, filename.utf8_to_string() ?? string.Empty, flags);
             d.Ok();
             return 0;
@@ -78,7 +85,7 @@ public sealed partial class OneLiteSqlite3Provider : ISQLite3Provider
         bool readOnly = (flags & OpenReadOnly) != 0;
         bool create = (flags & OpenCreate) != 0 && !readOnly;
         bool memory = (flags & OpenMemory) != 0;
-        bool shared = false;
+        bool shared = (flags & OpenSharedCache) != 0 && uri;
         string path = name;
         if (uri && name.StartsWith("file:", StringComparison.OrdinalIgnoreCase))
         {
@@ -214,7 +221,7 @@ public sealed partial class OneLiteSqlite3Provider : ISQLite3Provider
                         memory = true;
                         break;
                     default:
-                        throw new OneLiteException(ResultCode.Misuse, "no such access mode: " + v);
+                        throw new OneLiteException(ResultCode.Error, "no such access mode: " + v);
                 }
             }
             else if (k == "cache")
@@ -589,33 +596,67 @@ public sealed partial class OneLiteSqlite3Provider : ISQLite3Provider
     public int sqlite3_enable_load_extension(sqlite3 db, int enable)
     {
         DbState? d = Db(db);
-        if (enable == 0)
+        if (d is null)
         {
-            return 0;
+            return ResultCode.Misuse;
         }
 
-        return d?.Fail(ResultCode.Error, "load_extension is not supported by OneLite; register managed extensions through the engine API") ?? ResultCode.Misuse;
+        // Only the flag: loading itself is unsupported and says so when it is tried.
+        d.ExtensionsEnabled = enable != 0;
+        return d.Ok();
     }
 
     /// <inheritdoc />
     public int sqlite3_load_extension(sqlite3 db, utf8z zFile, utf8z zProc, out utf8z pzErrMsg)
     {
-        pzErrMsg = utf8z.FromString("not authorized");
-        return Db(db)?.Fail(ResultCode.Error, "not authorized") ?? ResultCode.Misuse;
+        DbState? d = Db(db);
+        string message = d?.ExtensionsEnabled == true ? "load_extension is not supported by OneLite; register managed extensions through the engine API" : "not authorized";
+        pzErrMsg = utf8z.FromString(message);
+        return d?.Fail(ResultCode.Error, message) ?? ResultCode.Misuse;
     }
 
     /// <inheritdoc />
     public int sqlite3_win32_set_directory(int typ, utf8z path) => ResultCode.Error;
 
     /// <inheritdoc />
-    public int sqlite3_keyword_count() => 0;
+    public int sqlite3_keyword_count() => s_keywords.Length;
 
     /// <inheritdoc />
     public int sqlite3_keyword_name(int i, out string name)
     {
-        name = string.Empty;
-        return ResultCode.Error;
+        if ((uint)i >= (uint)s_keywords.Length)
+        {
+            name = string.Empty;
+            return ResultCode.Error;
+        }
+
+        name = s_keywords[i];
+        return 0;
     }
+
+    // lang_keywords: the keywords of SQLite's SQL, in the order of that page
+    private static readonly string[] s_keywords =
+    [
+        "ABORT", "ACTION", "ADD", "AFTER", "ALL", "ALTER", "ALWAYS", "ANALYZE",
+        "AND", "AS", "ASC", "ATTACH", "AUTOINCREMENT", "BEFORE", "BEGIN", "BETWEEN",
+        "BY", "CASCADE", "CASE", "CAST", "CHECK", "COLLATE", "COLUMN", "COMMIT",
+        "CONFLICT", "CONSTRAINT", "CREATE", "CROSS", "CURRENT", "CURRENT_DATE", "CURRENT_TIME", "CURRENT_TIMESTAMP",
+        "DATABASE", "DEFAULT", "DEFERRABLE", "DEFERRED", "DELETE", "DESC", "DETACH", "DISTINCT",
+        "DO", "DROP", "EACH", "ELSE", "END", "ESCAPE", "EXCEPT", "EXCLUDE",
+        "EXCLUSIVE", "EXISTS", "EXPLAIN", "FAIL", "FILTER", "FIRST", "FOLLOWING", "FOR",
+        "FOREIGN", "FROM", "FULL", "GENERATED", "GLOB", "GROUP", "GROUPS", "HAVING",
+        "IF", "IGNORE", "IMMEDIATE", "IN", "INDEX", "INDEXED", "INITIALLY", "INNER",
+        "INSERT", "INSTEAD", "INTERSECT", "INTO", "IS", "ISNULL", "JOIN", "KEY",
+        "LAST", "LEFT", "LIKE", "LIMIT", "MATCH", "MATERIALIZED", "NATURAL", "NO",
+        "NOT", "NOTHING", "NOTNULL", "NULL", "NULLS", "OF", "OFFSET", "ON",
+        "OR", "ORDER", "OTHERS", "OUTER", "OVER", "PARTITION", "PLAN", "PRAGMA",
+        "PRECEDING", "PRIMARY", "QUERY", "RAISE", "RANGE", "RECURSIVE", "REFERENCES", "REGEXP",
+        "REINDEX", "RELEASE", "RENAME", "REPLACE", "RESTRICT", "RETURNING", "RIGHT", "ROLLBACK",
+        "ROW", "ROWS", "SAVEPOINT", "SELECT", "SET", "TABLE", "TEMP", "TEMPORARY",
+        "THEN", "TIES", "TO", "TRANSACTION", "TRIGGER", "UNBOUNDED", "UNION", "UNIQUE",
+        "UPDATE", "USING", "VACUUM", "VALUES", "VIEW", "VIRTUAL", "WHEN", "WHERE",
+        "WINDOW", "WITH", "WITHOUT"
+    ];
 
     /// <inheritdoc />
     public IntPtr sqlite3_serialize(sqlite3 db, utf8z schema, out long size, int flags)

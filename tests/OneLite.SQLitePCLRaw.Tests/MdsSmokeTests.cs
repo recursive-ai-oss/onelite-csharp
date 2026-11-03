@@ -65,4 +65,23 @@ public class MdsSmokeTests
             File.Delete(path);
         }
     }
+
+    [Fact]
+    public void SharedMemoryAcrossConnections()
+    {
+        const string cs = "Data Source=u54serialized;Mode=Memory;Cache=Shared";
+        using var a = new SqliteConnection(cs);
+        using var b = new SqliteConnection(cs);
+        a.Open();
+        b.Open();
+        using (SqliteCommand cmd = a.CreateCommand())
+        {
+            cmd.CommandText = "create table Data(Value); insert into Data values (5)";
+            cmd.ExecuteNonQuery();
+        }
+
+        using SqliteCommand q = b.CreateCommand();
+        q.CommandText = "select Value from Data";
+        Assert.Equal(5L, q.ExecuteScalar());
+    }
 }

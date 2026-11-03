@@ -34,6 +34,7 @@ internal sealed class DbState
     internal string Path = string.Empty;
     internal bool ReadOnly;
     internal bool Memory;
+    internal bool ExtensionsEnabled;
     internal bool Extended;
     internal bool Closed;
     internal string? SharedKey;

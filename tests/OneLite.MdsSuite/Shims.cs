@@ -83,14 +83,14 @@ namespace Microsoft.Data.Sqlite
             command.CommandText = commandText;
             command.Parameters.AddRange(parameters);
             object? value = command.ExecuteScalar();
-            if (value is null || value is DBNull)
-            {
-                return default!;
-            }
-
             if (value is T direct)
             {
                 return direct;
+            }
+
+            if (value is null || value is DBNull)
+            {
+                return default!;
             }
 
             return (T)Convert.ChangeType(value, Nullable.GetUnderlyingType(typeof(T)) ?? typeof(T), System.Globalization.CultureInfo.InvariantCulture);

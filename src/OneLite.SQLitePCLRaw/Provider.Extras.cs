@@ -386,7 +386,7 @@ public sealed partial class OneLiteSqlite3Provider
 
         try
         {
-            d.Connection.CreateFunction(FunctionName(name), nArg, func is null ? null : args => CallScalar(func, v, args));
+            d.Connection.CreateFunction(FunctionName(name), nArg, func is null ? null : args => CallScalar(func, v, args), (flags & 0x800) != 0);
             return d.Ok();
         }
         catch (Exception e) when (e is not OutOfMemoryException)
@@ -560,10 +560,10 @@ public sealed partial class OneLiteSqlite3Provider
     public void sqlite3_result_double(IntPtr context, double val) => ContextFrame(context).Result = double.IsNaN(val) ? default : Mem.FromReal(val);
 
     /// <inheritdoc />
-    public void sqlite3_result_error(IntPtr context, ReadOnlySpan<byte> strErr) => ContextFrame(context).Error = new OneLiteException(ResultCode.Error, DbState.Utf8(strErr));
+    public void sqlite3_result_error(IntPtr context, ReadOnlySpan<byte> strErr) => SetErrorText(ContextFrame(context), DbState.Utf8(strErr));
 
     /// <inheritdoc />
-    public void sqlite3_result_error(IntPtr context, utf8z strErr) => ContextFrame(context).Error = new OneLiteException(ResultCode.Error, strErr.utf8_to_string() ?? string.Empty);
+    public void sqlite3_result_error(IntPtr context, utf8z strErr) => SetErrorText(ContextFrame(context), strErr.utf8_to_string() ?? string.Empty);
 
     /// <inheritdoc />
     public void sqlite3_result_int(IntPtr context, int val) => ContextFrame(context).Result = Mem.FromInt(val);
@@ -590,7 +590,14 @@ public sealed partial class OneLiteSqlite3Provider
     public void sqlite3_result_error_nomem(IntPtr context) => ContextFrame(context).Error = new OneLiteException(ResultCode.NoMem, "out of memory");
 
     /// <inheritdoc />
-    public void sqlite3_result_error_code(IntPtr context, int code) => ContextFrame(context).Error = new OneLiteException(code, ErrorString(code));
+    public void sqlite3_result_error_code(IntPtr context, int code)
+    {
+        // c3ref result_blob: the code replaces the code only; an error message set earlier stays
+        CallFrame f = ContextFrame(context);
+        f.Error = new OneLiteException(code, f.Error?.Message ?? ErrorString(code));
+    }
+
+    private static void SetErrorText(CallFrame f, string text) => f.Error = new OneLiteException(f.Error is OneLiteException { ExtendedCode: var code } ? code : ResultCode.Error, text);
 
     // ------------------------------------------------------------------ the arguments of a function call
 
@@ -635,12 +642,12 @@ public sealed partial class OneLiteSqlite3Provider
     }
 }
 
-/// <summary>SQLitePCLRaw offers no public way to make a <c>sqlite3_blob</c> (its constructor and <c>From</c> are internal), so one is allocated without running a constructor and given its handle through <see cref="System.Runtime.InteropServices.Marshal.InitHandle"/>.</summary>
+/// <summary>SQLitePCLRaw offers no public way to make a <c>sqlite3_blob</c> (its constructor and <c>From</c> are internal), so one is made with its own parameterless constructor and given its handle through <see cref="System.Runtime.InteropServices.Marshal.InitHandle"/>. The constructor is named by a constant type, which the trimmer and NativeAOT keep.</summary>
 internal static class BlobHandle
 {
     internal static SQLitePCL.sqlite3_blob Create(nint handle)
     {
-        var blob = (SQLitePCL.sqlite3_blob)System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(typeof(SQLitePCL.sqlite3_blob));
+        var blob = (SQLitePCL.sqlite3_blob)Activator.CreateInstance(typeof(SQLitePCL.sqlite3_blob), true)!;
         System.Runtime.InteropServices.Marshal.InitHandle(blob, handle);
         return blob;
     }

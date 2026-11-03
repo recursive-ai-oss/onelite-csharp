@@ -1870,6 +1870,12 @@ internal sealed partial class Machine
                         throw new OneLiteException(ResultCode.Locked, "database table is locked");
                     }
 
+                    if (ins.Op == Op.Destroy && !Nested && _conn.ActiveReaders > 1)
+                    {
+                        // Dropping a table or index while another statement of the connection is reading is refused, whichever table it reads.
+                        throw new OneLiteException(ResultCode.Locked, "database table is locked");
+                    }
+
                     uint root = (uint)R[ins.P1].IntValue;
                     BTree tree = ins.P3 != 0 ? BTree.Index(ctx, root, KeyInfo.Binary(ctx.Encoding, 1)) : BTree.Table(ctx, root);
                     _eraser = new TreeEraser(tree, ins.Op == Op.Destroy);

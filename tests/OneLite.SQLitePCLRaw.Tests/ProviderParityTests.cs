@@ -50,7 +50,7 @@ public class ProviderParityTests
         for (int i = 0; i < n; i++)
         {
             int t = raw.sqlite3_column_type(st, i);
-            sb.Append(raw.sqlite3_column_name(st, i).utf8_to_string()).Append('/').Append(raw.sqlite3_column_decltype(st, i).utf8_to_string()).Append('/').Append(t).Append('=');
+            sb.Append(raw.sqlite3_column_name(st, i).utf8_to_string()).Append('/').Append(raw.sqlite3_column_decltype(st, i).utf8_to_string() ?? "<null>").Append('/').Append(t).Append('=');
             switch (t)
             {
                 case raw.SQLITE_INTEGER: sb.Append(raw.sqlite3_column_int64(st, i)); break;
@@ -321,6 +321,56 @@ public class ProviderParityTests
         log.Append(rc).Append(err).AppendLine();
         rc = raw.sqlite3_exec(db, "select a from t", (user, values, names) => 1, null, out err);
         log.Append(rc).Append(' ').Append(err).Append(' ').AppendLine(Err(db, rc));
+        raw.sqlite3_close(db);
+        return "";
+    });
+
+    [Fact]
+    public void SharedCacheMemoryDatabase() => Same(log =>
+    {
+        int flags = raw.SQLITE_OPEN_READWRITE | raw.SQLITE_OPEN_CREATE | raw.SQLITE_OPEN_URI;
+        raw.sqlite3_open_v2("file:u54shared?mode=memory&cache=shared", out sqlite3 a, flags, null);
+        raw.sqlite3_open_v2("file:u54shared?mode=memory&cache=shared", out sqlite3 b, flags, null);
+        Exec(log, a, "create table t(x); insert into t values (1)");
+        Query(log, b, "select x from t");
+        raw.sqlite3_open_v2("file:u54other?mode=memory&cache=shared", out sqlite3 c, flags, null);
+        Query(log, c, "select x from t");
+        raw.sqlite3_close(a);
+        Query(log, b, "select x from t");
+        raw.sqlite3_close(b);
+        raw.sqlite3_close(c);
+        raw.sqlite3_open_v2("file:u54shared?mode=memory&cache=shared", out sqlite3 d, flags, null);
+        Query(log, d, "select x from t");
+        raw.sqlite3_close(d);
+        flags = raw.SQLITE_OPEN_READWRITE | raw.SQLITE_OPEN_CREATE | 0x80 | 0x20000 | 0x40;
+        raw.sqlite3_open_v2("file:u54flagshared", out sqlite3 e, flags, null);
+        raw.sqlite3_open_v2("file:u54flagshared", out sqlite3 f, flags, null);
+        Exec(log, e, "create table t(x); insert into t values (7)");
+        Query(log, f, "select x from t");
+        raw.sqlite3_close(e);
+        raw.sqlite3_close(f);
+        return "";
+    });
+
+    [Fact]
+    public void SchemaChangeWhileAStatementReads() => Same(log =>
+    {
+        sqlite3 db = Open();
+        Exec(log, db, "create table t(a); create table u(a); create index ti on t(a); insert into t values (1),(2),(3); insert into u values (1)");
+        raw.sqlite3_prepare_v2(db, "select a from t", out sqlite3_stmt st);
+        log.Append("step ").AppendLine(raw.sqlite3_step(st).ToString());
+        Exec(log, db, "drop table t");
+        Exec(log, db, "drop table u");
+        Exec(log, db, "drop index ti");
+        Exec(log, db, "create index tj on t(a)");
+        Exec(log, db, "alter table t rename to t2");
+        Exec(log, db, "alter table t add column b");
+        Exec(log, db, "insert into t values (9)");
+        Exec(log, db, "delete from t where a = 9");
+        Exec(log, db, "vacuum");
+        Exec(log, db, "create table w(a)");
+        raw.sqlite3_finalize(st);
+        Exec(log, db, "drop table t");
         raw.sqlite3_close(db);
         return "";
     });

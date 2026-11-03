@@ -744,7 +744,7 @@ public sealed partial class OneLiteSqlite3Provider
         }
 
         string? decl = s.Statement.ColumnDeclaredType(index);
-        return decl is null ? default : utf8z.FromString(decl);
+        return string.IsNullOrEmpty(decl) ? default : utf8z.FromString(decl);
     }
 
     /// <inheritdoc />

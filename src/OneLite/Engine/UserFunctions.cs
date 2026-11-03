@@ -67,8 +67,9 @@ public sealed partial class Connection
     /// <param name="name">The function name; ASCII case-insensitive.</param>
     /// <param name="argumentCount">The number of arguments, or -1 for any number.</param>
     /// <param name="function">The implementation, or null to remove the function.</param>
+    /// <param name="deterministic">True if the function always returns the same result for the same arguments (SQLITE_DETERMINISTIC); only such functions may appear in a partial index's WHERE clause. Default false.</param>
     /// <exception cref="OneLiteException">SQLITE_MISUSE for an empty name or an argument count below -1 or above 127.</exception>
-    public void CreateFunction(string name, int argumentCount, UserScalarFunction? function)
+    public void CreateFunction(string name, int argumentCount, UserScalarFunction? function, bool deterministic = false)
     {
         ArgumentNullException.ThrowIfNull(name);
         if (name.Length == 0 || argumentCount is < -1 or > 127)
@@ -83,7 +84,7 @@ public sealed partial class Connection
         }
         else
         {
-            _userFunctions[key] = new FuncDef(name, argumentCount < 0 ? 0 : argumentCount, argumentCount < 0 ? int.MaxValue : argumentCount, FuncId.Length) { User = function };
+            _userFunctions[key] = new FuncDef(name, argumentCount < 0 ? 0 : argumentCount, argumentCount < 0 ? int.MaxValue : argumentCount, FuncId.Length) { User = function, Deterministic = deterministic };
         }
 
         _programs.Clear();
@@ -139,6 +140,21 @@ public sealed partial class Connection
 
         string up = name.ToUpperInvariant();
         return _userFunctions.TryGetValue((up, argumentCount), out FuncDef? d) || _userFunctions.TryGetValue((up, -1), out d) ? d : null;
+    }
+
+    /// <summary>True when a user function registered under <paramref name="name"/> is not deterministic (or the name is a built-in that can change between calls).</summary>
+    internal bool IsNonDeterministic(string name)
+    {
+        string up = name.ToUpperInvariant();
+        foreach (KeyValuePair<(string Name, int Args), FuncDef> kv in _userFunctions)
+        {
+            if (kv.Key.Name == up && !kv.Value.Deterministic)
+            {
+                return true;
+            }
+        }
+
+        return up is "RANDOM" or "RANDOMBLOB" or "CHANGES" or "TOTAL_CHANGES" or "LAST_INSERT_ROWID";
     }
 
     /// <summary>True when some user function (any argument count) is registered under <paramref name="name"/>.</summary>
