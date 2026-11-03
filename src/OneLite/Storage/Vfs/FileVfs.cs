@@ -47,20 +47,84 @@ public sealed class FileVfs : VfsBase
     public override string FullPathname(string path)
     {
         string full = Path.GetFullPath(path);
+        // Two names for one file must not become two lock tables: follow symbolic links. Hard links and case-folding aliases are not detected (howtocorrupt §2.3).
+        // On Linux and macOS every directory component is resolved too, as the reference does (c3ref db_filename reports /private/var/... for /var/... on macOS);
+        // components that do not exist are kept as written.
+        return OperatingSystem.IsWindows() ? ResolveFinal(full) : ResolveComponents(full);
+    }
+
+    private static string ResolveFinal(string full)
+    {
         try
         {
-            // Two names for one file must not become two lock tables: follow symbolic links. Hard links and case-folding aliases are not detected (howtocorrupt §2.3).
             FileSystemInfo? target = new FileInfo(full).ResolveLinkTarget(returnFinalTarget: true);
-            if (target != null)
-            {
-                full = target.FullName;
-            }
+            return target != null ? target.FullName : full;
         }
         catch (IOException)
         {
+            return full;
+        }
+    }
+
+    private static string ResolveComponents(string full)
+    {
+        const int MaxLinks = 40;
+        string root = Path.GetPathRoot(full) ?? "/";
+        string[] pending = full[root.Length..].Split('/', StringSplitOptions.RemoveEmptyEntries);
+        var todo = new Stack<string>(System.Linq.Enumerable.Reverse(pending));
+        string current = root;
+        int links = 0;
+        while (todo.Count > 0)
+        {
+            string part = todo.Pop();
+            if (part == ".")
+            {
+                continue;
+            }
+
+            if (part == "..")
+            {
+                current = Path.GetDirectoryName(current.TrimEnd('/')) is { Length: > 0 } up ? up : root;
+                continue;
+            }
+
+            string next = Path.Combine(current, part);
+            string? target = null;
+            try
+            {
+                target = File.ResolveLinkTarget(next, returnFinalTarget: false)?.FullName;
+                if (target == null && Directory.Exists(next))
+                {
+                    target = Directory.ResolveLinkTarget(next, returnFinalTarget: false)?.FullName;
+                }
+            }
+            catch (IOException)
+            {
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
+
+            if (target == null)
+            {
+                current = next;
+                continue;
+            }
+
+            if (++links > MaxLinks)
+            {
+                return full;
+            }
+
+            // A link target replaces the component; its own components are resolved in turn.
+            current = root;
+            foreach (string p in System.Linq.Enumerable.Reverse(target[(Path.GetPathRoot(target) ?? "/").Length..].Split('/', StringSplitOptions.RemoveEmptyEntries)))
+            {
+                todo.Push(p);
+            }
         }
 
-        return full;
+        return current;
     }
 
     /// <inheritdoc/>
