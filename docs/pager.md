@@ -86,6 +86,17 @@ A free leaf below the final size that nothing moved into, or a page the pointer 
 
 `IPageSource` (`TryLocate(pgno, out file, out offset)`) is consulted by `Get` before the database file. A WAL layer installs one with `SetPageSource` at `BeginRead`; with none installed the pager reads the database file. WAL mode is implemented in the pager itself (`wal.md`); `SetJournalMode(Wal)` throws `SQLITE_MISUSE`, and `ChangeJournalMode(Wal)` is the way in (and out).
 
+## I/O errors
+
+An I/O error ends the transaction, as it does in the reference shell. Observed on the pinned `sqlite3` with a file-size limit (`ulimit -f`) that makes a write fail partway: a failed write in the middle of an `INSERT` inside `BEGIN` gives `disk I/O error`, the rows of the earlier statements of the transaction are gone, the connection is back in autocommit mode (`COMMIT` then says "cannot commit - no transaction is active"), and `PRAGMA integrity_check` is `ok`. A `COMMIT` whose write fails does the same, in rollback and WAL modes.
+
+OneLite does the same on every path:
+
+* A statement that fails with an I/O error rolls back the whole transaction, with or without a statement savepoint.
+* A single-row `INSERT` that runs without a statement savepoint (it has nothing after its first write that can fail, so none is needed) also rolls back the whole transaction on a storage fault (I/O, full, corrupt, out of memory, cannot open), before or after its first write. Ordinary failures (constraints, type errors) happen before any write and leave the transaction as it was.
+* A failed `COMMIT` with an I/O error rolls the transaction back; a `COMMIT` that fails with `SQLITE_BUSY` leaves it open to retry.
+* The error carries the I/O code and message (`SQLITE_IOERR_WRITE`, "disk I/O error"). Tests: `SingleRowInsertTests` (an injected write failure on the fault-injecting VFS at the first, third and ninth write of a transaction in rollback mode and the first and second in WAL mode, then `integrity_check`, the row count and a reopen).
+
 ## Not here
 
 B-tree cells, records, overflow content, schema. Cursor logic. WAL and `-shm`.
