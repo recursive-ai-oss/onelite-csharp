@@ -150,7 +150,7 @@ No fixes have been made; each is a candidate for its own tuning unit. Ratios are
 1. **`prepare_cost` (19.5× / 17.5×)**: parse, plan and code generation allocate about 23 KB per statement. Fixed for repeated prepares by statement reuse, see "Tuning: prepare and point lookups"; a first prepare of a text still costs this much.
 2. **`insert_tx_10k` (18.7× / 15.6×)**: the row is short (about 80 ms) so JIT and tier-0 code dominate; the same insert path is 3.9× / 5.1× at 100,000 rows, where the remaining gap is per-row allocation (435 B/op) and the record build.
 3. **`fts5_top10` (10.9× / 15.1×)**: 5.7 MB allocated per query, which points at the FTS5 segment and doclist readers copying into fresh buffers instead of reading spans in place.
-4. **`group_by` (5.7× / 5.2×)**: the aggregation and the grouping sorter or hash path (122 B per row), not the scan.
+4. **`group_by` (5.7× / 5.2×)**: the aggregation and the grouping sorter or hash path (122 B per row), not the scan. Reduced to about 1.4× on x64, see "Tuning: query execution".
 5. **`range_scan` (4.5× / 6.5×)**: each execution re-seeked and allocated about 600 B, and every index entry was followed to the table row. Both fixed, see "Tuning: prepare and point lookups"; the unindexed `scan_filter` (4.4× / 6.0×) points at the dispatch loop's per-row cost rather than I/O.
 
 Also visible: `open_time` is 36× on Linux and about 1.2× on macOS, so a Linux-only open or close cost (locks, `-shm`, recovery on open or the closing checkpoint) is suspected.
@@ -191,6 +191,38 @@ Three changes, measured on the same machine in one run, before and after: (1) a 
 | app `prepare_cost` (reuse) | 21.89 | 23.03 | 0.95× |
 
 What is left. `lookup_index` and `range_scan` still evaluate the whole `WHERE` clause on every index entry, as the engine always does (a plan can change speed, never the answer). Every read transaction costs two `fcntl` calls (taking and releasing the wal-index read mark), as it does in the native library; on this machine starting and ending a read transaction around a trivial query takes about 1.8 µs, most of it those calls.
+
+## Tuning: query execution (scan, sort, group)
+
+Indicative before/after on the same machine and job (x64, Ryzen 9 7950X3D, .NET 10.0.13, reference SQLite 3.53.4, 3 timed repetitions after a warm-up, base table 100,000 rows). The machine was shared during these runs (1-minute load average 8 to 10 before, between and after the rows), so read the ratios to one decimal; the cleaner repeat runs agree within 10%. Results are unchanged: the benchmark checksums agree and the sqllogictest and differential checks listed in the change are identical to before.
+
+What changed:
+
+1. **Sorting.** Rows go into shared chunks instead of one array each, the first key is read once per row, and rows are ordered by a radix pass on that key (integers, reals, and the first 16 bytes of text or blobs under BINARY in a UTF-8 database); runs of equal keys are settled with the full comparison, so the order is the same as before. Other keys use a merge sort. The in-memory budget before a sort spills to a temporary file is 8 times the page cache, at least 256 KiB (16 MiB at the default cache size); it was about the cache size.
+2. **Reading rows.** A leaf cell of a table or index is read in place, the record header is parsed as the cell is loaded, one-byte varints and the common column types skip the general path, and stepping to the next cell of the same leaf page does not enter the cursor's walking machinery.
+3. **Warm-up.** The methods of the read path (cursor step, record parse, column load, arithmetic, comparison, aggregate step, sorter) are compiled fully optimized at first use instead of passing through the tiers; the main dispatch loop and the write side are not, because that cost start-up time and slowed `insert_tx_100k` in testing. Cold start is unchanged (about 128 ms against 132 ms).
+
+### Engine level
+
+| Row | Before ms | After ms | Native ms (before / after) | Ratio before | Ratio after | B/op before | B/op after |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| scan_filter | 21.88 | 7.66 | 4.77 / 4.60 | 4.58× | 1.67× | 0 | 0 |
+| group_by | 134.05 | 31.80 | 23.13 / 22.67 | 5.80× | 1.40× | 122 | 74 |
+| order_by_sort | 103.36 | 38.44 | 31.97 / 33.68 | 3.23× | 1.14× | 273 | 148 |
+| join | 24.52 | 20.61 | 71.03 / 71.92 | 0.35× | 0.29× | 0 | 0 |
+
+### App level (`RecursiveAI.OneLite.Data` against `Microsoft.Data.Sqlite`)
+
+| Row | Before ms | After ms | MDS ms (before / after) | Ratio before | Ratio after | B/op before | B/op after |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| scan_filter | 22.02 | 7.95 | 7.80 / 6.86 | 2.82× | 1.16× | 0 | 0 |
+| group_by | 114.69 | 30.66 | 22.40 / 22.61 | 5.12× | 1.36× | 122 | 74 |
+| order_by_sort | 130.82 | 45.64 | 52.56 / 53.13 | 2.49× | 0.86× | 377 | 252 |
+| join | 24.49 | 21.35 | 72.78 / 71.77 | 0.34× | 0.30× | 0 | 0 |
+
+A full engine matrix on the same two builds shows no other row slower beyond run-to-run noise (`lookup_rowid` 0.84× to 0.87×, `lookup_index` 1.34× to 1.32×, `range_scan` 2.13× to 1.71×, `prepare_cost`, `prepare_cold`, `fts5_top10` unchanged). `insert_tx_10k` is a 60 to 170 ms row whose time is JIT and tier-up, and it swings between those values on both builds at 3 repetitions, so no change can be read from it; `insert_tx_100k` went from 347 to 286 ms in that run (that matrix's base ran at a load average near 29, so treat the pair as noise-bounded). The bytes per row stepped stay 0 for the scan and join rows.
+
+What is left. `scan_filter` still evaluates the `WHERE` clause per row through the general dispatch loop. `group_by` allocates 74 B per row in the aggregate state and the grouping sorter's key copies. These are x64 numbers only; arm64 was not re-measured.
 
 ## Where OneLite is faster
 

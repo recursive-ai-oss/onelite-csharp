@@ -200,6 +200,7 @@ internal sealed partial class Machine
     /// cursor that "requires seek" (lang_transaction: a pending SELECT sees the changes its own connection makes). The decoded record of the old
     /// position is dropped, since the page may have been edited since.
     /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static BtStatus Revive(VmCursor c)
     {
         if (c.Bt is not { State: CursorState.Saved } bt)
@@ -207,6 +208,11 @@ internal sealed partial class Machine
             return BtStatus.Ok;
         }
 
+        return ReviveSaved(c, bt);
+    }
+
+    private static BtStatus ReviveSaved(VmCursor c, BtCursor bt)
+    {
         BtStatus s = bt.Restore();
         if (s == BtStatus.Ok)
         {
