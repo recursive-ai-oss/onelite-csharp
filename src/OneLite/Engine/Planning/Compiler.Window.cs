@@ -345,7 +345,7 @@ internal sealed partial class Compiler
 
                         if (!f.OrderBy.IsDefaultOrEmpty)
                         {
-                            throw Err("ORDER BY may not be used with non-aggregate " + f.Name.Text + "()");
+                            throw ErrAtNode("ORDER BY may not be used with non-aggregate " + f.Name.Text + "()", f);
                         }
 
                         CheckFrameOrder(f.Over.Spec?.Frame);
@@ -475,7 +475,7 @@ internal sealed partial class Compiler
                 throw Err("DISTINCT is not supported for window functions");
             }
 
-            if (nargs < min || nargs > max || f.Star)
+            if (nargs < min || nargs > max)
             {
                 throw ErrAt("wrong number of arguments to function " + name + "()", f);
             }
@@ -487,7 +487,7 @@ internal sealed partial class Compiler
 
             if (!f.OrderBy.IsDefaultOrEmpty)
             {
-                throw Err("ORDER BY may not be used with non-aggregate " + name + "()");
+                throw ErrAt("ORDER BY may not be used with non-aggregate " + name + "()", f);
             }
         }
         else
@@ -541,7 +541,7 @@ internal sealed partial class Compiler
 
             if (!f.OrderBy.IsDefaultOrEmpty)
             {
-                throw Err("ORDER BY may not be used with non-aggregate " + name + "()");
+                throw ErrAt("ORDER BY may not be used with non-aggregate " + name + "()", f);
             }
 
             call.Fn = WinFn.Aggregate;

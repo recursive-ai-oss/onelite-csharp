@@ -713,6 +713,12 @@ internal sealed partial class Compiler
     {
         if (m.Names.Length != first.Names.Length)
         {
+            // Black-box: a VALUES list on the right of the operator is reported as a VALUES mismatch.
+            if (s.Cores[i] is ValuesCore)
+            {
+                throw Err("all VALUES must have the same number of terms");
+            }
+
             throw Err("SELECTs to the left and right of " + CompoundName(s.Operators[i - 1]) + " do not have the same number of result columns");
         }
     }

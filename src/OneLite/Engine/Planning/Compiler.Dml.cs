@@ -625,6 +625,9 @@ internal sealed partial class Compiler
             throw Err("near \"DEFAULT\": syntax error");
         }
 
+        ValidateUpsertTargets(t, ins.Upserts);
+        bool unreachableUpsert = !ins.Upserts.IsDefaultOrEmpty && NoConflictPossible(t, ins);
+
         Emit(Op.Transaction, 0, 0, 0, null, 1 | 8);
         // A one-row VALUES insert with immediate foreign keys fails before its row is written in the reference, so last_insert_rowid() keeps its old value.
         if (ins.Returning is null && mode != ConflictAction.Replace && ins.Source.Select is { With: null, Cores: [ValuesCore { Rows.Length: 1 }] } && !t.ForeignKeys.Any(f => f.Deferred))
@@ -748,6 +751,13 @@ internal sealed partial class Compiler
         for (int k = 0; k < upsertLabels.Length; k++)
         {
             Mark(upsertLabels[k]);
+            if (unreachableUpsert)
+            {
+                // The reference does not resolve the names of a DO UPDATE no row can reach.
+                Emit(Op.Goto, 0, skip);
+                continue;
+            }
+
             EmitUpsertUpdate(w, ins.Upserts[k], skip, returning);
         }
 
@@ -1191,11 +1201,35 @@ internal sealed partial class Compiler
         return EmitReturningLoop(retBase, retCols, retNames);
     }
 
+    /// <summary>How many values the right side of <c>(a, b) = ...</c> holds: the items of a row value, the columns of a subquery with a plain column list, else one (null when not known).</summary>
+    private static int? ValueWidth(Expr value)
+    {
+        Expr v = StripParens(value);
+        switch (v)
+        {
+            case RowValueExpr rv:
+                return rv.Items.Length;
+            case SubqueryExpr { Select.Cores: [SimpleSelect ss, ..] }:
+                return ss.Columns.Any(c => c is not ExprColumn) ? null : ss.Columns.Length;
+            case SubqueryExpr { Select.Cores: [ValuesCore vc, ..] }:
+                return vc.Rows.Length > 0 ? vc.Rows[0].Length : null;
+            case SubqueryExpr:
+                return null;
+            default:
+                return 1;
+        }
+    }
+
     private static List<(int Col, Expr Value, int Part, int Of)> ResolveSets(TableInfo t, IEnumerable<SetClause> setClauses)
     {
         var sets = new List<(int Col, Expr Value, int Part, int Of)>();
         foreach (SetClause sc in setClauses)
         {
+            if (sc.Columns.Length > 1 && ValueWidth(sc.Value) is int width && width != sc.Columns.Length)
+            {
+                throw Err(sc.Columns.Length + " columns assigned " + width + " values");
+            }
+
             for (int k = 0; k < sc.Columns.Length; k++)
             {
                 string cn = sc.Columns[k].Text;

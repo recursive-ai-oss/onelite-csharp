@@ -259,7 +259,7 @@ internal sealed partial class Compiler
         int ci = t.FindColumn(rc.OldName.Text);
         if (ci < 0)
         {
-            throw Err("no such column: \"" + rc.OldName.Text + "\"");
+            throw ErrAtNode("no such column: \"" + rc.OldName.Text + "\"", rc.OldName);
         }
 
         string oldCol = t.Columns[ci].Name;
@@ -426,7 +426,7 @@ internal sealed partial class Compiler
         int ci = t.FindColumn(dc.Column.Text);
         if (ci < 0)
         {
-            throw Err("no such column: \"" + dc.Column.Text + "\"");
+            throw ErrAtNode("no such column: \"" + dc.Column.Text + "\"", dc.Column);
         }
 
         ColumnInfo col = t.Columns[ci];

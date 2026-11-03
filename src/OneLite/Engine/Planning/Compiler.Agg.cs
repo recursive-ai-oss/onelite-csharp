@@ -161,6 +161,20 @@ internal sealed partial class Compiler
 
                     if (f.Filter is not null)
                     {
+                        if (FindAggregate(f.Filter) is { } filterAgg)
+                        {
+                            // An aggregate inside the FILTER of another is refused, naming the inner one.
+                            foreach (Expr fa in filterAgg.Args.IsDefault ? [] : filterAgg.Args)
+                            {
+                                if (FindAggregate(fa) is null)
+                                {
+                                    DryRun(() => Compile(fa));
+                                }
+                            }
+
+                            throw ErrAt("misuse of aggregate function " + filterAgg.Name.Text + "()", filterAgg);
+                        }
+
                         Compile(f.Filter);
                     }
 
@@ -789,6 +803,16 @@ internal sealed partial class Compiler
     private void CompileInRows(InListExpr il, int dest)
     {
         var left = il.Operand;
+        int width = ((RowValueExpr)left).Items.Length;
+        foreach (Expr item in il.Items)
+        {
+            int terms = item is RowValueExpr r ? r.Items.Length : 1;
+            if (terms != width)
+            {
+                throw Err("IN(...) element has " + terms + (terms == 1 ? " term" : " terms") + " - expected " + width);
+            }
+        }
+
         int acc = NewReg();
         Emit(Op.Integer, 0, acc, 0, 0L);
         foreach (Expr item in il.Items)

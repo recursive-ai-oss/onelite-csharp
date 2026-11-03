@@ -114,7 +114,18 @@ internal sealed partial class Compiler
             string? schema = an.Target!.Schema?.Text;
             if (schema is not null && !AsciiComparer.Instance.Equals(schema, "main"))
             {
-                throw _cat.SlotOf(schema) >= 1 ? Unsupported("ANALYZE of the " + (schema.Equals("temp", StringComparison.OrdinalIgnoreCase) ? "temp schema" : "attached database " + schema)) : Err("unknown database " + schema);
+                if (_cat.SlotOf(schema) < 1)
+                {
+                    throw ErrAt("unknown database " + schema, an.Target.Schema!);
+                }
+
+                string other = an.Target.Name.Text;
+                if (_cat.FindIn(schema, other) is null && FindIndex(other, out _, _cat.SlotOf(schema)) is null)
+                {
+                    throw Err("no such table: " + schema + "." + other);
+                }
+
+                throw Unsupported("ANALYZE of the " + (schema.Equals("temp", StringComparison.OrdinalIgnoreCase) ? "temp schema" : "attached database " + schema));
             }
 
             string name = an.Target!.Name.Text;
@@ -130,7 +141,7 @@ internal sealed partial class Compiler
             }
             else if (_cat.Find(name) is null && FindIndex(name, out _) is null)
             {
-                throw Err("no such table: " + name);
+                throw Err("no such table: " + (schema is null ? name : schema + "." + name));
             }
         }
 

@@ -137,6 +137,21 @@ internal sealed partial class Compiler
             bool hasAgg = cols.Any(c => FindAggregate(c.Expr, owns) is not null)
                 || (core.From is null && !order.IsDefaultOrEmpty && order.Any(o => FindAggregate(o.Expr, owns) is not null));
             bool grouped = !core.GroupBy.IsDefaultOrEmpty;
+            if (core.Where is not null && FindAggregate(core.Where, owns) is { } wa)
+            {
+                ResolveCallNames(wa);
+                throw ErrAt(AggregateMisuse(wa.Name.Text, hasAgg || grouped), wa);
+            }
+
+            foreach (Expr on in joinPool.Concat(scope.Sources.SelectMany(s => s.On)))
+            {
+                if (FindAggregate(on, owns) is { } oa)
+                {
+                    ResolveCallNames(oa);
+                    throw Err(AggregateMisuse(oa.Name.Text, hasAgg || grouped));
+                }
+            }
+
             bool hasWin = cols.Any(c => FindWindowCall(c.Expr) is not null) || (!order.IsDefaultOrEmpty && order.Any(o => FindWindowCall(o.Expr) is not null));
             if (hasWin)
             {
@@ -589,6 +604,19 @@ internal sealed partial class Compiler
     }
 
     /// <summary>The reference library words the error differently when the query is itself an aggregate query ("misuse of aggregate: sum()", checked against the pinned shell).</summary>
+    /// <summary>The reference resolves the names inside an aggregate call it is about to refuse first, so an unknown column there is the error reported.</summary>
+    private void ResolveCallNames(FunctionCall call)
+    {
+        foreach (Expr arg in call.Args.IsDefault ? [] : call.Args)
+        {
+            DryRun(() =>
+            {
+                _columnsAllowed = true;
+                Compile(arg);
+            });
+        }
+    }
+
     private static string AggregateMisuse(string name, bool aggregateQuery)
         => aggregateQuery ? "misuse of aggregate: " + name + "()" : "misuse of aggregate function " + name + "()";
 
@@ -728,7 +756,7 @@ internal sealed partial class Compiler
             bool c = false;
             if (ConstPosition(terms[k], ref c) is long n && (n < 1 || n > 65535))
             {
-                throw Err($"{Ordinal(k + 1)} {clause} term out of range - should be between 1 and {columns}");
+                throw ErrAtNode($"{Ordinal(k + 1)} {clause} term out of range - should be between 1 and {columns}", terms[k]);
             }
         }
     }
@@ -1190,7 +1218,7 @@ internal sealed partial class Compiler
             {
                 if (pn < 1 || pn > n)
                 {
-                    throw Err($"{Ordinal(k + 1)} ORDER BY term out of range - should be between 1 and {n}");
+                    throw ErrAtNode($"{Ordinal(k + 1)} ORDER BY term out of range - should be between 1 and {n}", e);
                 }
 
                 target = (int)pn - 1;

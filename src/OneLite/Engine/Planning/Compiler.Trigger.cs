@@ -211,13 +211,7 @@ internal sealed partial class Compiler
             throw Err("cannot create " + (ct.Time == TriggerTime.After ? "AFTER" : "BEFORE") + " trigger on view: " + tn);
         }
 
-        foreach (Name uc in ct.UpdateColumns)
-        {
-            if (t.View is null && t.FindColumn(uc.Text) < 0)
-            {
-                throw Err("no such column: " + uc.Text);
-            }
-        }
+        // UPDATE OF may name a column the table does not have: such a trigger is accepted and never fires for that name (black-box).
 
         _forceTemp = db == 1;
         TableInfo master = _cat.MasterOf(db);
@@ -297,7 +291,7 @@ internal sealed partial class Compiler
             return tr.Ast.UpdateColumns.Any(u =>
             {
                 int ci = t.FindColumn(u.Text);
-                return setCols.Contains(ci) || (ci == t.RowidAlias && ci >= 0 && setCols.Contains(-1));
+                return ci >= 0 && (setCols.Contains(ci) || (ci == t.RowidAlias && setCols.Contains(-1)));
             });
         }
 

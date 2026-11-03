@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Linq;
 using RecursiveAI.OneLite.Sql;
 using RecursiveAI.OneLite.Storage;
@@ -217,5 +218,177 @@ internal sealed partial class Compiler
             SetColumns(false);
             _table = null;
         }
+    }
+
+    // ------------------------------------------------------------------ ON CONFLICT targets (lang_upsert)
+
+    private static string CollationKey(string? name) => (name ?? "BINARY").ToUpperInvariant();
+
+    /// <summary>
+    /// Checks each conflict target against the table, as the reference does when it compiles the INSERT: names must exist, and the target must
+    /// be the rowid or the columns (any order) of a PRIMARY KEY or UNIQUE constraint or index; a COLLATE written in the target must be the index's,
+    /// a WHERE must be the partial index's, and an expression must be one the index holds.
+    /// </summary>
+    private void ValidateUpsertTargets(TableInfo t, ImmutableArray<UpsertClause> ups)
+    {
+        if (ups.IsDefaultOrEmpty)
+        {
+            return;
+        }
+
+        for (int k = 0; k < ups.Length; k++)
+        {
+            UpsertClause u = ups[k];
+            if (u.Target.IsDefaultOrEmpty)
+            {
+                continue;
+            }
+
+            var cols = new List<int>();          // table columns; -1 stands for the rowid
+            var exprs = new List<string>();       // expressions, as written back
+            var collations = new List<string?>();
+            foreach (OrderingTerm term in u.Target)
+            {
+                Expr e = term.Expr;
+                string? coll = null;
+                while (e is CollateExpr ce)
+                {
+                    coll ??= ce.Collation.Text;
+                    e = ce.Operand;
+                }
+
+                if (e is ColumnRef { Schema: null, Table: null } cr)
+                {
+                    int ci = t.FindColumn(cr.Column.Text);
+                    if (ci < 0 && !t.WithoutRowid && IsRowidName(cr.Column.Text))
+                    {
+                        ci = -1;
+                    }
+                    else if (ci < 0)
+                    {
+                        throw ErrAt("no such column: " + cr.Column.Text, cr);
+                    }
+
+                    cols.Add(ci == t.RowidAlias ? -1 : ci);
+                    collations.Add(coll);
+                }
+                else
+                {
+                    exprs.Add(SqlWriter.Write(e));
+                }
+            }
+
+            if (u.TargetWhere is not null)
+            {
+                // The WHERE of a conflict target is resolved against the table too.
+                Source? savedSource = _dmlSource;
+                Scope? savedDmlScope = _dmlScope, savedScope = _scope;
+                bool savedAllowed = _columnsAllowed;
+                _table = t;
+                _alias = t.Name;
+                _tableCursor = 0;
+                SetColumns(true);
+                try
+                {
+                    DryRun(() => CompileInto(u.TargetWhere, NewReg()));
+                }
+                finally
+                {
+                    (_dmlSource, _dmlScope, _scope, _columnsAllowed) = (savedSource, savedDmlScope, savedScope, savedAllowed);
+                }
+            }
+
+            if (!TargetMatchesConstraint(t, cols, collations, exprs, u.TargetWhere))
+            {
+                throw Err((ups.Length > 1 ? Ordinal(k + 1) + " " : "") + "ON CONFLICT clause does not match any PRIMARY KEY or UNIQUE constraint");
+            }
+        }
+    }
+
+    private static bool TargetMatchesConstraint(TableInfo t, List<int> cols, List<string?> collations, List<string> exprs, Expr? where)
+    {
+        // The rowid, or the INTEGER PRIMARY KEY that is it.
+        if (exprs.Count == 0 && cols.Count == 1 && cols[0] == -1 && !t.WithoutRowid)
+        {
+            return true;   // a WHERE on the target is ignored when the constraint is not a partial index
+        }
+
+        var candidates = new List<IndexInfo>();
+        if (t.PrimaryKey is not null)
+        {
+            candidates.Add(t.PrimaryKey);
+        }
+
+        candidates.AddRange(t.AutoIndexes.Where(x => !x.KeyPlaceholder));
+        candidates.AddRange(t.Indexes.Where(x => x.Unique && !candidates.Contains(x)));
+        foreach (IndexInfo ix in candidates)
+        {
+            if (!ix.Unique && !ReferenceEquals(ix, t.PrimaryKey))
+            {
+                continue;
+            }
+
+            int n = ix.Columns.Length;
+            if (n != cols.Count + exprs.Count)
+            {
+                continue;
+            }
+
+            if (ix.Where is not null && (where is null || SqlWriter.Write(where) != SqlWriter.Write(ix.Where)))
+            {
+                continue;
+            }
+
+            var unmatchedExprs = new List<string>(exprs);
+            var usedCols = new HashSet<int>();
+            bool ok = true;
+            for (int i = 0; i < n && ok; i++)
+            {
+                if (i < ix.Terms.Length && ix.Terms[i] is { } term)
+                {
+                    ok = unmatchedExprs.Remove(SqlWriter.Write(term));
+                    continue;
+                }
+
+                int col = ix.Columns[i];
+                int at = -1;
+                for (int j = 0; j < cols.Count; j++)
+                {
+                    string indexColl = CollationKey(ix.Collations.Length > i ? ix.Collations[i] ?? (col >= 0 ? t.Columns[col].CollationName : null) : null);
+                    if (cols[j] == col && !usedCols.Contains(j) && (collations[j] is null || CollationKey(collations[j]) == indexColl))
+                    {
+                        at = j;
+                        break;
+                    }
+                }
+
+                if (at < 0)
+                {
+                    ok = false;
+                }
+                else
+                {
+                    usedCols.Add(at);
+                }
+            }
+
+            if (ok && unmatchedExprs.Count == 0)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Whether no existing row can conflict with an insert: the table has no PRIMARY KEY or UNIQUE constraint besides the rowid, and the statement leaves the rowid to be chosen.</summary>
+    private static bool NoConflictPossible(TableInfo t, InsertStatement ins)
+    {
+        if (t.WithoutRowid || t.RowidAlias >= 0 || t.Indexes.Any(x => x.Unique) || t.AutoIndexes.Count > 0)
+        {
+            return false;
+        }
+
+        return ins.Columns.IsDefaultOrEmpty ? true : !ins.Columns.Any(c => IsRowidName(c.Text) && t.FindColumn(c.Text) < 0);
     }
 }

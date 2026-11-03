@@ -943,6 +943,11 @@ internal sealed partial class Compiler
 
             case BetweenExpr bt:
             {
+                if (!IsRow(bt.Operand) && (IsRow(bt.Low) || IsRow(bt.High)))
+                {
+                    throw ErrAt("row value misused", bt);   // black-box: this one is positioned at the start of the BETWEEN
+                }
+
                 int x = Compile(bt.Operand);
                 int lo = Compile(bt.Low);
                 int hi = Compile(bt.High);
@@ -996,7 +1001,12 @@ internal sealed partial class Compiler
             case InTableExpr { IsFunction: false } itab:
                 CompileInSelect(itab.Operand, SelectAllFrom(itab.Table), itab.Negated, dest);
                 return;
-            case InTableExpr:
+            case InTableExpr itf:
+                if (itf.Table.Schema is null && Modules.Find(itf.Table.Name.Text) is null && EponymousTable(itf.Table.Name.Text) is null)
+                {
+                    throw Err("no such table: " + itf.Table.Name.Text);
+                }
+
                 throw Unsupported("table-valued functions");
             default:
                 throw Unsupported(e.GetType().Name);
@@ -1615,19 +1625,33 @@ internal sealed partial class Compiler
         int l, r;
         if (b.Op is BinaryOp.Is or BinaryOp.IsNot)
         {
-            r = Compile(b.Right);
-            l = Compile(b.Left);
+            r = CompileOperand(b, b.Right);
+            l = CompileOperand(b, b.Left);
         }
         else
         {
-            l = Compile(b.Left);
-            r = Compile(b.Right);
+            l = CompileOperand(b, b.Left);
+            r = CompileOperand(b, b.Right);
         }
 
         // `x IS NULL` compares nothing by collation, so an unknown COLLATE on x is not looked up.
         bool nullTest = b.Op is BinaryOp.Is or BinaryOp.IsNot && StripParens(b.Right) is LiteralExpr { Kind: LiteralKind.Null };
         int flags = op is >= Op.Eq and <= Op.IsNot ? CmpFlags(Values.CompareAffinity(CmpAffOf(b.Left), CmpAffOf(b.Right)), nullTest ? CollKind.Binary : PairColl(b.Left, b.Right)) : 0;
         Emit(op, l, r, dest, null, flags);
+    }
+
+    /// <summary>An operand of a binary operator. A subquery that returns several columns, set against a plain value in a comparison, is "row value misused" at the comparison (black-box).</summary>
+    private int CompileOperand(BinaryExpr b, Expr operand)
+    {
+        try
+        {
+            return Compile(operand);
+        }
+        catch (OneLiteException ex) when (ex.Message.StartsWith("sub-select returns", StringComparison.Ordinal) && StripParens(operand) is SubqueryExpr
+            && b.Op is BinaryOp.Eq or BinaryOp.Ne or BinaryOp.Lt or BinaryOp.Le or BinaryOp.Gt or BinaryOp.Ge or BinaryOp.Is or BinaryOp.IsNot)
+        {
+            throw ErrAt("row value misused", b);
+        }
     }
 
     private void CompileIn(InListExpr il, int dest)

@@ -422,9 +422,15 @@ internal sealed partial class Compiler
     {
         PreassignParameters();
         string? schema = ci.Name.Schema?.Text;
-        int named = schema is null ? -1 : CreateDb(schema, false);
+        int named = schema is null ? -1 : CreateDb(schema, false, ci.Name.Schema);
         string name = ci.Name.Name.Text;
-        TableInfo? t = named < 0 ? _cat.Find(ci.Table.Text) : _cat.FindIn(_cat.SchemaName(named), ci.Table.Text);
+        // An index in the temp schema is found for the table by its plain name; it may only be on a temp table.
+        TableInfo? t = named < 0 || named == 1 ? _cat.Find(ci.Table.Text) : _cat.FindIn(_cat.SchemaName(named), ci.Table.Text);
+        if (named == 1 && t is not null && t.Db != 1)
+        {
+            throw Err("cannot create a TEMP index on non-TEMP table \"" + t.Name + "\"");
+        }
+
         if (t is null || t.Unsupported is not null || t.View is not null)
         {
             throw Err(t is null ? "no such table: " + (schema ?? "main") + "." + ci.Table.Text : "views may not be indexed");
