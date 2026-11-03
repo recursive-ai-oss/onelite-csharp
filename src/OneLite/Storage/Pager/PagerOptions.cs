@@ -51,6 +51,12 @@ public sealed class PagerOptions
     /// </summary>
     public int ConcurrentCommitHoldLimitMs { get; init; } = 5000;
 
+    /// <summary>How long, in microseconds, a <c>BEGIN CONCURRENT</c> commit retries a busy WAL write lock with only a yield between tries before it asks <see cref="Busy"/>; 0 or null: no spin.</summary>
+    internal Func<int>? BusySpinBudgetUs { get; init; }
+
+    /// <summary>Told how many milliseconds (rounded up) the spin used, so they count against the busy timeout.</summary>
+    internal Action<int>? BusySpun { get; init; }
+
     /// <summary>Test hook: every n-th cache hit becomes a suspend point (<see cref="IoKind.Yield"/>). 0 (the default) turns it off.</summary>
     public int YieldEvery { get; init; }
 

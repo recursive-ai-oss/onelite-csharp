@@ -86,6 +86,37 @@ public sealed class ConcurrentTransactionTests : IDisposable
     }
 
     [Fact]
+    public void BusyWriteLockWithoutATimeoutFailsAtOnceAndWithOneWaitsItOut()
+    {
+        // The short spin on the write lock must not turn "no timeout" into a wait, and must stay inside a timeout.
+        string path = Path.Combine(_dir, "spin.db");
+        using Database none = Database.Open(path, s_opts);
+        using Connection holder = none.Connect();
+        using Connection w = none.Connect();
+        Setup(holder);
+        Run(holder, "BEGIN IMMEDIATE");
+        Run(w, "BEGIN CONCURRENT");
+        Run(w, "UPDATE t SET v = 1 WHERE id = 2");
+        long t0 = System.Diagnostics.Stopwatch.GetTimestamp();
+        OneLiteException e = Fails(() => Run(w, "COMMIT"));
+        Assert.Equal(ResultCode.Busy, e.Code);
+        Assert.True(System.Diagnostics.Stopwatch.GetElapsedTime(t0).TotalMilliseconds < 50);
+        Run(w, "ROLLBACK");
+        Run(holder, "ROLLBACK");
+
+        using Database timed = Database.Open(path, new DatabaseOptions { JournalMode = JournalMode.Wal, ConcurrentWrites = true, Synchronous = SynchronousMode.Off, BusyTimeoutMs = 100 });
+        using Connection w2 = timed.Connect();
+        Run(holder, "BEGIN IMMEDIATE");
+        Run(w2, "BEGIN CONCURRENT");
+        Run(w2, "UPDATE t SET v = 1 WHERE id = 2");
+        t0 = System.Diagnostics.Stopwatch.GetTimestamp();
+        e = Fails(() => Run(w2, "COMMIT"));
+        double ms = System.Diagnostics.Stopwatch.GetElapsedTime(t0).TotalMilliseconds;
+        Assert.Equal(ResultCode.Busy, e.Code);
+        Assert.InRange(ms, 90, 400);
+    }
+
+    [Fact]
     public void DisjointRowsBothCommit()
     {
         using Database db = Open();

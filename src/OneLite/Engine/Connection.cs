@@ -273,6 +273,8 @@ public sealed partial class Database : IDisposable, IAsyncDisposable
             ConcurrentCommitHoldLimitMs = _options.ConcurrentCommitHoldLimitMs,
             CacheSize = _options.CacheSize,
             Busy = busy.Next,
+            BusySpinBudgetUs = busy.SpinBudgetUs,
+            BusySpun = busy.Spun,
             YieldEvery = _options.YieldEvery,
             Key = _options.Key,
             Cipher = _options.Cipher,

@@ -135,7 +135,7 @@ public sealed partial class Pager
     private IEnumerable<IoRequest> ConcLockOp()
     {
         WalConnection w = _wal!;
-        foreach (IoRequest r in WalLock(WalIndex.WriteLock, 1, true, true))
+        foreach (IoRequest r in WalLock(WalIndex.WriteLock, 1, true, true, spin: true))
         {
             yield return r;
         }
