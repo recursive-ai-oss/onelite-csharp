@@ -8,6 +8,8 @@ namespace RecursiveAI.OneLite.SQLitePCLRaw.Tests;
 /// Runs the same sqlite3_* calls through SQLitePCL.raw on the native library and on the adapter and compares everything observable:
 /// return codes, extended codes, error messages, column names, types, values, changes and hook calls.
 /// </summary>
+// These tests switch the process-wide SQLitePCLRaw provider, so they must not run in parallel with one another.
+[Collection("provider")]
 public class ProviderParityTests
 {
     private static void UseNative() => raw.SetProvider(new SQLite3Provider_e_sqlite3());

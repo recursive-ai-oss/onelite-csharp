@@ -3,6 +3,8 @@ using RecursiveAI.OneLite.SQLitePCLRaw;
 
 namespace RecursiveAI.OneLite.SQLitePCLRaw.Tests;
 
+// These tests switch the process-wide SQLitePCLRaw provider, so they must not run in parallel with one another.
+[Collection("provider")]
 public class MdsSmokeTests
 {
     public MdsSmokeTests() => OneLiteBatteries.Init();
