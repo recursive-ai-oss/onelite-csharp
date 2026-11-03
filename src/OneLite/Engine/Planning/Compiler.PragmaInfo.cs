@@ -170,10 +170,21 @@ internal sealed partial class Compiler
                     int n = 0;
                     for (int k = 0; k < ix.Columns.Length; k++)
                     {
-                        bool expr = k < ix.Terms.Length && ix.Terms[k] is not null;
-                        int cid = expr ? -2 : ix.Columns[k];
+                        // A key on a virtual generated column is kept as an expression, but the pragmas still name the column.
+                        int cid = ix.Columns[k];
+                        if (cid < 0 && k < ix.Terms.Length && ix.Terms[k] is ColumnRef { Table: null } cref)
+                        {
+                            cid = t.FindColumn(cref.Column.Text);
+                        }
+
+                        bool expr = cid < 0;
+                        if (expr)
+                        {
+                            cid = -2;
+                        }
+
                         string? cn = expr ? null : t.Columns[cid].Name;
-                        string coll = (k < ix.Collations.Length ? ix.Collations[k] : null) ?? "BINARY";
+                        string coll = (k < ix.Collations.Length ? ix.Collations[k] : null) ?? (expr ? null : t.Columns[cid].CollationName) ?? "BINARY";
                         rows.Add(x ? [n++, cid, cn, k < ix.Desc.Length && ix.Desc[k] ? 1 : 0, coll, 1] : [n++, cid, cn]);
                     }
 

@@ -253,6 +253,41 @@ internal sealed partial class Compiler
 {
     // lang_update "Update from": the target joined with the FROM items gives, for each matching row, the new values of the SET clauses. A
     // target row that matches several times is updated once, by the first match.
+    /// <summary>The first column reference in <paramref name="e"/> qualified by the UPDATE target's name, unless a FROM item has the same name.</summary>
+    private static string? FindTargetRef(Expr e, string targetName, ImmutableArray<FromItem> from)
+    {
+        switch (e)
+        {
+            case ColumnRef { Table: { } q } cr when AsciiComparer.Instance.Equals(q.Text, targetName):
+                foreach (FromItem f in from)
+                {
+                    string? name = f.Source is NamedTable nt ? nt.Alias?.Text ?? nt.Name.Name.Text : null;
+                    if (name is not null && AsciiComparer.Instance.Equals(name, targetName))
+                    {
+                        return null;
+                    }
+                }
+
+                return q.Text + "." + cr.Column.Text;
+            case ParenExpr p:
+                return FindTargetRef(p.Inner, targetName, from);
+            case CastExpr c:
+                return FindTargetRef(c.Operand, targetName, from);
+            case CollateExpr co:
+                return FindTargetRef(co.Operand, targetName, from);
+            default:
+                foreach (Expr child in CollationChildren(e))
+                {
+                    if (FindTargetRef(child, targetName, from) is { } r)
+                    {
+                        return r;
+                    }
+                }
+
+                return null;
+        }
+    }
+
     private VmProgram CompileUpdateFrom(UpdateStatement up, TableInfo t)
     {
         if (t.WithoutRowid)
@@ -266,6 +301,15 @@ internal sealed partial class Compiler
         foreach ((int _, Expr value, int part, int of) in sets)
         {
             cols.Add(new ExprColumn(of > 1 ? (value is RowValueExpr rv && rv.Items.Length == of ? rv.Items[part] : throw Unsupported("multi-column SET from a subquery")) : value, null));
+        }
+
+        // lang_update: the target is not visible to the ON clauses of the FROM clause's own joins
+        foreach (FromItem fi in up.From!.Items)
+        {
+            if (fi.On is not null && FindTargetRef(fi.On, alias, up.From.Items) is { } bad)
+            {
+                throw Err("no such column: " + bad);
+            }
         }
 
         var items = new List<FromItem> { new(null, new NamedTable(up.Target.Name, up.Target.Alias, null), null, []) };

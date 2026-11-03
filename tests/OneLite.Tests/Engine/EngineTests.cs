@@ -250,10 +250,10 @@ public sealed class EngineTests : IDisposable
         string path = MakeDb();
         using var db = Database.OpenReadOnly(path);
         using Connection conn = db.Connect();
-        OneLiteException e = Assert.Throws<OneLiteException>(() => conn.Prepare("SELECT 1 FROM t WHERE 1 REGEXP 2"));
+        OneLiteException e = Assert.Throws<OneLiteException>(() => conn.Prepare("SELECT geopoly_area(1) FROM t"));
         Assert.Equal(ResultCode.Error, e.Code);
         Assert.Contains("unsupported", e.Message, StringComparison.Ordinal);
-        Assert.Contains("REGEXP", e.Message, StringComparison.Ordinal);
+        Assert.Contains("geopoly_area", e.Message, StringComparison.Ordinal);
     }
 
     [Fact]

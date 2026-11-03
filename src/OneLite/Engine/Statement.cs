@@ -214,6 +214,28 @@ public sealed class Statement : IDisposable, IAsyncDisposable
     /// <summary>Number of result columns.</summary>
     public int ColumnCount => _prog.ResultCount;
 
+    /// <summary>The declared type of the table column that result column <paramref name="index"/> is a plain reference to (<c>sqlite3_column_decltype</c>); null for an expression.</summary>
+    /// <param name="index">0-based column index.</param>
+    /// <returns>The type text as written in CREATE TABLE (empty for a column declared without a type), or null.</returns>
+    public string? ColumnDeclaredType(int index) => Origin(index)?.DeclaredType;
+
+    /// <summary>The name of the database (main, temp or an attached name) holding the table column that result column <paramref name="index"/> is a plain reference to (<c>sqlite3_column_database_name</c>); null for an expression.</summary>
+    /// <param name="index">0-based column index.</param>
+    /// <returns>The database name or null.</returns>
+    public string? ColumnDatabaseName(int index) => Origin(index)?.Database;
+
+    /// <summary>The table holding the column that result column <paramref name="index"/> is a plain reference to (<c>sqlite3_column_table_name</c>); null for an expression.</summary>
+    /// <param name="index">0-based column index.</param>
+    /// <returns>The table name or null.</returns>
+    public string? ColumnTableName(int index) => Origin(index)?.Table;
+
+    /// <summary>The name of the table column that result column <paramref name="index"/> is a plain reference to (<c>sqlite3_column_origin_name</c>); null for an expression.</summary>
+    /// <param name="index">0-based column index.</param>
+    /// <returns>The column name or null.</returns>
+    public string? ColumnOriginName(int index) => Origin(index)?.Column;
+
+    private ColumnOrigin? Origin(int index) => (uint)index < (uint)_prog.ColumnOrigin.Length ? _prog.ColumnOrigin[index] : null;
+
     /// <summary>The name of result column <paramref name="index"/> as SQLite names it (the alias, the column name, or the expression text).</summary>
     /// <param name="index">0-based column index.</param>
     /// <returns>The name.</returns>

@@ -260,6 +260,9 @@ internal sealed class VmProgram
     internal CursorSpec[] Cursors = [];
     internal string[] ColumnNames = [];
 
+    /// <summary>Per result column, the table column it is a plain reference to; null for an expression (sqlite3_column_decltype, _table_name, _origin_name, _database_name).</summary>
+    internal ColumnOrigin?[] ColumnOrigin = [];
+
     /// <summary>The statement writes the temp database, so the temp database must exist when it starts.</summary>
     internal bool ForceTemp;
 
@@ -348,3 +351,6 @@ internal sealed class VmProgram
     /// <summary>The text encoding of the database the program was compiled for.</summary>
     internal TextEncoding Encoding;
 }
+
+/// <summary>Where a result column comes from: database, table, column and the column's declared type.</summary>
+internal sealed record ColumnOrigin(string Database, string Table, string Column, string DeclaredType);

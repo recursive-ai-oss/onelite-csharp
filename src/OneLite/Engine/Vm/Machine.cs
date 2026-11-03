@@ -451,6 +451,11 @@ internal sealed partial class Machine
             switch (ins.Op)
             {
                 case Op.Goto:
+                    if (ins.P2 <= _pc && _conn.InterruptRequested)
+                    {
+                        throw _conn.TakeInterrupt();
+                    }
+
                     _pc = ins.P2;
                     continue;
                 case Op.TrigIgnore:
@@ -582,6 +587,11 @@ internal sealed partial class Machine
 
                 case Op.Next:
                 {
+                    if (_conn.InterruptRequested)
+                    {
+                        throw _conn.TakeInterrupt();
+                    }
+
                     VmCursor c = _cur[ins.P1];
                     BtStatus s = c.Bt!.Next();
                     if (s == BtStatus.Pending)
@@ -895,7 +905,15 @@ internal sealed partial class Machine
                     _pc++;
                     continue;
                 case Op.Function:
-                    Scalar.Call(((FuncDef)ins.P4!).Id, new ReadOnlySpan<Mem>(r, ins.P1, ins.P2), ref r[ins.P3], ref _own[ins.P3], _enc, ins.P5);
+                    if (((FuncDef)ins.P4!).User is { } userFn)
+                    {
+                        Connection.CallUser(userFn, new ReadOnlySpan<Mem>(r, ins.P1, ins.P2), ref r[ins.P3], ref _own[ins.P3]);
+                    }
+                    else
+                    {
+                        Scalar.Call(((FuncDef)ins.P4!).Id, new ReadOnlySpan<Mem>(r, ins.P1, ins.P2), ref r[ins.P3], ref _own[ins.P3], _enc, ins.P5);
+                    }
+
                     _pc++;
                     continue;
                 case Op.Cast:

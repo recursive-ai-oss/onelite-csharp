@@ -97,6 +97,7 @@ internal sealed partial class Compiler
                     AggKind.Count => nargs == 1,
                     AggKind.GroupConcat => AsciiComparer.Instance.Equals(name, "string_agg") ? nargs == 2 : nargs is 1 or 2,
                     AggKind.JsonGroupObject or AggKind.JsonbGroupObject => nargs == 2,
+                    AggKind.User => true,
                     _ => nargs == 1,
                 };
                 if (!arityOk)
@@ -196,6 +197,11 @@ internal sealed partial class Compiler
             FunctionCall f = plan.Calls[i];
             AggKind kind = AggregateKind(f)!.Value;
             var spec = new AggSpec { Kind = kind, Distinct = f.Quantifier == CallQuantifier.Distinct, NArgs = f.Star ? 0 : f.Args.Length };
+            if (kind == AggKind.User)
+            {
+                spec.UserFactory = t_owner!.FindUserAggregate(f.Name.Text, spec.NArgs);
+            }
+
             if (!f.Args.IsDefaultOrEmpty && f.Args.Length > 0)
             {
                 spec.Coll = CollOf(f.Args[0], out _);

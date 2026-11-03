@@ -652,6 +652,7 @@ internal sealed partial class Machine
                         _conn.Temp?.Rollback();
                         _conn.RollbackAttached();
                         _conn.VtabRollback();
+                        _conn.RollbackHook?.Invoke();
                         _fw = 5;
                     }
                     else if (_fwStmt)
@@ -735,6 +736,20 @@ internal sealed partial class Machine
                 case 3:
                 {
                     Exception? multiError = null;
+                    if (!_hookAsked)
+                    {
+                        _hookAsked = true;
+                        if (_conn.CommitHook is { } ch && ch())
+                        {
+                            _hookAsked = false;
+                            Error = new OneLiteException(ResultCode.ConstraintCommitHook, "constraint failed");
+                            _fwError = true;
+                            _fwWhole = true;
+                            _fw = 4;
+                            break;
+                        }
+                    }
+
                     try
                     {
                         _conn.VtabSync();
@@ -763,6 +778,7 @@ internal sealed partial class Machine
                         break;
                     }
 
+                    _hookAsked = false;
                     _conn.Temp?.Commit();
                     _conn.VtabCommit();
                     _conn.AfterCommit();
@@ -780,6 +796,8 @@ internal sealed partial class Machine
 
                     _conn.Temp?.Rollback();
                     _conn.RollbackAttached();
+                    _hookAsked = false;
+                    _conn.RollbackHook?.Invoke();
                     _fw = 5;
                     break;
                 }
@@ -826,8 +844,9 @@ internal sealed partial class Machine
                         _conn.Changes = _changes;
                         _conn.TotalChanges += _changes;
                     }
-                    else if (_dml && !_fwStmt)
+                    else if (_dml)
                     {
+                        // a failed INSERT, UPDATE or DELETE leaves changes() at 0, inside a transaction too
                         _conn.Changes = 0;
                     }
 
@@ -1036,6 +1055,19 @@ internal sealed partial class Machine
                     }
 
                     Exception? multiError = null;
+                    if (!_hookAsked && pg.InWriteTransaction)
+                    {
+                        _hookAsked = true;
+                        if (_conn.CommitHook is { } ch2 && ch2())
+                        {
+                            // The hook turns the commit into a rollback, and the COMMIT fails (c3ref commit_hook).
+                            _hookAsked = false;
+                            _hookErr = new OneLiteException(ResultCode.ConstraintCommitHook, "constraint failed");
+                            _wstep = 20;
+                            break;
+                        }
+                    }
+
                     _conn.VtabSync();
                     PagerStatus s = _conn.AttachedWriting ? CommitAllInline(out multiError) : pg.InWriteTransaction ? pg.Commit() : PagerStatus.Ok;
                     if (s == PagerStatus.Pending)
@@ -1057,6 +1089,7 @@ internal sealed partial class Machine
                         return RunResult.Error;
                     }
 
+                    _hookAsked = false;
                     _conn.Temp?.Commit();
                     _conn.VtabCommit();
                     _conn.AfterCommit();
@@ -1079,6 +1112,14 @@ internal sealed partial class Machine
                     if (s == PagerStatus.Pending)
                     {
                         return RunResult.Pending;
+                    }
+
+                    if (_hookErr is not null)
+                    {
+                        Error = _hookErr;
+                        _hookErr = null;
+                        _wstep = 0;
+                        return RunResult.Error;
                     }
 
                     _wstep = 99;
@@ -1104,6 +1145,7 @@ internal sealed partial class Machine
                     }
 
                     _conn.EndTransactionState();
+                    _conn.RollbackHook?.Invoke();
                     _wstep = 12;
                     break;
                 }
@@ -1322,6 +1364,13 @@ internal sealed partial class Machine
             _conn.LastInsertRowid = rowid;
         }
 
+        // c3ref update_hook: INSERT (P5 bit 4) and UPDATE (bit 8) of a rowid table, fired once the row is in
+        if ((ins.P5 & 12) != 0 && _conn.UpdateHook is { } uh)
+        {
+            var ti = (TableInfo)ins.P4!;
+            uh((ins.P5 & 4) != 0 ? 18 : 23, HookSchema(ti.Db), ti.Name, rowid);
+        }
+
         _pc++;
         return RunResult.Done;
     }
@@ -1393,15 +1442,30 @@ internal sealed partial class Machine
         return RunResult.Done;
     }
 
+    private string HookSchema(int db) => db == 0 ? "main" : db == 1 ? "temp" : _conn.AttachedBySlot(db)?.Name ?? "main";
+
+    private bool _hookAsked;
+    private Exception? _hookErr;
+    private long _delRowid;
+    private bool _delRowidSet;
+
     private RunResult DoDelete(ref Instr ins)
     {
         VmCursor c = _cur[ins.P1];
+        bool hook = (ins.P5 & 4) != 0 && ins.P4 is TableInfo && _conn.UpdateHook is not null;
+        if (hook && !_delRowidSet)
+        {
+            _delRowid = c.Bt!.Rowid;
+            _delRowidSet = true;
+        }
+
         BtStatus d = c.Bt!.Delete();
         if (d == BtStatus.Pending)
         {
             return RunResult.Pending;
         }
 
+        _delRowidSet = false;
         if (d == BtStatus.Error)
         {
             return BtFail(c.Bt);
@@ -1411,6 +1475,11 @@ internal sealed partial class Machine
         if ((ins.P5 & 1) != 0)
         {
             _changes++;
+        }
+
+        if (hook && ins.P4 is TableInfo ti)
+        {
+            _conn.UpdateHook!(9, HookSchema(ti.Db), ti.Name, _delRowid);
         }
 
         _pc++;
@@ -1800,6 +1869,12 @@ internal sealed partial class Machine
                     if (ins.Op == Op.Destroy && !Nested && _conn.Blobs.Count > 0)
                     {
                         // a tree cannot be dropped while an open blob handle has a cursor on the database (the reference refuses the same way)
+                        throw new OneLiteException(ResultCode.Locked, "database table is locked");
+                    }
+
+                    if (ins.Op == Op.Destroy && !Nested && _conn.ActiveReaders - (_conn.TxHeld ? 1 : 0) > 1)
+                    {
+                        // Dropping a table or index while another statement of the connection is reading is refused, whichever table it reads.
                         throw new OneLiteException(ResultCode.Locked, "database table is locked");
                     }
 
