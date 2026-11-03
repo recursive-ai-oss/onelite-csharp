@@ -15,7 +15,7 @@ using RecursiveAI.OneLite.Vm;
 namespace RecursiveAI.OneLite;
 
 /// <summary>Settings for opening a database.</summary>
-public sealed class DatabaseOptions
+public sealed record DatabaseOptions
 {
     /// <summary>The storage backend. Default: the local file system.</summary>
     public IVfs? Vfs { get; init; }

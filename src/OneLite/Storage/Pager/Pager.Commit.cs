@@ -114,6 +114,45 @@ public sealed partial class Pager
 
     internal IVfs Vfs => _vfs;
 
+    private string? _identity;
+
+    /// <summary>
+    /// Names this database file for in-process hints that must not outlive the file. For the file backend it is the OS file identity of the open handle
+    /// (device and inode, or volume serial number and file index) plus the creation time, so a file deleted and created again, replaced by a copy or
+    /// renamed over is a different file even if the system reuses the inode, and the creation time that Windows keeps for a quickly recreated name does
+    /// not matter because the file index differs. Other backends (memory, OPFS, HTTP range, wrappers) have no OS handle: they use the VFS instance, the
+    /// path and, where the path is a real file, its creation time. Worked out once per pager: a file cannot be replaced under an open handle.
+    /// </summary>
+    internal string Identity
+    {
+        get
+        {
+            if (_identity is null)
+            {
+                string path = FullPath;
+                string os = (_dbFile as FileVfsFile)?.OsIdentity ?? "";
+                long born = 0;
+                try
+                {
+                    if (_vfs is not MemoryVfs && File.Exists(path))
+                    {
+                        born = File.GetCreationTimeUtc(path).Ticks;
+                    }
+                }
+                catch (IOException)
+                {
+                }
+                catch (UnauthorizedAccessException)
+                {
+                }
+
+                _identity = System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(_vfs).ToString(System.Globalization.CultureInfo.InvariantCulture) + "|" + os + "|" + born.ToString(System.Globalization.CultureInfo.InvariantCulture) + "|" + path;
+            }
+
+            return _identity;
+        }
+    }
+
     private PagerStatus CommitPrepare(string? superName)
     {
         for (; ; )

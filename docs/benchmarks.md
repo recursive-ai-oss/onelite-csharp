@@ -1,6 +1,6 @@
 # Benchmarks
 
-OneLite's own benchmark suite lives in `bench/OneLite.Bench`. It compares OneLite with the reference SQLite library at two levels and measures nothing else. The tables below are the first published baseline (commit `7e028d2`). Speed is a target, not a release gate: the reference ratios are information, and nothing has been tuned yet.
+OneLite's own benchmark suite lives in `bench/OneLite.Bench`. It compares OneLite with the reference SQLite library at two levels and measures nothing else. The tables below are the first published baseline (commit `7e028d2`). Speed is a target, not a release gate: the reference ratios are information, and the first baseline tables below predate the tuning described under "Tuning: prepare and point lookups".
 
 ## Method
 
@@ -17,7 +17,7 @@ OneLite's own benchmark suite lives in `bench/OneLite.Bench`. It compares OneLit
 
 Reproduce with `bench/run.sh --rows <a,b|all> --levels engine,app --reps 3 --out <prefix>` (`--vec` points at the sqlite-vec loadable for the `vec0_knn` reference; `--aot` at the published `bench/OneLite.Bench.Cold` for the NativeAOT cold-start row). `OneLite.Bench merge` combines filtered runs.
 
-**Rows.** `insert_tx_10k` and `insert_tx_100k` (bulk insert in one transaction); `insert_autocommit` (200 single-row commits); `wal_commit_normal` and `wal_commit_full` (1,000 commits); `lookup_rowid` and `lookup_index` (200,000 point lookups); `scan_filter` (unindexed scan with a filter); `range_scan`; `join` (two tables); `group_by`; `order_by_sort` (sort larger than the cache); `fts5_top10` (FTS5 `MATCH`, top 10 by bm25); `vec0_knn` (`vec0` k-NN, against sqlite-vec 0.1.9's prebuilt extension); `prepare_cost`; `open_time` (open, one query, close). Cold start (process start to the first answer, JIT and NativeAOT) is separate.
+**Rows.** `insert_tx_10k` and `insert_tx_100k` (bulk insert in one transaction); `insert_autocommit` (200 single-row commits); `prepare_cold` (first prepare of new statement texts); `wal_commit_normal` and `wal_commit_full` (1,000 commits); `lookup_rowid` and `lookup_index` (200,000 point lookups); `scan_filter` (unindexed scan with a filter); `range_scan`; `join` (two tables); `group_by`; `order_by_sort` (sort larger than the cache); `fts5_top10` (FTS5 `MATCH`, top 10 by bm25); `vec0_knn` (`vec0` k-NN, against sqlite-vec 0.1.9's prebuilt extension); `prepare_cost`; `open_time` (open, one query, close). Cold start (process start to the first answer, JIT and NativeAOT) is separate.
 
 ## Read these first
 
@@ -178,6 +178,17 @@ Three changes, measured on the same machine in one run, before and after: (1) a 
 | lookup_rowid | 1550.08 | 465.45 | 590.09 / 582.47 | 2.63× | 0.80× | 15,520 | 376 |
 | lookup_index | 1922.49 | 550.40 | 462.86 / 462.66 | 4.15× | 1.19× | 18,920 | 272 |
 | range_scan | 115.42 | 36.63 | 30.64 / 30.50 | 3.77× | 1.20× | 20,768 | 296 |
+
+### Cold prepare (first prepare of a new statement text)
+
+`prepare_cold` prepares three statements of the `prepare_cost` shapes 1,000 times, each round with a new literal, so no text has been prepared before and nothing is reused. Read it next to `prepare_cost` (reuse): reuse is 0.65 ms, a first prepare is about 160 ms, because the reuse cache only helps repeated text. Indicative (a shared `heavy` queue slot, not a `bench` slot, 3 repetitions, one x64 Linux machine, 4 cores reserved, load average about 6.5 before and 7.5 after; native SQLite 3.53.4 and `Microsoft.Data.Sqlite` as in the other rows):
+
+| Level | OneLite ms | Reference ms | Ratio |
+|---|---:|---:|---:|
+| engine `prepare_cold` | 158.58 | 7.73 | 20.5× |
+| engine `prepare_cost` (reuse) | 0.65 | 7.64 | 0.09× |
+| app `prepare_cold` | 193.03 | 21.88 | 8.8× |
+| app `prepare_cost` (reuse) | 21.89 | 23.03 | 0.95× |
 
 What is left. `lookup_index` and `range_scan` still evaluate the whole `WHERE` clause on every index entry, as the engine always does (a plan can change speed, never the answer). Every read transaction costs two `fcntl` calls (taking and releasing the wal-index read mark), as it does in the native library; on this machine starting and ending a read transaction around a trivial query takes about 1.8 µs, most of it those calls.
 

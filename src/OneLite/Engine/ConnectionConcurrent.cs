@@ -93,7 +93,7 @@ public sealed partial class Connection
                 }
                 else if (c is not null)
                 {
-                    ConcurrentRowids.NoteCollision(_pager.FullPath, c);
+                    ConcurrentRowids.NoteCollision(_pager.Identity, c);
                     _pager.ConcurrentConflict = new OneLiteException(ResultCode.BusySnapshot, Pager.Msg(ResultCode.BusySnapshot), "another transaction changed data this one used: " + c.Detail);
                 }
                 else

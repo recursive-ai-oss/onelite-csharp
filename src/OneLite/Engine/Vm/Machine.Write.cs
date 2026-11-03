@@ -1238,9 +1238,10 @@ internal sealed partial class Machine
             if (max < long.MaxValue)
             {
                 long next = max + 1;
-                if (ct is not null)
+                // Only the main database: a temp table has its own root pages, and writes to an attached one are refused in a concurrent transaction.
+                if (ct is not null && c.Spec.Table.Db == 0)
                 {
-                    long alloc = ConcurrentRowids.Allocate(_conn.Pager.FullPath, c.Bt.Tree.Root, max, ct);
+                    long alloc = ConcurrentRowids.Allocate(_conn.Pager.Identity, c.Bt.Tree.Root, max, ct);
                     if (alloc > 0)
                     {
                         next = alloc;
