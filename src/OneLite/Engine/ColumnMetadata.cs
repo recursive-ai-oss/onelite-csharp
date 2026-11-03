@@ -43,7 +43,7 @@ public sealed partial class Connection
                 if (string.Equals(c.Name, column, StringComparison.OrdinalIgnoreCase))
                 {
                     bool auto = i == t.RowidAlias && cat.Rows.Exists(r => string.Equals(r.Name, table, StringComparison.OrdinalIgnoreCase) && r.Sql is { } sql && sql.Contains("AUTOINCREMENT", StringComparison.OrdinalIgnoreCase));
-                    return new ColumnMetadata(c.DeclaredType, c.CollationName ?? "BINARY", c.NotNull, c.PrimaryKey, auto);
+                    return new ColumnMetadata(c.TypeText, c.CollationName ?? "BINARY", c.NotNull, c.PrimaryKey, auto);
                 }
             }
 

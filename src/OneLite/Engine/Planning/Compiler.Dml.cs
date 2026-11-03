@@ -500,7 +500,7 @@ internal sealed partial class Compiler
             Mark(skip);
         }
 
-        Emit(Op.Delete, w.Cursor, 0, 0, null, count ? 1 : 0);
+        Emit(Op.Delete, w.Cursor, 0, 0, count && !w.T.WithoutRowid ? w.T : null, count ? 1 | 4 : 0);
         if (fkImg is not null)
         {
             EmitFkParent(w.T, fkImg, null, null, null, false);
@@ -597,6 +597,15 @@ internal sealed partial class Compiler
         }
         else if (!valueRows.IsDefault)
         {
+            // lang_insert: a multi-row VALUES list is checked for equal row widths before the columns are matched
+            foreach (ImmutableArray<Expr> row in valueRows)
+            {
+                if (row.Length != valueRows[0].Length)
+                {
+                    throw Err("all VALUES must have the same number of terms");
+                }
+            }
+
             foreach (ImmutableArray<Expr> row in valueRows)
             {
                 if (row.Length != nSrc)
@@ -679,7 +688,7 @@ internal sealed partial class Compiler
         }
         else
         {
-            Emit(Op.Insert, w.Cursor, w.RecBase, w.RowidReg, t, 1 | 2);
+            Emit(Op.Insert, w.Cursor, w.RecBase, w.RowidReg, t, 1 | 2 | 4);
         }
 
         foreach (IdxW x in w.Idx)
@@ -1368,7 +1377,7 @@ internal sealed partial class Compiler
                 Emit(Op.Delete, w.Cursor, 0, 0, null, 0);
             }
 
-            Emit(Op.Insert, w.Cursor, w.RecBase, w.RowidReg, t, count ? 1 : 0);
+            Emit(Op.Insert, w.Cursor, w.RecBase, w.RowidReg, t, count ? 1 | 8 : 8);
         }
 
         foreach (IdxW x in w.Idx)

@@ -141,6 +141,21 @@ public sealed partial class Connection
         return _userFunctions.TryGetValue((up, argumentCount), out FuncDef? d) || _userFunctions.TryGetValue((up, -1), out d) ? d : null;
     }
 
+    /// <summary>True when some user function (any argument count) is registered under <paramref name="name"/>.</summary>
+    internal bool HasUserFunctionNamed(string name)
+    {
+        string up = name.ToUpperInvariant();
+        foreach ((string n, int _) in _userFunctions.Keys)
+        {
+            if (n == up)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /// <summary>Runs a user function and stores its result in <paramref name="dst"/> (the register's own buffer is <paramref name="own"/>).</summary>
     internal static void CallUser(UserScalarFunction f, ReadOnlySpan<Mem> args, ref Mem dst, ref byte[]? own)
     {

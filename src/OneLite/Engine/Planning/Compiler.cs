@@ -453,7 +453,17 @@ internal sealed partial class Compiler
             e = p.Inner;
         }
 
-        if (e is not ColumnRef cr || !TryResolveColumn(cr, out Source rs, out int col) || rs.Kind != SourceKind.Table)
+        if (e is not ColumnRef cr || !TryResolveColumn(cr, out Source rs, out int col))
+        {
+            return null;
+        }
+
+        if (rs.Kind == SourceKind.Eph)
+        {
+            return col >= 0 && col < rs.Table.Columns.Length ? rs.Table.Columns[col].Origin : null;
+        }
+
+        if (rs.Kind != SourceKind.Table)
         {
             return null;
         }
@@ -461,7 +471,7 @@ internal sealed partial class Compiler
         string db = rs.Table.Db switch { 0 => "main", 1 => "temp", var slot => _cat.Owner?.AttachedBySlot(slot)?.Name ?? "main" };
         return col < 0
             ? new ColumnOrigin(db, rs.Table.Name, "rowid", "INTEGER")
-            : new ColumnOrigin(db, rs.Table.Name, rs.Table.Columns[col].Name, rs.Table.Columns[col].DeclaredType);
+            : new ColumnOrigin(db, rs.Table.Name, rs.Table.Columns[col].Name, rs.Table.Columns[col].TypeText);
     }
 
     /// <summary>
@@ -1808,7 +1818,8 @@ internal sealed partial class Compiler
                 throw Unsupported("function " + name + "()");
             }
 
-            throw Err("no such function: " + name);
+            // a name that exists with other argument counts is a wrong-arity call (c3ref create_function)
+            throw Err(_cat.Owner?.HasUserFunctionNamed(name) == true ? "wrong number of arguments to function " + name + "()" : "no such function: " + name);
         }
 
         int n = f.Args.Length;

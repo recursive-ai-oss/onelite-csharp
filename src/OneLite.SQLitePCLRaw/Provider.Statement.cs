@@ -86,7 +86,7 @@ public sealed partial class OneLiteSqlite3Provider
         while (i < s.Length)
         {
             char c = s[i];
-            if (c is ' ' or '\t' or '\n' or '\r' or '\f' or ';')
+            if (c is ' ' or '\t' or '\n' or '\r' or '\f' or ';' or '\0')
             {
                 i++;
             }
@@ -435,12 +435,32 @@ public sealed partial class OneLiteSqlite3Provider
             return ResultCode.Misuse;
         }
 
-        if (callback is not null)
+        int result = ExecText(d, db, sql.utf8_to_string() ?? string.Empty, callback, user_data);
+        if (result != 0 && d.Message is { } message)
         {
-            return d.Fail(ResultCode.Error, "sqlite3_exec with a row callback is not supported by OneLite; use prepare and step");
+            // The caller frees this with sqlite3_free.
+            byte[] bytes = Encoding.UTF8.GetBytes(message);
+            errMsg = sqlite3_malloc_static(bytes.Length + 1);
+            System.Runtime.InteropServices.Marshal.Copy(bytes, 0, errMsg, bytes.Length);
+            System.Runtime.InteropServices.Marshal.WriteByte(errMsg, bytes.Length, 0);
         }
 
-        string text = sql.utf8_to_string() ?? string.Empty;
+        return result;
+    }
+
+    private static IntPtr NativeUtf8(string text)
+    {
+        byte[] bytes = Encoding.UTF8.GetBytes(text);
+        IntPtr p = System.Runtime.InteropServices.Marshal.AllocHGlobal(bytes.Length + 1);
+        System.Runtime.InteropServices.Marshal.Copy(bytes, 0, p, bytes.Length);
+        System.Runtime.InteropServices.Marshal.WriteByte(p, bytes.Length, 0);
+        return p;
+    }
+
+    private static IntPtr sqlite3_malloc_static(int n) => System.Runtime.InteropServices.Marshal.AllocHGlobal(Math.Max(n, 1));
+
+    private static int ExecText(DbState d, sqlite3 db, string text, delegate_exec? callback, object? user)
+    {
         while (!IsBlank(text))
         {
             int rc = Prepare(db, Encoding.UTF8.GetBytes(text), out IntPtr h, out ReadOnlySpan<byte> tail);
@@ -453,12 +473,50 @@ public sealed partial class OneLiteSqlite3Provider
             if (h != IntPtr.Zero)
             {
                 StmtState s = Handles.Get<StmtState>(h)!;
+                bool aborted = false;
                 do
                 {
                     rc = StepCore(s);
+                    if (rc == Row && callback is not null)
+                    {
+                        int n = s.Statement.ColumnCount;
+                        var values = new IntPtr[n];
+                        var names = new IntPtr[n];
+                        try
+                        {
+                            for (int i = 0; i < n; i++)
+                            {
+                                names[i] = NativeUtf8(s.Statement.ColumnName(i));
+                                values[i] = s.Statement.IsNull(i) ? IntPtr.Zero : NativeUtf8(s.Statement.GetString(i)!);
+                            }
+
+                            if (callback(user!, values, names) != 0)
+                            {
+                                aborted = true;
+                                break;
+                            }
+                        }
+                        finally
+                        {
+                            foreach (IntPtr p in values)
+                            {
+                                System.Runtime.InteropServices.Marshal.FreeHGlobal(p);
+                            }
+
+                            foreach (IntPtr p in names)
+                            {
+                                System.Runtime.InteropServices.Marshal.FreeHGlobal(p);
+                            }
+                        }
+                    }
                 }
                 while (rc == Row);
                 int fin = FinalizeStatement(s);
+                if (aborted)
+                {
+                    return d.Fail(ResultCode.Abort, "query aborted");
+                }
+
                 if (rc != Done)
                 {
                     return rc;
@@ -487,6 +545,12 @@ public sealed partial class OneLiteSqlite3Provider
         StmtState? s = Stmt(stmt);
         if (s is null || s.Finalized)
         {
+            return ResultCode.Misuse;
+        }
+
+        if (s.Active)
+        {
+            // c3ref bind: a statement that has not been reset since it returned a row is still running
             return ResultCode.Misuse;
         }
 

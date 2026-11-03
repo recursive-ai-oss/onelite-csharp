@@ -33,6 +33,7 @@ internal sealed class DbState
     internal Connection? Connection;
     internal string Path = string.Empty;
     internal bool ReadOnly;
+    internal bool Memory;
     internal bool Extended;
     internal bool Closed;
     internal string? SharedKey;

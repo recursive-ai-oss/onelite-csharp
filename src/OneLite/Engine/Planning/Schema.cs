@@ -60,6 +60,9 @@ internal sealed class ColumnInfo
     internal string Name = "";
     internal string DeclaredType = "";
 
+    /// <summary>For a column of a view, CTE or subquery shape: the table column it passes through (sqlite3_column_origin_name and friends), or null.</summary>
+    internal ColumnOrigin? Origin;
+
     /// <summary>The type as it prints in PRAGMA table_info: written text, with the six standard names in upper case.</summary>
     internal string TypeText = "";
 

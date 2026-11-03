@@ -91,6 +91,7 @@ public sealed partial class OneLiteSqlite3Provider : ISQLite3Provider
         }
 
         d.Path = path;
+        d.Memory = memory;
         d.ReadOnly = readOnly;
         Database db;
         if (memory)
@@ -382,6 +383,11 @@ public sealed partial class OneLiteSqlite3Provider : ISQLite3Provider
         }
 
         string name = att.utf8_to_string() ?? "main";
+        if (d.Memory && string.Equals(name, "main", StringComparison.OrdinalIgnoreCase))
+        {
+            return utf8z.FromString(string.Empty);
+        }
+
         try
         {
             using Statement st = d.Conn.Prepare("PRAGMA database_list");
