@@ -22,11 +22,154 @@ internal sealed class ByteKeyComparer : IComparer<byte[]>, IEqualityComparer<byt
     }
 }
 
-/// <summary>The occurrences of one term in one row: (column &lt;&lt; 32 | offset) values in order.</summary>
-internal sealed class Posting
+/// <summary>
+/// The live rows that contain a term, in ascending rowid order, with the positions of the term in each. Stored as parallel arrays rather
+/// than one object per row, and the position lists stay as the raw bytes of the index until a row needs them: a query reads positions only
+/// for rows that survive its other terms.
+/// </summary>
+internal sealed class PostingList
 {
-    internal long Rowid;
-    internal long[] Pos = [];
+    private long[] _rowids;
+    private int[] _off;
+    private int[] _len;
+    private long[]?[]? _pos;
+    private int _n;
+    private readonly PosArena? _arena;
+
+    internal PostingList(PosArena? arena = null, int capacity = 16)
+    {
+        _arena = arena;
+        capacity = Math.Max(capacity, 4);
+        _rowids = new long[capacity];
+        _off = new int[capacity];
+        _len = new int[capacity];
+    }
+
+    internal int Count => _n;
+
+    internal long Rowid(int i) => _rowids[i];
+
+    /// <summary>Adds a row whose positions are the raw position list <paramref name="posList"/> of the index.</summary>
+    internal void Add(long rowid, ReadOnlySpan<byte> posList)
+    {
+        Grow();
+        _rowids[_n] = rowid;
+        _off[_n] = _arena!.Add(posList);
+        _len[_n] = posList.Length;
+        _n++;
+    }
+
+    /// <summary>Adds a row with positions already decoded.</summary>
+    internal void Add(long rowid, long[] positions)
+    {
+        Grow();
+        _rowids[_n] = rowid;
+        (_pos ??= new long[]?[_rowids.Length])[_n] = positions;
+        _n++;
+    }
+
+    private void Grow()
+    {
+        if (_n == _rowids.Length)
+        {
+            int m = _n * 2;
+            Array.Resize(ref _rowids, m);
+            Array.Resize(ref _off, m);
+            Array.Resize(ref _len, m);
+            if (_pos is not null)
+            {
+                Array.Resize(ref _pos, m);
+            }
+        }
+    }
+
+    /// <summary>The positions of row <paramref name="i"/> (column &lt;&lt; 32 | offset), decoded on first use.</summary>
+    internal long[] Pos(int i)
+    {
+        long[]?[]? cache = _pos;
+        if (cache is not null && cache[i] is { } have)
+        {
+            return have;
+        }
+
+        long[] d = _arena is null ? [] : _arena.Decode(_off[i], _len[i]);
+        cache ??= _pos = new long[]?[_rowids.Length];
+        cache[i] = d;
+        return d;
+    }
+
+    /// <summary>True when row <paramref name="i"/> lists any position bytes (without decoding them).</summary>
+    internal bool HasPositionBytes(int i) => _pos is not null && _pos[i] is { } p ? p.Length > 0 : _len[i] > 0;
+
+    /// <summary>Copies row <paramref name="i"/> of <paramref name="from"/> to the end of this list; both share one arena.</summary>
+    internal void CopyFrom(PostingList from, int i)
+    {
+        Grow();
+        _rowids[_n] = from._rowids[i];
+        _off[_n] = from._off[i];
+        _len[_n] = from._len[i];
+        if (from._pos is { } fp && fp[i] is { } v)
+        {
+            (_pos ??= new long[]?[_rowids.Length])[_n] = v;
+        }
+
+        _n++;
+    }
+
+    /// <summary>A list of the given ascending runs of this one (one run per segment), merged. Rowids are distinct across runs.</summary>
+    internal PostingList MergeRuns(List<int> starts)
+    {
+        var res = new PostingList(_arena, _n);
+        int k = starts.Count;
+        var cur = new int[k];
+        var end = new int[k];
+        for (int r = 0; r < k; r++)
+        {
+            cur[r] = starts[r];
+            end[r] = r + 1 < k ? starts[r + 1] : _n;
+        }
+
+        for (; ; )
+        {
+            int best = -1;
+            for (int r = 0; r < k; r++)
+            {
+                if (cur[r] < end[r] && (best < 0 || _rowids[cur[r]] < _rowids[cur[best]]))
+                {
+                    best = r;
+                }
+            }
+
+            if (best < 0)
+            {
+                return res;
+            }
+
+            res.CopyFrom(this, cur[best]++);
+        }
+    }
+}
+
+/// <summary>The raw position lists of one term lookup, in one growing buffer, until the rows that need them decode them.</summary>
+internal sealed class PosArena(Fts5Index idx)
+{
+    private byte[] _buf = new byte[256];
+    private int _n;
+
+    internal int Add(ReadOnlySpan<byte> s)
+    {
+        if (_n + s.Length > _buf.Length)
+        {
+            Array.Resize(ref _buf, Math.Max(_buf.Length * 2, _n + s.Length));
+        }
+
+        int at = _n;
+        s.CopyTo(_buf.AsSpan(_n));
+        _n += s.Length;
+        return at;
+    }
+
+    internal long[] Decode(int off, int len) => idx.DecodePositions(_buf.AsSpan(off, len));
 }
 
 /// <summary>The terms of one row as the index sees them.</summary>
@@ -109,6 +252,8 @@ internal sealed class Fts5Index
 {
     private readonly Fts5Config _cfg;
     private readonly Fts5Store _store;
+
+    internal Fts5Store Store => _store;
 
     internal Fts5Index(Fts5Config cfg, Fts5Store store)
     {
@@ -468,13 +613,98 @@ internal sealed class Fts5Index
     /// The live rows that contain a term, newest data winning. <paramref name="key"/> is the full key (index digit, then the term);
     /// with <paramref name="scan"/> every key that starts with it counts (a prefix query on a table with no matching prefix index).
     /// </summary>
-    internal List<Posting> Lookup(Structure st, byte[] key, bool scan)
+    internal PostingList Lookup(Structure st, byte[] key, bool scan)
+    {
+        if (!scan && TryLookupExact(st, key, out PostingList fast))
+        {
+            return fast;
+        }
+
+        return LookupMerged(st, key, scan);
+    }
+
+    /// <summary>
+    /// The single-key case, in one pass over each segment's doclist with no per-row dictionaries. A doclist is in ascending rowid order;
+    /// anything else (a damaged file) returns false and the general path, which merges duplicates, takes over.
+    /// </summary>
+    private bool TryLookupExact(Structure st, byte[] key, out PostingList result)
+    {
+        result = new PostingList();
+        List<Seg> segs = [.. st.NewestFirst()];
+        HashSet<long>? seen = null;
+        var live = new PostingList(new PosArena(this));
+        var runs = new List<int>(); // where each segment's rows start in live; each run is in ascending rowid order
+        for (int i = 0; i < segs.Count; i++)
+        {
+            Seg g = segs[i];
+            var need = new List<(Seg, byte[])>(1);
+            _store.CollectSeek(g, key, need);
+            Fts5Store.FetchSeeks(need);
+            var sc = new SegScanner(_store, g, DetailNone);
+            sc.Seek(key);
+            int start = live.Count;
+            runs.Add(start);
+            List<long>? dead = null;
+            if (sc.HasKey && sc.Key.SequenceEqual(key))
+            {
+                long prev = 0;
+                bool first = true;
+                while (sc.NextEntry(out long rowid, out ReadOnlySpan<byte> pl, out bool del))
+                {
+                    if (!first && rowid <= prev)
+                    {
+                        return false;
+                    }
+
+                    first = false;
+                    prev = rowid;
+                    if (seen is not null && seen.Contains(rowid))
+                    {
+                        continue;
+                    }
+
+                    if (del)
+                    {
+                        if (i < segs.Count - 1)
+                        {
+                            (dead ??= []).Add(rowid);
+                        }
+
+                        continue;
+                    }
+
+                    live.Add(rowid, pl);
+                }
+            }
+
+            if (i < segs.Count - 1)
+            {
+                seen ??= [];
+                for (int k = start; k < live.Count; k++)
+                {
+                    seen.Add(live.Rowid(k));
+                }
+
+                if (dead is not null)
+                {
+                    seen.UnionWith(dead);
+                }
+            }
+        }
+
+        result = runs.Count > 1 ? live.MergeRuns(runs) : live;
+        return true;
+    }
+
+    private PostingList LookupMerged(Structure st, byte[] key, bool scan)
     {
         var seen = new HashSet<long>();
-        var live = new List<Posting>();
+        var live = new List<(long Rowid, long[] Pos)>();
         foreach (Seg g in st.NewestFirst())
         {
-            _store.NeedDataRange(F5.DataId(g.Id, g.First), F5.DataId(g.Id, g.Last));
+            var need = new List<(Seg, byte[])>(1);
+            _store.CollectSeek(g, key, need);
+            Fts5Store.FetchSeeks(need);
             var sc = new SegScanner(_store, g, DetailNone);
             sc.Seek(key);
             var local = new Dictionary<long, (List<long> Pos, bool Live)>();
@@ -515,38 +745,46 @@ internal sealed class Fts5Index
                 if (kv.Value.Live)
                 {
                     kv.Value.Pos.Sort();
-                    live.Add(new Posting { Rowid = kv.Key, Pos = [.. kv.Value.Pos] });
+                    live.Add((kv.Key, [.. kv.Value.Pos]));
                 }
             }
         }
 
         live.Sort((a, b) => a.Rowid.CompareTo(b.Rowid));
-        return live;
+        var list = new PostingList();
+        foreach ((long rowid, long[] pos) in live)
+        {
+            list.Add(rowid, pos);
+        }
+
+        return list;
     }
 
     private long[] DecodePos(byte[] pl)
     {
-        long[] r = DecodePosRaw(pl);
-        foreach (long p in r)
-        {
-            if ((p >> 32) >= _cfg.ColumnCount)
-            {
-                throw F5.Corrupt("column number out of range in a position list");
-            }
-        }
-
-        return r;
+        long[] scratch = [];
+        return DecodePos(pl, ref scratch);
     }
 
-    private long[] DecodePosRaw(byte[] pl)
+    /// <summary>Decodes one position list (see <see cref="DecodePos(ReadOnlySpan{byte}, ref long[])"/>).</summary>
+    internal long[] DecodePositions(ReadOnlySpan<byte> pl)
     {
+        long[] scratch = [];
+        return DecodePos(pl, ref scratch);
+    }
+
+    /// <summary>Decodes a position list into a new array (sorted, columns checked); <paramref name="scratch"/> is reused between calls.</summary>
+    private long[] DecodePos(ReadOnlySpan<byte> pl, ref long[] scratch)
+    {
+        int n;
         switch (_cfg.Detail)
         {
             case DetailMode.Full:
-                return PosList.Decode(pl);
+                n = PosList.DecodeInto(pl, ref scratch);
+                break;
             case DetailMode.Column:
             {
-                var l = new List<long>();
+                n = 0;
                 int p = 0;
                 long col = 0;
                 bool first = true;
@@ -560,15 +798,41 @@ internal sealed class Fts5Index
                         throw F5.Corrupt("bad column list");
                     }
 
-                    l.Add(col << 32);
+                    if (n == scratch.Length)
+                    {
+                        Array.Resize(ref scratch, Math.Max(16, n * 2));
+                    }
+
+                    scratch[n++] = col << 32;
                 }
 
-                return [.. l];
+                break;
             }
 
             default:
                 return [];
         }
+
+        long[] r = scratch.AsSpan(0, n).ToArray();
+        for (int i = 0; i < r.Length; i++)
+        {
+            if ((r[i] >> 32) >= _cfg.ColumnCount)
+            {
+                throw F5.Corrupt("column number out of range in a position list");
+            }
+        }
+
+        // positions are kept sorted; a well-formed list already is
+        for (int i = 1; i < r.Length; i++)
+        {
+            if (r[i] < r[i - 1])
+            {
+                Array.Sort(r);
+                break;
+            }
+        }
+
+        return r;
     }
 
     /// <summary>Every live (key, row) of the index, in key order: for integrity checks and 'rebuild' comparisons.</summary>

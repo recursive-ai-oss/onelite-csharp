@@ -33,6 +33,7 @@ internal sealed class Fts5Cursor : VCursor
     private long _hi = long.MaxValue;
     private bool _hasMatch;
 
+    private readonly Dictionary<(byte[], bool), PostingList> _postings = QueryEval.NewCache();
     private List<DocMatch> _docs = [];
     private int _pos;
     private List<QPhrase> _phrases = [];
@@ -175,7 +176,8 @@ internal sealed class Fts5Cursor : VCursor
         _avg = _idx.ReadAverages();
         (QNode? root, List<QPhrase> phrases, List<QNode> leaks) = QueryParser.Parse(_cfg, _query ?? string.Empty, _queryCol);
         _phrases = phrases;
-        var ev = new QueryEval(_cfg, _idx, st, phrases.Count);
+        var ev = new QueryEval(_cfg, _idx, st, phrases.Count, _postings);
+        ev.Prefetch(phrases);
         List<DocMatch> docs = root is null ? [] : ev.EvalRoot(root, leaks);
         if (_lo != long.MinValue || _hi != long.MaxValue)
         {
@@ -186,7 +188,7 @@ internal sealed class Fts5Cursor : VCursor
         _phraseDocs = new long[phrases.Count];
         for (int i = 0; i < phrases.Count; i++)
         {
-            _phraseDocs[i] = ev.Eval(phrases[i]).Count;
+            _phraseDocs[i] = ev.PhraseCount(phrases[i]);
         }
     }
 
@@ -458,7 +460,7 @@ internal sealed class Fts5Cursor : VCursor
             return ModStatus.Ok;
         }
 
-        ModStatus ps = Prepare();
+        ModStatus ps = Prepare(false);
         if (ps == ModStatus.Pending)
         {
             return ps;
@@ -469,17 +471,22 @@ internal sealed class Fts5Cursor : VCursor
     }
 
     /// <summary>Loads what an auxiliary function needs from the current row: its text and column sizes.</summary>
-    private ModStatus Prepare()
+    private ModStatus Prepare(bool needRow = true)
     {
         if (_mode != 1)
         {
             return ModStatus.Ok;
         }
 
-        ModStatus s = LoadRow();
-        if (s != ModStatus.Ok)
+        // The rank column needs the column sizes only; they come from the docsize record, so the row's text is not read.
+        ModStatus s = ModStatus.Ok;
+        if (needRow || !_cfg.HasDocSize)
         {
-            return s;
+            s = LoadRow();
+            if (s != ModStatus.Ok)
+            {
+                return s;
+            }
         }
 
         if (_sizes is not null)
@@ -491,22 +498,26 @@ internal sealed class Fts5Cursor : VCursor
         if (_cfg.HasDocSize)
         {
             long[]? sz = null;
-            s = _run.Drive(() =>
+            if (!_store.TryDocSize(id, out byte[]? b))
             {
-                byte[]? b = _store.DocSize(id).Sz;
-                if (b is not null)
+                // fetched directly: a per-row exception-and-restart would cost far more than the lookup
+                s = _store.Satisfy(new Fetch(FetchKind.DocSize, id, id, Point: true));
+                if (s == ModStatus.Pending)
                 {
-                    sz = new long[_cfg.ColumnCount];
-                    int p = 0;
-                    for (int i = 0; i < sz.Length && p < b.Length; i++)
-                    {
-                        sz[i] = F5.GetVarint(b, ref p);
-                    }
+                    return s;
                 }
-            });
-            if (s == ModStatus.Pending)
+
+                _store.TryDocSize(id, out b);
+            }
+
+            if (b is not null)
             {
-                return s;
+                sz = new long[_cfg.ColumnCount];
+                int p = 0;
+                for (int i = 0; i < sz.Length && p < b.Length; i++)
+                {
+                    sz[i] = F5.GetVarint(b, ref p);
+                }
             }
 
             _sizes = sz ?? new long[_cfg.ColumnCount];
@@ -531,6 +542,10 @@ internal sealed class Fts5Cursor : VCursor
     }
 
     // ---- what the auxiliary functions read
+
+    internal string? RankSpecCached;
+
+    internal double[]? RankWeightsCached;
 
     internal List<QPhrase> Phrases => _phrases;
 

@@ -14,10 +14,13 @@ internal enum FetchKind : byte
     DocSize,
     Config,
     MaxRowid,
+
+    /// <summary>The pages a segment search for <see cref="Fetch.Key"/> probes, and the page it starts on (with one page of read-ahead).</summary>
+    SegSeek,
 }
 
 /// <summary>A request for rows of a shadow table that the computation needs and that are not loaded yet.</summary>
-internal readonly record struct Fetch(FetchKind Kind, long Lo, long Hi);
+internal readonly record struct Fetch(FetchKind Kind, long Lo, long Hi, Seg? Seg = null, byte[]? Key = null, bool Point = false, List<(Seg Seg, byte[] Key)>? Many = null);
 
 /// <summary>Thrown by the store when a computation reads something that has not been loaded; the driver loads it and runs the computation again.</summary>
 internal sealed class NeedFetch(Fetch f) : Exception("fts5: data not loaded")
@@ -89,6 +92,9 @@ internal sealed class Fts5Store : IBlobSource
         _contentCovered.Clear();
         _docsize.Clear();
         _docsizeCovered.Clear();
+        _seeked.Clear();
+        _pages.Clear();
+        _readAhead = 0;
         _config = null;
         _maxRowid = null;
         BeginPlan();
@@ -129,30 +135,167 @@ internal sealed class Fts5Store : IBlobSource
 
     public byte[]? Data(long id)
     {
-        if (_ovData.TryGetValue(id, out byte[]? ov))
+        if (TryData(id, out byte[]? v))
         {
-            return ov;
+            return v;
+        }
+
+        // A miss right after a loaded page is a sequential read (a long doclist): ask for a growing run of pages so the number of
+        // restarts stays logarithmic in the doclist length. Any other miss loads just that page.
+        long hi = id;
+        if (_data.ContainsKey(id - 1))
+        {
+            _readAhead = _readAhead == 0 ? 2 : Math.Min(_readAhead * 2, 32);
+            hi = id + _readAhead - 1;
+        }
+
+        throw new NeedFetch(new Fetch(FetchKind.Data, id, hi, Point: hi == id));
+    }
+
+    private int _readAhead;
+
+    private readonly Dictionary<long, SegPage> _pages = [];
+
+    public bool TryPage(int segid, int pgno, out SegPage? page)
+    {
+        long id = F5.DataId(segid, pgno);
+        if (_pages.TryGetValue(id, out page))
+        {
+            return true;
+        }
+
+        if (!TryData(id, out byte[]? b))
+        {
+            return false;
+        }
+
+        if (b is null)
+        {
+            page = null;
+            return true;
+        }
+
+        page = SegPage.Parse(b, segid, pgno);
+        if (_ovData.Count == 0 && _ovRemoved.Count == 0)
+        {
+            _pages[id] = page; // parsed pages are kept with the loaded data, so repeated searches do not parse them again
+        }
+
+        return true;
+    }
+
+    public bool TryData(long id, out byte[]? value)
+    {
+        if (_ovData.TryGetValue(id, out value))
+        {
+            return true;
         }
 
         foreach ((long lo, long hi) in _ovRemoved)
         {
             if (id >= lo && id <= hi)
             {
-                return null;
+                value = null;
+                return true;
             }
         }
 
-        if (_data.TryGetValue(id, out byte[]? v))
+        if (_data.TryGetValue(id, out value))
         {
-            return v;
+            return true;
         }
 
         if (Covered(_dataCovered, id, id))
         {
-            return null;
+            value = null;
+            return true;
         }
 
-        throw new NeedFetch(new Fetch(FetchKind.Data, id, id));
+        value = null;
+        return false;
+    }
+
+    /// <summary>
+    /// Notes that a search of segment <paramref name="g"/> for <paramref name="key"/> is coming. When its first pages (the binary search's
+    /// probes, the start page and the one after it) are not loaded they are added to <paramref name="need"/>. The rest of a doclist loads
+    /// as it is read.
+    /// </summary>
+    internal void CollectSeek(Seg g, byte[] key, List<(Seg Seg, byte[] Key)> need)
+    {
+        _readAhead = 0;
+        if (_ovData.Count > 0 || _ovRemoved.Count > 0 || _seeked.Contains((g.Id, key, g.First, g.Last)))
+        {
+            return;
+        }
+
+        if (!SeekReady(g, key, out _))
+        {
+            need.Add((g, key));
+        }
+        else
+        {
+            _seeked.Add((g.Id, key, g.First, g.Last));
+        }
+    }
+
+    /// <summary>Signals the fetch of everything <see cref="CollectSeek"/> found missing (one restart for all of them).</summary>
+    internal static void FetchSeeks(List<(Seg Seg, byte[] Key)> need)
+    {
+        if (need.Count > 0)
+        {
+            throw new NeedFetch(new Fetch(FetchKind.SegSeek, 0, 0, Many: need));
+        }
+    }
+
+    private readonly HashSet<(int, byte[], int, int)> _seeked = new(new SeekKeyCmp());
+
+    private sealed class SeekKeyCmp : IEqualityComparer<(int, byte[], int, int)>
+    {
+        public bool Equals((int, byte[], int, int) x, (int, byte[], int, int) y) =>
+            x.Item1 == y.Item1 && x.Item3 == y.Item3 && x.Item4 == y.Item4 && x.Item2.AsSpan().SequenceEqual(y.Item2);
+
+        public int GetHashCode((int, byte[], int, int) o)
+        {
+            var h = new HashCode();
+            h.Add(o.Item1);
+            h.AddBytes(o.Item2);
+            return h.ToHashCode();
+        }
+    }
+
+    /// <summary>True when everything the seek preparation wants is loaded; otherwise the id of the page to load next.</summary>
+    private bool SeekReady(Seg g, byte[] key, out long missing)
+    {
+        missing = 0;
+        if (g.First == 0 && g.Last == 0)
+        {
+            return TryData(F5.DataId(g.Id, 0), out _) || Miss(F5.DataId(g.Id, 0), out missing);
+        }
+
+        int best = SegScanner.FindStartPage(this, g, key, out long m);
+        if (best < 0)
+        {
+            missing = m;
+            return false;
+        }
+
+        if (best < g.Last)
+        {
+            long next = F5.DataId(g.Id, best + 1);
+            if (!TryData(next, out _))
+            {
+                missing = next;
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool Miss(long id, out long missing)
+    {
+        missing = id;
+        return false;
     }
 
     /// <summary>Makes sure rows lo..hi of %_data are loaded.</summary>
@@ -210,6 +353,19 @@ internal sealed class Fts5Store : IBlobSource
         throw new NeedFetch(new Fetch(FetchKind.DocSize, id, id));
     }
 
+    /// <summary>The docsize record of a row if it is loaded (<paramref name="sz"/> null when the row has none); false when it must be fetched.</summary>
+    internal bool TryDocSize(long id, out byte[]? sz)
+    {
+        if (_docsize.TryGetValue(id, out var v))
+        {
+            sz = v.Sz;
+            return true;
+        }
+
+        sz = null;
+        return Covered(_docsizeCovered, id, id);
+    }
+
     internal void NeedDocSizeRange(long lo, long hi)
     {
         if (!Covered(_docsizeCovered, lo, hi))
@@ -250,12 +406,20 @@ internal sealed class Fts5Store : IBlobSource
     // ---- satisfying a fetch
 
     private ShadowTree? _tree;
+    private string? _treeSuffix;
     private BtCursor? _icur;
     private int _ph;
     private bool _found;
 
     private ModStatus Open(string suffix, out ShadowTree tree)
     {
+        if (_tree is not null && _treeSuffix != suffix)
+        {
+            _tree.Dispose();
+            _tree = null;
+        }
+
+        _treeSuffix = suffix;
         _tree ??= new ShadowTree(_conn, _cfg.Schema, _cfg.Table + suffix);
         tree = _tree;
         return ModStatus.Ok;
@@ -281,6 +445,24 @@ internal sealed class Fts5Store : IBlobSource
         if (f.Kind == FetchKind.MaxRowid)
         {
             return LoadMax();
+        }
+
+        if (f.Kind == FetchKind.SegSeek)
+        {
+            // Load one missing page at a time and look again: each look is a pure memory search over the pages loaded so far.
+            foreach ((Seg g, byte[] key) in f.Many!)
+            {
+                while (!SeekReady(g, key, out long missing))
+                {
+                    ModStatus s = Satisfy(new Fetch(FetchKind.Data, missing, missing, Point: true));
+                    if (s == ModStatus.Pending)
+                    {
+                        return s;
+                    }
+                }
+            }
+
+            return ModStatus.Ok;
         }
 
         string suffix = f.Kind switch { FetchKind.Data => "_data", FetchKind.Content => "_content", _ => "_docsize" };
@@ -340,6 +522,13 @@ internal sealed class Fts5Store : IBlobSource
                     }
 
                     Store(f.Kind, t.Rowid, t.Row);
+                    if (f.Point)
+                    {
+                        // a single record: done, and the tree stays open for the next lookup (a per-row fetch would otherwise reopen it)
+                        _ph = 0;
+                        return ModStatus.Ok;
+                    }
+
                     _ph = 3;
                     break;
                 }
@@ -402,6 +591,7 @@ internal sealed class Fts5Store : IBlobSource
         switch (k)
         {
             case FetchKind.Data:
+                _pages.Remove(rowid);
                 _data[rowid] = Blob(v, 1) ?? [];
                 break;
             case FetchKind.DocSize:
