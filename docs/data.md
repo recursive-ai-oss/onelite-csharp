@@ -46,6 +46,8 @@ Over a local file on Linux or macOS, async does not make disk reads faster; it f
 
 ## Transactions
 
+`.Data` never uses `BEGIN CONCURRENT`: the connection string has no option for it, and `BEGIN CONCURRENT` is a syntax error through ADO.NET, as in SQLite. Use the happy path or the engine API with `ConcurrentWrites` for it (`docs/concurrency.md`).
+
 `BeginTransaction()` runs `BEGIN DEFERRED`; `BeginTransaction(deferred: false)` runs `BEGIN IMMEDIATE`. One transaction per connection (a second throws
 "OneLiteConnection does not support nested transactions."). `CreateCommand` hands the command the connection's current transaction; a command created earlier
 must have `Transaction` set, or execution throws (as `Microsoft.Data.Sqlite` does). Disposing an uncommitted transaction rolls it back.

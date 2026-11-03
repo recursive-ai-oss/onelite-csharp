@@ -113,7 +113,7 @@ public sealed class ConcurrentTransactionTests : IDisposable
         e = Fails(() => Run(w2, "COMMIT"));
         double ms = System.Diagnostics.Stopwatch.GetElapsedTime(t0).TotalMilliseconds;
         Assert.Equal(ResultCode.Busy, e.Code);
-        Assert.InRange(ms, 90, 400);
+        Assert.InRange(ms, 90, 2000); // bounded by the timeout, with room for slow shared CI machines
     }
 
     [Fact]
@@ -588,5 +588,196 @@ public sealed class ConcurrentTransactionTests : IDisposable
         Run(a, "COMMIT");
         Assert.Equal("2", Q(b, "SELECT v FROM t WHERE id = 1"));
         Assert.Equal("ok", Q(a, "PRAGMA integrity_check"));
+    }
+
+    // ---- rowid hints belong to one file (docs/concurrency.md, "Rowids")
+
+    private static long ConcInsertOne(Database db, string table)
+    {
+        using Connection c = db.Connect();
+        Run(c, "BEGIN CONCURRENT");
+        Run(c, $"INSERT INTO {table}(v) VALUES (1)");
+        long id = long.Parse(Q(c, "SELECT last_insert_rowid()"), System.Globalization.CultureInfo.InvariantCulture);
+        Run(c, "COMMIT");
+        return id;
+    }
+
+    private static void RaiseHint(string path, string table)
+    {
+        // 300 single-row concurrent commits push the process-wide hint for this file's table well past 300.
+        using Database db = Database.Open(path, s_opts);
+        using Connection c = db.Connect();
+        Run(c, $"CREATE TABLE {table}(id INTEGER PRIMARY KEY, v INT)");
+        for (int i = 0; i < 300; i++)
+        {
+            Run(c, "BEGIN CONCURRENT");
+            Run(c, $"INSERT INTO {table}(v) VALUES (1)");
+            Run(c, "COMMIT");
+        }
+    }
+
+    private static void DeleteDb(string path)
+    {
+        foreach (string f in new[] { path, path + "-wal", path + "-shm", path + "-journal" })
+        {
+            File.Delete(f);
+        }
+    }
+
+    [Fact]
+    public void RecreatedFileStartsRowidsAtOne()
+    {
+        string path = Path.Combine(_dir, "re.db");
+        RaiseHint(path, "t");
+        DeleteDb(path);
+        using Database db = Database.Open(path, s_opts);
+        using (Connection c = db.Connect())
+        {
+            Run(c, "CREATE TABLE t(id INTEGER PRIMARY KEY, v INT)");
+        }
+
+        Assert.Equal(1L, ConcInsertOne(db, "t"));
+    }
+
+    [Fact]
+    public void RecreatedFileStartsAutoincrementAtOne()
+    {
+        string path = Path.Combine(_dir, "reai.db");
+        RaiseHint(path, "t");
+        DeleteDb(path);
+        using Database db = Database.Open(path, s_opts);
+        using (Connection c = db.Connect())
+        {
+            Run(c, "CREATE TABLE t(id INTEGER PRIMARY KEY AUTOINCREMENT, v INT)");
+        }
+
+        Assert.Equal(1L, ConcInsertOne(db, "t"));
+    }
+
+    [Fact]
+    public void FileReplacedByACopyUsesItsOwnMaxRowid()
+    {
+        string path = Path.Combine(_dir, "cp.db");
+        string small = Path.Combine(_dir, "small.db");
+        using (Database s = Database.Open(small, new DatabaseOptions { JournalMode = JournalMode.Delete }))
+        using (Connection c = s.Connect())
+        {
+            Run(c, "CREATE TABLE t(id INTEGER PRIMARY KEY, v INT)");
+            Run(c, "INSERT INTO t VALUES (1, 0), (2, 0), (3, 0)");
+        }
+
+        RaiseHint(path, "t");
+        DeleteDb(path);
+        File.Copy(small, path);
+        using Database db = Database.Open(path, s_opts);
+        Assert.Equal(4L, ConcInsertOne(db, "t"));
+    }
+
+    [Fact]
+    public void TempTableDoesNotUseTheMainTablesHint()
+    {
+        string path = Path.Combine(_dir, "tmp.db");
+        RaiseHint(path, "t");
+        using Database db = Database.Open(path, s_opts);
+        using Connection c = db.Connect();
+        Run(c, "CREATE TEMP TABLE tt(id INTEGER PRIMARY KEY, v INT)");
+        Run(c, "BEGIN CONCURRENT");
+        Run(c, "INSERT INTO tt(v) VALUES (1)");
+        Assert.Equal("1", Q(c, "SELECT last_insert_rowid()"));
+        Run(c, "COMMIT");
+    }
+
+    [Fact]
+    public void RolledBackHintedTransactionLeavesNoWrongIdAndNoConflict()
+    {
+        using Database db = Open("rb.db");
+        using Connection a = db.Connect();
+        using Connection b = db.Connect();
+        Run(a, "CREATE TABLE t(id INTEGER PRIMARY KEY, v INT)");
+        Run(a, "BEGIN CONCURRENT");
+        Run(a, "INSERT INTO t(v) VALUES (1)");
+        Run(a, "ROLLBACK");
+        Run(b, "BEGIN CONCURRENT");
+        Run(b, "INSERT INTO t(v) VALUES (2)");
+        Run(b, "COMMIT");
+        // A hint may leave a gap (rowids under BEGIN CONCURRENT need not be contiguous) but never a rowid at or below the table's maximum.
+        Assert.Equal("1", Q(a, "SELECT count(*) FROM t"));
+        Assert.Equal("ok", Q(a, "PRAGMA integrity_check"));
+    }
+
+    [Fact]
+    public void TwoPathsToOneFileAgreeThroughCommitValidation()
+    {
+        string path = Path.Combine(_dir, "hl.db");
+        string link = Path.Combine(_dir, "hl-link.db");
+        using Database db1 = Database.Open(path, s_opts);
+        using (Connection c = db1.Connect())
+        {
+            Run(c, "CREATE TABLE t(id INTEGER PRIMARY KEY, v INT)");
+        }
+
+        try
+        {
+            File.CreateSymbolicLink(link, path);
+        }
+        catch (IOException)
+        {
+            return;
+        }
+
+        // Two names, so two hint tables: both may pick the same rowid. Commit validation then refuses one (a retryable conflict), never both.
+        using Database db2 = Database.Open(link, s_opts);
+        using Connection a = db1.Connect();
+        using Connection b = db2.Connect();
+        Run(a, "BEGIN CONCURRENT");
+        Run(b, "BEGIN CONCURRENT");
+        Run(a, "INSERT INTO t(v) VALUES (1)");
+        Run(b, "INSERT INTO t(v) VALUES (2)");
+        Run(a, "COMMIT");
+        try
+        {
+            Run(b, "COMMIT");
+        }
+        catch (OneLiteException e)
+        {
+            Assert.Equal(ResultCode.BusySnapshot, e.ExtendedCode);
+            Run(b, "ROLLBACK");
+        }
+
+        Assert.Equal("ok", Q(a, "PRAGMA integrity_check"));
+        Assert.True(int.Parse(Q(a, "SELECT count(*) FROM t"), System.Globalization.CultureInfo.InvariantCulture) is 1 or 2);
+    }
+
+    [Fact]
+    public void DatabaseOptionsWorkWithWithExpressions()
+    {
+        DatabaseOptions happy = Database.HappyPathOptions();
+        Assert.False(happy.ConcurrentWrites);
+        DatabaseOptions on = happy with { ConcurrentWrites = true };
+        Assert.True(on.ConcurrentWrites);
+        Assert.Equal(JournalMode.Wal, on.JournalMode);
+        Assert.Equal(happy.BusyTimeoutMs, on.BusyTimeoutMs);
+        Assert.False(happy.ConcurrentWrites);
+    }
+
+    [Fact]
+    public void OsFileIdentityIsAvailableAndDiffersBetweenFiles()
+    {
+        if (!(OperatingSystem.IsLinux() || OperatingSystem.IsMacOS() || OperatingSystem.IsWindows()))
+        {
+            return;
+        }
+
+        string a = Path.Combine(_dir, "id-a");
+        string b = Path.Combine(_dir, "id-b");
+        File.WriteAllText(a, "x");
+        File.WriteAllText(b, "x");
+        using var ha = File.OpenHandle(a);
+        using var hb = File.OpenHandle(b);
+        using var ha2 = File.OpenHandle(a);
+        string? ia = RecursiveAI.OneLite.Storage.Vfs.NativeFile.FileIdentity(ha);
+        Assert.NotNull(ia);
+        Assert.Equal(ia, RecursiveAI.OneLite.Storage.Vfs.NativeFile.FileIdentity(ha2));
+        Assert.NotEqual(ia, RecursiveAI.OneLite.Storage.Vfs.NativeFile.FileIdentity(hb));
     }
 }

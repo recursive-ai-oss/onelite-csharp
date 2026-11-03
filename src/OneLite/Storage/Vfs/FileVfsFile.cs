@@ -25,6 +25,9 @@ internal sealed class FileVfsFile : VfsFileBase
 
     private SafeFileHandle Handle => _entry.Handle;
 
+    /// <summary>The OS identity of the open file (<see cref="NativeFile.FileIdentity"/>), or null.</summary>
+    internal string? OsIdentity => NativeFile.FileIdentity(Handle);
+
     public override VfsCaps Caps => FileVfs.FileCaps | (ReadOnlyFile ? VfsCaps.ReadOnly : 0);
 
     // unix VFS defaults of the pinned release: 4096-byte sectors, powersafe overwrite on.

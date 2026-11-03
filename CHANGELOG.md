@@ -4,6 +4,20 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.6.0-preview.2]
+
+### Changed
+
+- `Database.HappyPathOptions()` no longer turns `ConcurrentWrites` on. **0.6.0-preview.1 did**, so every happy-path `WriteAsync` ran as `BEGIN CONCURRENT` without any code change; rowids were then not in commit order, and a `WHERE id > :last` poller could miss rows. The default is `BEGIN IMMEDIATE` again, as in 0.3.0-preview.2. To opt in: `Database.HappyPathOptions() with { ConcurrentWrites = true }`.
+- `DatabaseOptions` is now a `record` (`with` expressions work; object initializers are unchanged). `.Data` never uses `BEGIN CONCURRENT` (documented).
+
+### Fixed
+
+- Concurrent-transaction rowid hints are kept per database file (the operating system's file identity: device and inode, or volume serial number and file index, plus the creation time), not per path: a database deleted and created again, or replaced by a copy, no longer starts its new rowids where the old file left off. A temp table no longer shares the main database's hint.
+- `docs/benchmarks.md`: wording about tuning; a `prepare_cold` row.
+
+## [0.6.0-preview.1]
+
 ### Added
 
 - `BEGIN CONCURRENT` (opt-in with `DatabaseOptions.ConcurrentWrites`): row-level concurrent writers on a standard WAL file. Serializable by default; `BEGIN CONCURRENT SNAPSHOT` gives snapshot isolation. A commit takes the WAL write lock, replays the transaction's recorded B-tree work on the latest snapshot (re-checking reads, unique keys, foreign keys and triggers) and appends ordinary WAL frames, or fails with `SQLITE_BUSY_SNAPSHOT`. Files stay standard and a `sqlite3` process can write with a plain `BEGIN` beside it. Rowids chosen by concurrent transactions are not in commit order (a `WHERE id > :last` poller can skip a row); AUTOINCREMENT never reuses an id. Cancelling a commit frees the write lock and leaves the transaction rollback-only. See `docs/concurrency.md`.

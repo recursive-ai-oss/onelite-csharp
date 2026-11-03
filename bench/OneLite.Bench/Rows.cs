@@ -435,6 +435,39 @@ internal static class Rows
         },
         new Row
         {
+            Name = "prepare_cold",
+            Description = "cold prepare: 1,000 rounds of preparing three statements of the prepare_cost shapes, each round with a new literal so no text has been prepared before (nothing to reuse)",
+            Ops = _ => 3000,
+            Setup = (d, _) => { d.Exec(CreateT); d.Exec("create table u(id integer primary key, tid integer, v integer)"); d.Exec("create index u_tid on u(tid)"); },
+            Run = (d, c) =>
+            {
+                long ck = 0;
+                for (int i = 0; i < 1000; i++)
+                {
+                    string[] sqls =
+                    [
+                        "select t.a, count(*), sum(u.v) from t join u on u.tid = t.id where t.c > " + i + " and u.v between 1 and 100 group by t.a order by 2 desc limit 20",
+                        "update t set a = 1, b = 'x' where id = " + i,
+                        "select id, a, b from t where id = " + i,
+                    ];
+                    for (int q = 0; q < 3; q++)
+                    {
+                        using IStmt s = d.Prepare(sqls[q]);
+                        if (c.Level == "app")
+                        {
+                            ck += s.Step() ? 1 : 0;
+                            s.Reset();
+                        }
+
+                        ck++;
+                    }
+                }
+
+                return ck;
+            },
+        },
+        new Row
+        {
             Name = "open_time",
             Description = "200 rounds of opening a 100k-row WAL database, running one point query and closing (report only)",
             Ops = _ => 200,
