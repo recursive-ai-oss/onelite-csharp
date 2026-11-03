@@ -20,6 +20,7 @@
     <Project Path="tests/OneLite.SqlLogicTest.Tests/OneLite.SqlLogicTest.Tests.csproj" />
     <Project Path="tests/OneLite.Differential.Tests/OneLite.Differential.Tests.csproj" />
     <Project Path="tests/OneLite.AotSmoke/OneLite.AotSmoke.csproj" />
+    <Project Path="tests/OneLite.AotSmokeAdapter/OneLite.AotSmokeAdapter.csproj" />
     <Project Path="tests/OneLite.WasmSmoke/OneLite.WasmSmoke.csproj" />
     <Project Path="tests/OneLite.BrowserTests/OneLite.BrowserTests.csproj" />
   </Folder>

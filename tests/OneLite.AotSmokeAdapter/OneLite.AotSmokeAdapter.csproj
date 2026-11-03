@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- A Microsoft.Data.Sqlite application on the OneLite adapter, published with NativeAOT: no native SQLite anywhere. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>RecursiveAI.OneLite.AotSmokeAdapter</RootNamespace>
+    <PublishAot>true</PublishAot>
+    <IsAotCompatible>true</IsAotCompatible>
+    <TrimmerSingleWarn>false</TrimmerSingleWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.Sqlite.Core" />
+    <ProjectReference Include="../../src/OneLite/OneLite.csproj" />
+    <ProjectReference Include="../../src/OneLite.SQLitePCLRaw/OneLite.SQLitePCLRaw.csproj" />
+    <!-- Analyze every shipped assembly in full, not only the parts the smoke app calls. -->
+    <TrimmerRootAssembly Include="RecursiveAI.OneLite" />
+    <TrimmerRootAssembly Include="RecursiveAI.OneLite.SQLitePCLRaw" />
+  </ItemGroup>
+
+</Project>
