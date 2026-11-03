@@ -27,7 +27,10 @@ public sealed class PagerOptions
     /// </summary>
     public int CacheSize { get; init; } = -2000;
 
-    /// <summary>The rollback journal mode. Default <see cref="JournalMode.Delete"/>.</summary>
+    /// <summary>
+    /// The rollback journal mode. Default <see cref="JournalMode.Delete"/>. <see cref="JournalMode.Wal"/> is not applied when a pager opens (entering WAL
+    /// needs I/O): the pager starts in <see cref="JournalMode.Delete"/> and <c>ChangeJournalMode</c> switches it, so <c>Pager.JournalMode</c> never claims WAL early.
+    /// </summary>
     public JournalMode JournalMode { get; init; } = JournalMode.Delete;
 
     /// <summary><c>PRAGMA synchronous</c>. Default <see cref="SynchronousMode.Full"/>.</summary>
