@@ -744,20 +744,21 @@ internal sealed partial class Compiler
         return AsciiComparer.Instance.Equals(n, "jsonb_group_object") ? AggKind.JsonbGroupObject : null;
     }
 
-    /// <summary>The first aggregate call in an expression (not looking into subqueries), or null.</summary>
-    private static FunctionCall? FindAggregate(Expr e)
+    /// <summary>The first aggregate call in an expression (not looking into subqueries), or null. With <paramref name="owns"/>, calls it rejects are skipped.</summary>
+    private static FunctionCall? FindAggregate(Expr e, Func<FunctionCall, bool>? owns = null)
     {
         switch (e)
         {
             case FunctionCall f:
                 if (AggregateKind(f) is not null)
                 {
-                    return f;
+                    // An aggregate whose columns all belong to an enclosing query is that query's, not this one's (lang_aggfunc).
+                    return owns is null || owns(f) ? f : null;
                 }
 
                 foreach (Expr a in f.Args)
                 {
-                    if (FindAggregate(a) is { } fa)
+                    if (FindAggregate(a, owns) is { } fa)
                     {
                         return fa;
                     }
@@ -765,31 +766,31 @@ internal sealed partial class Compiler
 
                 return null;
             case ParenExpr p:
-                return FindAggregate(p.Inner);
+                return FindAggregate(p.Inner, owns);
             case UnaryExpr u:
-                return FindAggregate(u.Operand);
+                return FindAggregate(u.Operand, owns);
             case BinaryExpr b:
-                return FindAggregate(b.Left) ?? FindAggregate(b.Right);
+                return FindAggregate(b.Left, owns) ?? FindAggregate(b.Right, owns);
             case CollateExpr c:
-                return FindAggregate(c.Operand);
+                return FindAggregate(c.Operand, owns);
             case CastExpr ce:
-                return FindAggregate(ce.Operand);
+                return FindAggregate(ce.Operand, owns);
             case BetweenExpr bt:
-                return FindAggregate(bt.Operand) ?? FindAggregate(bt.Low) ?? FindAggregate(bt.High);
+                return FindAggregate(bt.Operand, owns) ?? FindAggregate(bt.Low, owns) ?? FindAggregate(bt.High, owns);
             case InListExpr il:
-                return FindAggregate(il.Operand) ?? il.Items.Select(FindAggregate).FirstOrDefault(x => x is not null);
+                return FindAggregate(il.Operand, owns) ?? il.Items.Select(x => FindAggregate(x, owns)).FirstOrDefault(x => x is not null);
             case InSelectExpr isl:
-                return FindAggregate(isl.Operand);
+                return FindAggregate(isl.Operand, owns);
             case NullTestExpr nt:
-                return FindAggregate(nt.Operand);
+                return FindAggregate(nt.Operand, owns);
             case LikeExpr l:
-                return FindAggregate(l.Left) ?? FindAggregate(l.Pattern) ?? (l.Escape is null ? null : FindAggregate(l.Escape));
+                return FindAggregate(l.Left, owns) ?? FindAggregate(l.Pattern, owns) ?? (l.Escape is null ? null : FindAggregate(l.Escape, owns));
             case RowValueExpr rv:
-                return rv.Items.Select(FindAggregate).FirstOrDefault(x => x is not null);
+                return rv.Items.Select(x => FindAggregate(x, owns)).FirstOrDefault(x => x is not null);
             case CaseExpr ce:
-                return (ce.Operand is null ? null : FindAggregate(ce.Operand))
-                    ?? ce.Whens.Select(w => FindAggregate(w.When) ?? FindAggregate(w.Then)).FirstOrDefault(x => x is not null)
-                    ?? (ce.Else is null ? null : FindAggregate(ce.Else));
+                return (ce.Operand is null ? null : FindAggregate(ce.Operand, owns))
+                    ?? ce.Whens.Select(w => FindAggregate(w.When, owns) ?? FindAggregate(w.Then, owns)).FirstOrDefault(x => x is not null)
+                    ?? (ce.Else is null ? null : FindAggregate(ce.Else, owns));
             default:
                 return null;
         }
@@ -1803,6 +1804,12 @@ internal sealed partial class Compiler
 
         if (AggregateKind(f) is { } akind)
         {
+            if (OwnerScope(f) is { } owner)
+            {
+                CompileOuterAggregate(f, akind, owner, dest);
+                return;
+            }
+
             CompileAggregateRef(f, akind, dest);
             return;
         }

@@ -931,6 +931,15 @@ internal sealed partial class Machine
                     {
                         Values.ApplyNumericForCompare(ref x);
                     }
+                    else if ((Affinity)ins.P5 == Affinity.Real)
+                    {
+                        // REAL affinity is NUMERIC that also turns integers into floating point (datatype3 §3)
+                        Values.ApplyNumericForCompare(ref x);
+                        if (x.Kind == StorageClass.Integral)
+                        {
+                            Values.SetReal(ref x, x.IntValue);
+                        }
+                    }
                     else if (x.Kind is StorageClass.Integral or StorageClass.Real)
                     {
                         Values.Stringify(ref x, ref _own[ins.P1]);
