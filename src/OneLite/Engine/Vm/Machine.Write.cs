@@ -1870,7 +1870,7 @@ internal sealed partial class Machine
                         throw new OneLiteException(ResultCode.Locked, "database table is locked");
                     }
 
-                    if (ins.Op == Op.Destroy && !Nested && _conn.ActiveReaders > 1)
+                    if (ins.Op == Op.Destroy && !Nested && _conn.ActiveReaders - (_conn.TxHeld ? 1 : 0) > 1)
                     {
                         // Dropping a table or index while another statement of the connection is reading is refused, whichever table it reads.
                         throw new OneLiteException(ResultCode.Locked, "database table is locked");
