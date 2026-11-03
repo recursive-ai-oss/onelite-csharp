@@ -173,7 +173,16 @@ public sealed class GroupCommitTests : IDisposable
             Run(c0, "CREATE TABLE t(id INTEGER PRIMARY KEY, w INT, pad TEXT)");
         }
 
-        vfs.AddRule(new FaultRule { Call = FaultCall.Sync, Nth = CountSyncs(vfs) + 6, ExtendedCode = VfsCodes.IoErrFsync });
+        // The rule is armed once all four writers are connected, and covers a run of consecutive syncs: a sync that covers no commit (a leader's extra pass
+        // with nobody joined, or a closing checkpoint, whose failure is correctly ignored) must not make the test depend on thread timing.
+        using var ready = new Barrier(4, _ =>
+        {
+            int first = CountSyncs(vfs) + 3;
+            for (int k = 0; k < 6; k++)
+            {
+                vfs.AddRule(new FaultRule { Call = FaultCall.Sync, Nth = first + k, ExtendedCode = VfsCodes.IoErrFsync });
+            }
+        });
         int failed = 0;
         var tasks = new List<Task>();
         for (int w = 1; w <= 4; w++)
@@ -183,6 +192,7 @@ public sealed class GroupCommitTests : IDisposable
             {
                 using Database d = Database.Open(path, Opts(vfs, true));
                 using Connection c = d.Connect();
+                ready.SignalAndWait();
                 for (int i = 0; i < 15; i++)
                 {
                     for (; ; )
