@@ -71,6 +71,12 @@ public sealed class DatabaseOptions
     /// </summary>
     public bool ConcurrentWrites { get; init; }
 
+    /// <summary>
+    /// The longest a <c>BEGIN CONCURRENT</c> commit may hold the WAL write lock while it validates and replays, in milliseconds (docs/concurrency.md).
+    /// Past it the commit fails with <c>SQLITE_BUSY_TIMEOUT</c> before anything is written to the log. Zero or negative: no limit. Default 5000.
+    /// </summary>
+    public int ConcurrentCommitHoldLimitMs { get; init; } = 5000;
+
     /// <summary>Pages after which a commit in WAL mode checkpoints (<c>PRAGMA wal_autocheckpoint</c>). Default 1000.</summary>
     public int WalAutoCheckpoint { get; init; } = 1000;
 }
@@ -264,8 +270,11 @@ public sealed partial class Database : IDisposable, IAsyncDisposable
             JournalMode = _options.JournalMode == JournalMode.Wal ? JournalMode.Delete : _options.JournalMode,
             Synchronous = _options.Synchronous,
             WalAutoCheckpoint = _options.WalAutoCheckpoint,
+            ConcurrentCommitHoldLimitMs = _options.ConcurrentCommitHoldLimitMs,
             CacheSize = _options.CacheSize,
             Busy = busy.Next,
+            BusySpinBudgetUs = busy.SpinBudgetUs,
+            BusySpun = busy.Spun,
             YieldEvery = _options.YieldEvery,
             Key = _options.Key,
             Cipher = _options.Cipher,

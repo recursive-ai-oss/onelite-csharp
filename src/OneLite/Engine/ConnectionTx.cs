@@ -292,12 +292,29 @@ internal sealed class BusyPolicy
 
     internal int TimeoutMs { get; set; }
 
+    private int _spun;
+
+    /// <summary>Microseconds of yielding retries a concurrent commit may spend on a busy write lock: up to 1 ms, never more than the timeout, none if this policy would give up at once.</summary>
+    internal int SpinBudgetUs()
+    {
+        if (TimeoutMs > 0)
+        {
+            return Math.Min(1000, TimeoutMs * 1000);
+        }
+
+        return _user is null ? 0 : 1000;
+    }
+
+    /// <summary>Counts time spent spinning against the timeout of the wait that follows.</summary>
+    internal void Spun(int ms) => _spun = ms;
+
     /// <summary>The number of milliseconds to wait before retry number <paramref name="retries"/>, or a negative number to give up.</summary>
     internal int Next(int retries)
     {
         if (retries == 0)
         {
-            _waited = 0;
+            _waited = _spun;
+            _spun = 0;
         }
 
         if (TimeoutMs > 0)

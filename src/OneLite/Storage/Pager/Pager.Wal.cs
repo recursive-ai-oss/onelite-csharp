@@ -270,10 +270,15 @@ public sealed partial class Pager
     }
 
     // Takes slots [offset, offset+count) all or none. With wait, the busy policy decides how long to keep trying. Sets _wGot.
-    private IEnumerable<IoRequest> WalLock(int offset, int count, bool exclusive, bool wait)
+    // With spin, a busy lock is first retried for a short time with only a yield in between (BusySpinBudgetUs), before the busy policy is asked: a writer that
+    // is about to replay a few microseconds of work holds the lock for far less than the policy's first delay of a millisecond. The time spent counts against
+    // busy_timeout (BusySpun), and a user busy handler is called, from its first retry, only after the spin.
+    private IEnumerable<IoRequest> WalLock(int offset, int count, bool exclusive, bool wait, bool spin = false)
     {
         IVfsShm shm = _wal!.Index.Shm;
         ShmLockOptions flags = ShmLockOptions.Lock | (exclusive ? ShmLockOptions.Exclusive : ShmLockOptions.Shared);
+        long spinStart = 0;
+        long spinBudget = spin && wait ? (_opts.BusySpinBudgetUs?.Invoke() ?? 0) * System.Diagnostics.Stopwatch.Frequency / 1_000_000 : 0;
         for (int tries = 0; ; tries++)
         {
             yield return new IoRequest { Kind = IoKind.ShmLock, Phase = ResumeState.WalShmLock, Shm = shm, Offset = offset, Length = count, Arg = (int)flags, Cancellable = true };
@@ -300,6 +305,25 @@ public sealed partial class Pager
 
                 _wGot = true;
                 yield break;
+            }
+
+            if (spinBudget > 0)
+            {
+                long now = System.Diagnostics.Stopwatch.GetTimestamp();
+                if (spinStart == 0)
+                {
+                    spinStart = now;
+                }
+
+                if (now - spinStart < spinBudget)
+                {
+                    tries--;
+                    yield return Rq(ResumeState.WalSleep, IoKind.Sleep, length: 0, cancellable: true);
+                    continue;
+                }
+
+                spinBudget = 0;
+                _opts.BusySpun?.Invoke((int)((now - spinStart) * 1000 / System.Diagnostics.Stopwatch.Frequency) + 1);
             }
 
             int ms = wait ? _opts.Busy?.Invoke(tries) ?? -1 : -1;

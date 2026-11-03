@@ -60,15 +60,34 @@ Cancelling `COMMIT` (a cancelled token, or `Abandon` of the statement) while it 
 
 A process killed at any point either leaves unpublished frames (the next writer overwrites them and recovery cuts them at the first frame whose salt or checksum fails) or has published the commit. Nothing half replayed is ever visible, because replay only touches private pages and unpublished WAL space.
 
-The write lock is held while a commit replays, so its hold time grows with the size of the trace. There is no enforced limit on it yet.
+The write lock is held while a commit replays, so its hold time grows with the size of the trace. `DatabaseOptions.ConcurrentCommitHoldLimitMs` (default 5000; zero or negative turns it off) bounds that: if the replay is still running that long after the lock was taken, the commit stops, releases the lock and fails with `SQLITE_BUSY_TIMEOUT` (extended code 773). Nothing has been written to the log at that point, so it is an ordinary abort and `WriteAsync` runs the delegate again. The clock is read once per 256 replayed trace entries and after each page miss; it is not applied once the commit has started writing frames, whose length is the I/O time.
 
 ## Durability and throughput
 
 A commit has the cost of an ordinary WAL commit, and with `synchronous=FULL` the WAL write lock is held through the sync, so commits are bounded by one sync each whatever the number of writers (group commit is not implemented). Concurrent writers help when transactions spend their time in the statements rather than in the commit; very short transactions on one machine gain nothing, and replay adds a little work to every commit that follows another.
+
+## When it helps
+
+Indicative numbers from one 16-core x64 machine (Linux, local NVMe, WAL, 4 KiB pages, default cache, other jobs running), threads of one process with one connection each, matched settings on both modes, 5 s per run, a few other jobs running on the machine. The table is `BEGIN CONCURRENT` commits per second divided by `BEGIN IMMEDIATE` commits per second. Each transaction reads 10 rows and updates 5 rows in the writer's own key range of a 400,000-row table; **B** is a busy loop of that many microseconds of application work inside the transaction.
+
+| `synchronous=NORMAL` | W=2 | W=4 | W=8 |
+|---|---|---|---|
+| B = 0 µs | 0.81 | 0.93 | 0.86 |
+| B = 100 µs | 0.97 | 2.23 | 3.35 |
+| B = 1000 µs | 1.08 | 2.91 | 6.31 |
+
+- Writers on disjoint pages win once a transaction's body is long enough to overlap: about 2.2x to 3.4x at 100 µs of work and 2.9x to 6.3x at 1 ms with four to eight writers (at 100 µs, eight writers commit about 24,800 times a second against 7,400). With two writers the gain is small. Abort rates on disjoint ranges were 0%.
+- With no work in the body (B = 0) concurrent is 7% to 19% slower: every commit that follows another also replays its trace.
+- With writers in separate processes the ratios are the same within noise (B = 100 µs: 2.4x at four writers, 3.6x at eight; B = 1 ms: 2.9x and 6.4x).
+- When 20% of the transactions also update one shared row, eight writers at 1 ms still gain 5.6x, with 11% of the attempts aborting and retried.
+- **With `synchronous=FULL` there is no gain yet**: the write lock is held through the sync, so both modes commit at one sync per commit (50 to 150 commits per second on the disk used here, depending on its load) whatever the number of writers.
+- A commit that finds the write lock busy first retries it for up to a millisecond with only a yield between tries, because the holder is usually a replay of a few microseconds; only then does the usual busy schedule (1, 2, 5, ... ms) apply. The spin counts against `busy_timeout`, and without a timeout or a busy handler a busy lock still fails at once. Plain `BEGIN IMMEDIATE` and every other wait use the schedule alone.
+
+The workloads are `conc-shapes` in `OneLite.Durability`; they say nothing about other hardware, and the publishable comparison is the benchmark suite's.
 
 ## How it is checked
 
 - Unit tests (`ConcurrentTransactionTests`): disjoint and conflicting rows, ranges and phantoms, indexes, unique keys, foreign keys, triggers, savepoints, WITHOUT ROWID, rowids and AUTOINCREMENT, opaque cases, standard files, suspension at every Nth page request, an abandoned commit.
 - A crash sweep of a stale concurrent commit on the fault-injecting VFS (`ConcurrentDurabilityTests`): every outcome is the content before or the content after, and an acknowledged commit survives.
 - The history checker (`docs/history-checker.md`): `--client onelite` at serializable and `--client onelite-snapshot` at snapshot isolation, threads and processes, list-append and register models.
-- `OneLite.Durability`: `conc-kill` kills several writer processes at once with SIGKILL, again and again on one file, and the pinned shell judges it (integrity, every acknowledged commit present, per-transaction invariants); `conc-coexist` runs concurrent writers beside a `sqlite3` process writing with plain `BEGIN` and compares the content with the acknowledged commits; `conc-throughput` is an indicative commits-per-second comparison against `BEGIN IMMEDIATE`.
+- `OneLite.Durability`: `conc-kill` kills several writer processes at once with SIGKILL, again and again on one file, and the pinned shell judges it (integrity, every acknowledged commit present, per-transaction invariants); `conc-coexist` runs concurrent writers beside a `sqlite3` process writing with plain `BEGIN` and compares the content with the acknowledged commits; `conc-throughput` and `conc-shapes` are indicative commits-per-second comparisons against `BEGIN IMMEDIATE` (small appends to one table; disjoint-range updates and inserts, with a hot shared row, a body time and threads or processes).
