@@ -108,7 +108,22 @@ public sealed partial class BtCursor : IDisposable
     public BTree Tree { get; }
 
     /// <summary>Where the cursor stands.</summary>
-    public CursorState State { get; internal set; }
+    public CursorState State
+    {
+        get => _state;
+        internal set
+        {
+            _state = value;
+            if (value != CursorState.Valid)
+            {
+                // A position remembered from a probe is good only while the cursor has stood there without a break: after a save, a restore
+                // or a reset the same page and index can hold another entry.
+                _skOk = false;
+            }
+        }
+    }
+
+    private CursorState _state;
 
     /// <summary>The failure behind <see cref="CursorState.Fault"/> or the last <see cref="BtStatus.Error"/>.</summary>
     public Exception? Error { get; private set; }
