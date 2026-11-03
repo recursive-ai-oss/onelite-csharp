@@ -399,6 +399,10 @@ readers; each read must show one committed state, and the states must never go b
   (`NEW.a` of a view column that was renamed) is not caught.
 - Subquery/expression nesting limits (`SQLITE_MAX_EXPR_DEPTH`) are those of the parser.
 
+## Rowids under `BEGIN CONCURRENT`
+
+Rowids chosen by a `BEGIN CONCURRENT` transaction are not in commit order (see `docs/concurrency.md`): a poller that asks `WHERE id > :last` can skip a row that commits later with a smaller id. Plain `BEGIN` allocates as SQLite does.
+
 ## Known differences with several connections on one file
 
 Several connections to one file (one `Database`, several, or other processes) are checked step by step against the native library with the schedule differential (`ScheduleDifferentialTests`: named schedules, plus random ones over DELETE, TRUNCATE, PERSIST, WAL and MEMORY). Lock failures are `SQLITE_BUSY` with the reference's text, and a refused statement leaves the transaction as the reference does. What still differs, each outside the default schedules:

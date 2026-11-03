@@ -30,14 +30,14 @@ public sealed partial class Pager
     public PagerStatus Commit()
     {
         Guard();
-        if (_state != TxState.Write)
+        if (_state != TxState.Write && _ccStep == 0)
         {
             return PagerStatus.Ok;
         }
 
         if (_wal != null)
         {
-            return CommitWal();
+            return _concurrent || _ccStep != 0 ? CommitConcurrent() : CommitWal();
         }
 
         if (_cmPhase == 0)

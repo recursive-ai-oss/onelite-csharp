@@ -48,9 +48,9 @@ await db.WriteAsync(async tx => { ... });          // returns when committed
 var id = await db.WriteAsync(async tx => await tx.Table<Dog>().InsertAsync(d));
 ```
 
-Runs the delegate in a write transaction (`BEGIN IMMEDIATE` today) and commits. If the database is busy (`SQLITE_BUSY`, including a busy snapshot) the
+Runs the delegate in a write transaction and commits. The transaction is `BEGIN CONCURRENT` when the database is in WAL mode (never an in-memory database) and `ConcurrentWrites` is on (the happy path's default options turn both on), so writers that touch different rows commit side by side (`docs/concurrency.md`); otherwise it is `BEGIN IMMEDIATE`. If the database is busy (`SQLITE_BUSY`, including a busy snapshot) the
 transaction rolls back and **the delegate runs again** after a jittered backoff (about 10 ms doubling to 500 ms), up to `MaxWriteAttempts` (default 8). **The
-delegate must therefore have no side effects outside the database.** An exception from the delegate rolls back and propagates. Use the `WriteTransaction` it
+delegate must therefore have no side effects outside the database.** Rowids of new rows are not in commit order under `BEGIN CONCURRENT`. An exception from the delegate rolls back and propagates. Use the `WriteTransaction` it
 receives; calling the `Database` inside the delegate throws, because the database's lock is held by the transaction. The transaction object is invalid after the delegate returns.
 
 ## Mapping

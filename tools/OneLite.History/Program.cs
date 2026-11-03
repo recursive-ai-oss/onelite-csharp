@@ -16,7 +16,7 @@ namespace RecursiveAI.OneLite.History
 
             check <history.jsonl> [--level L] [--model list-append|register] [--json out.json]
                   [--no-realtime] [--realtime-versions] [--examples N]
-            run   --client memory|sqlite|sqlite-snapshot|sqlite-novalidate
+            run   --client memory|sqlite|sqlite-snapshot|sqlite-novalidate|onelite|onelite-snapshot
                   [--lib <sqlite3 shared library>] [--db <file>] [--begin immediate|deferred] [--journal wal|delete] [--think-ms N]
                   [--model list-append|register] [--exec threads|processes] [--workers N] [--txns N-per-worker]
                   [--ops-max N] [--keys N] [--shift N] [--seed N]
@@ -161,6 +161,11 @@ namespace RecursiveAI.OneLite.History
             if (client == "memory")
             {
                 return new MemoryClientFactory();
+            }
+
+            if (client is "onelite" or "onelite-snapshot")
+            {
+                return new OneLiteClientFactory(o.GetValueOrDefault("db") ?? throw new ArgumentException("--db <file> is required"), client == "onelite-snapshot");
             }
 
             var kind = client switch

@@ -487,6 +487,7 @@ internal sealed partial class Machine
         // schema_version is writable only with writable_schema on, which the shell never allows (see BoolDefaults), so a set is ignored.
         if (arg is not null && name is "application_id" or "default_cache_size")
         {
+            _conn.ConcOpaque("sets a database header field");
             s = src.MakeWritable(h!);
             if (s != BtStatus.Ok)
             {

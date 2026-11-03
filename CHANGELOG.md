@@ -4,6 +4,16 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- `BEGIN CONCURRENT` (opt-in with `DatabaseOptions.ConcurrentWrites`): row-level concurrent writers on a standard WAL file. Serializable by default; `BEGIN CONCURRENT SNAPSHOT` gives snapshot isolation. A commit takes the WAL write lock, replays the transaction's recorded B-tree work on the latest snapshot (re-checking reads, unique keys, foreign keys and triggers) and appends ordinary WAL frames, or fails with `SQLITE_BUSY_SNAPSHOT`. Files stay standard and a `sqlite3` process can write with a plain `BEGIN` beside it. Rowids chosen by concurrent transactions are not in commit order (a `WHERE id > :last` poller can skip a row); AUTOINCREMENT never reuses an id. Cancelling a commit frees the write lock and leaves the transaction rollback-only. See `docs/concurrency.md`.
+- The happy path's `WriteAsync` and `Write` run as `BEGIN CONCURRENT` in WAL mode and retry on a busy snapshot.
+- `onelite-history` can drive OneLite itself (`--client onelite`, `onelite-snapshot`).
+
+### Fixed
+
+- In WAL mode an autocommit write that found a newer commit between reading and taking the write lock failed with `SQLITE_BUSY_SNAPSHOT`; it now restarts on the new snapshot.
+
 ## [0.3.0-preview.2]
 
 ### Fixed

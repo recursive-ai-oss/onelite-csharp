@@ -362,9 +362,11 @@ internal sealed partial class Machine
             case Op.PragmaIntegrity:
                 return DoPragmaIntegrity(ref ins);
             case Op.Vacuum:
+                _conn.ConcOpaque("vacuums");
                 return ins.P2 != 0 ? DoVacuumInto(ins.P1, ins.P2) : DoVacuum(ins.P1);
             case Op.IncrVacuum:
             {
+                _conn.ConcOpaque("vacuums");
                 Pager pg = _conn.PagerOf(ins.P1);
                 PagerStatus ps = pg.IncrementalVacuumStep((uint)(long)ins.P4!, out uint freed);
                 if (ps == PagerStatus.Pending)
@@ -495,9 +497,13 @@ internal sealed partial class Machine
 
             if (s == PagerStatus.Error)
             {
-                if (_ownRead && !_conn.IsWal && _conn.PagerError is OneLiteException { Code: ResultCode.Busy })
+                // In WAL mode a statement that began its own read and finds a commit between that read and the write lock starts over on the
+                // new snapshot; only a transaction that already read (BEGIN, then SELECT, then a write) has to be told (wal, "BUSY_SNAPSHOT").
+                bool restart = _ownRead && _conn.IsWal && _busyTry < 1000 && _conn.PagerError is OneLiteException { ExtendedCode: ResultCode.BusySnapshot };
+                if (_ownRead && (restart || (!_conn.IsWal && _conn.PagerError is OneLiteException { Code: ResultCode.Busy })))
                 {
-                    int ms = _conn.Busy?.Next(_busyTry++) ?? -1;
+                    int ms = restart ? 0 : _conn.Busy?.Next(_busyTry++) ?? -1;
+                    _busyTry += restart ? 1 : 0;
                     if (ms >= 0)
                     {
                         _busySleepMs = ms;
@@ -871,6 +877,16 @@ internal sealed partial class Machine
                                 throw new OneLiteException(ResultCode.Error, "cannot start a transaction within a transaction");
                             }
 
+                            if (ins.P2 != 0)
+                            {
+                                if (!_conn.IsWal)
+                                {
+                                    throw new OneLiteException(ResultCode.Error, "BEGIN CONCURRENT needs the database to be in WAL mode");
+                                }
+
+                                _conn.StartConcurrent(ins.P2 == 2);
+                            }
+
                             _conn.ExplicitTx = true;
                             if (!_conn.HoldsNoRead)
                             {
@@ -1014,6 +1030,11 @@ internal sealed partial class Machine
                         throw new OneLiteException(ResultCode.Busy, "cannot commit transaction - SQL statements in progress");
                     }
 
+                    if (_conn.ConcDoomed || pg.ConcurrentAbandoned)
+                    {
+                        throw new OneLiteException(ResultCode.BusySnapshot, Pager.Msg(ResultCode.BusySnapshot), "this transaction's commit was refused by a conflict; roll it back");
+                    }
+
                     Exception? multiError = null;
                     _conn.VtabSync();
                     PagerStatus s = _conn.AttachedWriting ? CommitAllInline(out multiError) : pg.InWriteTransaction ? pg.Commit() : PagerStatus.Ok;
@@ -1026,6 +1047,12 @@ internal sealed partial class Machine
                     {
                         // The commit failed; nothing was committed. The transaction stays open so the caller can roll back or retry (SQLITE_BUSY).
                         Error = multiError ?? pg.Error;
+                        if (_conn.ConcTx is not null && pg.Error is OneLiteException { Code: ResultCode.BusySnapshot })
+                        {
+                            // A refused concurrent commit has given up its work already; only ROLLBACK is left.
+                            _conn.ConcDoomed = true;
+                        }
+
                         _wstep = 0;
                         return RunResult.Error;
                     }
@@ -1129,7 +1156,27 @@ internal sealed partial class Machine
         VmCursor c = _cur[ins.P1];
         if (_wstep == 0)
         {
-            BtStatus s = c.Bt!.Last();
+            // A concurrent transaction does not read the end of the table to pick a rowid (that would make every pair of appenders conflict);
+            // it takes one from a reserved block and commit checks that it is free (docs/concurrency.md, "Rowids").
+            ConcTrace? ct = _conn.ConcTx;
+            if (ct is not null)
+            {
+                ct.Suspended++;
+            }
+
+            BtStatus s;
+            try
+            {
+                s = c.Bt!.Last();
+            }
+            finally
+            {
+                if (ct is not null)
+                {
+                    ct.Suspended--;
+                }
+            }
+
             if (s == BtStatus.Pending)
             {
                 return RunResult.Pending;
@@ -1148,10 +1195,20 @@ internal sealed partial class Machine
 
             if (max < long.MaxValue)
             {
-                Values.SetInt(ref R[ins.P2], max + 1);
+                long next = max + 1;
+                if (ct is not null)
+                {
+                    long alloc = ConcurrentRowids.Allocate(_conn.Pager.FullPath, c.Bt.Tree.Root, max, ct);
+                    if (alloc > 0)
+                    {
+                        next = alloc;
+                    }
+                }
+
+                Values.SetInt(ref R[ins.P2], next);
                 if (ins.P3 > 0)
                 {
-                    Values.SetInt(ref R[ins.P3], max + 1);
+                    Values.SetInt(ref R[ins.P3], next);
                 }
 
                 _pc++;
@@ -1378,7 +1435,11 @@ internal sealed partial class Machine
                 }
             }
 
+            c.Bt!.TraceRequired = (ins.P5 & 0x200) != 0;
+            c.Bt.TraceExact = true;
             BtStatus s = c.Bt!.MoveToKey(PrepareKey(ins.P3, n), 0, out int cmp);
+            c.Bt.TraceRequired = false;
+            c.Bt.TraceExact = false;
             if (s == BtStatus.Pending)
             {
                 return RunResult.Pending;
@@ -1500,6 +1561,26 @@ internal sealed partial class Machine
     // R[P1] = the stored sequence value (0 if the table has no row), R[P1+1] = that row's rowid (NULL if none), R[P1+2] = a copy of the sequence value.
     private RunResult DoSeqLoad(ref Instr ins)
     {
+        ConcTrace? ct = _conn.ConcTx;
+        if (ct is null)
+        {
+            return DoSeqLoadCore(ref ins);
+        }
+
+        // AUTOINCREMENT's counter is merged at commit (docs/concurrency.md), so reading it is not a read of the table.
+        ct.Suspended++;
+        try
+        {
+            return DoSeqLoadCore(ref ins);
+        }
+        finally
+        {
+            ct.Suspended--;
+        }
+    }
+
+    private RunResult DoSeqLoadCore(ref Instr ins)
+    {
         VmCursor c = _cur[ins.P2];
         string name = (string)ins.P4!;
         for (; ; )
@@ -1584,6 +1665,40 @@ internal sealed partial class Machine
     // Writes the sequence back when the statement raised it: R[P1] new value, R[P1+1] rowid of the row or NULL, R[P1+2] the value that was loaded.
     private RunResult DoSeqStore(ref Instr ins)
     {
+        ConcTrace? ct = _conn.ConcTx;
+        if (ct is null)
+        {
+            return DoSeqStoreCore(ref ins);
+        }
+
+        bool noop = R[ins.P1].IntValue == R[ins.P1 + 2].IntValue && R[ins.P1 + 1].Kind != StorageClass.Null;
+        ct.Suspended++;
+        RunResult rr;
+        try
+        {
+            rr = DoSeqStoreCore(ref ins);
+        }
+        finally
+        {
+            ct.Suspended--;
+        }
+
+        if (rr == RunResult.Done && !noop && ct.Active)
+        {
+            ref TraceEntry e = ref ct.Add(TraceOp.SeqMax);
+            e.Cursor = ct.NewCursorId();
+            e.Tree = _cur[ins.P2].Bt!.Tree;
+            e.Data = (string)ins.P4!;
+            e.Arg = R[ins.P1].IntValue;
+            e.Required = true;
+            ct.Wrote = true;
+        }
+
+        return rr;
+    }
+
+    private RunResult DoSeqStoreCore(ref Instr ins)
+    {
         VmCursor c = _cur[ins.P2];
         if (R[ins.P1].IntValue == R[ins.P1 + 2].IntValue && R[ins.P1 + 1].Kind != StorageClass.Null)
         {
@@ -1649,6 +1764,7 @@ internal sealed partial class Machine
 
     private RunResult DoCreateBtree(ref Instr ins)
     {
+        _conn.ConcOpaque("changes the schema");
         BtContext cctx = _conn.ContextOf(ins.P3);
         BtStatus s = BtAdmin.CreateTree(cctx, ins.P2 != 0, out uint root);
         if (s == BtStatus.Pending)
@@ -1671,6 +1787,7 @@ internal sealed partial class Machine
     // named the moved root is then rewritten (cursor P2 is a write cursor on sqlite_schema, P3 = 1 if the tree is an index).
     private RunResult DoDestroy(ref Instr ins)
     {
+        _conn.ConcOpaque("drops or empties a table");
         VmCursor m = _cur[ins.P2];
         BtContext ctx = _conn.ContextOf(ins.P4 is int pdb ? pdb : m.Spec.Table.Db);
         for (; ; )
@@ -1981,6 +2098,7 @@ internal sealed partial class Machine
             return s == BtStatus.Pending ? RunResult.Pending : Fail(src.LastError!);
         }
 
+        _conn.ConcOpaque("changes the schema");
         s = src.MakeWritable(h!);
         if (s != BtStatus.Ok)
         {
@@ -2345,6 +2463,7 @@ internal sealed partial class Machine
 
         if (arg is not null)
         {
+            _conn.ConcOpaque("sets a database header field");
             s = src.MakeWritable(h!);
             if (s != BtStatus.Ok)
             {

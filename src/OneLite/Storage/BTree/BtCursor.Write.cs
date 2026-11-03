@@ -657,6 +657,11 @@ public sealed partial class BtCursor
                             {
                                 _iph = 1;
                                 _dph = 0;
+                                if (_ctx.Trace is { Active: true })
+                                {
+                                    _logExisted = true;
+                                    _iph = 4;
+                                }
                             }
                             else
                             {
@@ -682,6 +687,19 @@ public sealed partial class BtCursor
                             _iph = 0;
                             break;
                         }
+                    case 4:
+                        {
+                            // The row this insert replaces, as the transaction saw it (concurrent transactions only).
+                            BtStatus st = TraceLoadBefore(_ctx.Trace!);
+                            if (st != BtStatus.Ok)
+                            {
+                                return st;
+                            }
+
+                            _iph = 1;
+                            _dph = 0;
+                            break;
+                        }
                     case 2:
                         {
                             BtStatus st = ReserveInsert(rowid, payload);
@@ -696,6 +714,11 @@ public sealed partial class BtCursor
                     default:
                         ApplyInsert(rowid, payload, key);
                         _src.EndEffect();
+                        if (_ctx.Trace is { Active: true } tr)
+                        {
+                            TraceInsertDone(tr, rowid, payload);
+                        }
+
                         _wop = WOp.None;
                         _iph = 0;
                         return BtStatus.Ok;
@@ -872,6 +895,15 @@ public sealed partial class BtCursor
                     throw new InvalidOperationException("Delete needs a cursor on an entry");
                 }
 
+                if (_ctx.Trace is { Active: true } dt)
+                {
+                    BtStatus lb = TraceLoadBefore(dt);
+                    if (lb != BtStatus.Ok)
+                    {
+                        return lb;
+                    }
+                }
+
                 if (Tree.IntKey)
                 {
                     _ctx.Changed?.Invoke(Tree.Root, Rowid);
@@ -885,6 +917,10 @@ public sealed partial class BtCursor
             if (s == BtStatus.Ok)
             {
                 _wop = WOp.None;
+                if (_ctx.Trace is { Active: true } dd)
+                {
+                    TraceDeleteDone(dd);
+                }
             }
 
             return s;

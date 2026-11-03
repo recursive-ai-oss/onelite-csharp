@@ -408,6 +408,12 @@ internal sealed partial class SqlParser
             case TokenKind.Id when _options.BeginConcurrent && IsWord(Peek(0), "CONCURRENT"):
                 Advance();
                 mode = BeginMode.Concurrent;
+                if (Peek(0).Kind == TokenKind.Id && IsWord(Peek(0), "SNAPSHOT"))
+                {
+                    Advance();
+                    mode = BeginMode.ConcurrentSnapshot;
+                }
+
                 break;
         }
 

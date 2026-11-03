@@ -86,6 +86,9 @@ public sealed class BtContext
     /// <summary>Called with a table's root page and a rowid (long.MinValue for every row) just before that row changes; the engine uses it to expire open blob handles.</summary>
     internal Action<uint, long>? Changed { get; set; }
 
+    /// <summary>The trace of the open concurrent transaction on this database, or null (docs/concurrency.md).</summary>
+    internal ConcTrace? Trace { get; set; }
+
     /// <summary>How many bytes of a payload of <paramref name="payload"/> bytes stay on the page (fileformat2 §1.6).</summary>
     public int LocalSize(long payload, bool tableLeaf)
     {

@@ -6,8 +6,9 @@ namespace RecursiveAI.OneLite;
 // The happy path: one connection per Database, guarded by an async lock, with interpolated queries, WriteAsync and Table<T>.
 public sealed partial class Database : ISession
 {
-    // The one line 0.6 changes to run write transactions as BEGIN CONCURRENT.
-    private const string BeginWrite = "BEGIN IMMEDIATE";
+    // Write transactions are BEGIN CONCURRENT when the database was opened for it (the happy-path options do, in WAL mode): a conflict is a
+    // SQLITE_BUSY_SNAPSHOT at COMMIT, which WriteAsync retries. Otherwise they take the write lock up front with BEGIN IMMEDIATE.
+    private string BeginWrite => _options.ConcurrentWrites && _options.JournalMode == JournalMode.Wal && !_memory ? "BEGIN CONCURRENT" : "BEGIN IMMEDIATE";
 
     private static readonly AsyncLocal<Database?> s_inWrite = new();
 
@@ -19,7 +20,7 @@ public sealed partial class Database : ISession
     /// The options <see cref="OpenAsync"/> and <see cref="OpenDefault"/> use when you pass none: write-ahead log, <c>foreign_keys=ON</c>, and a 5 s busy timeout.
     /// </summary>
     /// <returns>New options.</returns>
-    public static DatabaseOptions HappyPathOptions() => new() { JournalMode = JournalMode.Wal, ForeignKeys = true, BusyTimeoutMs = 5000 };
+    public static DatabaseOptions HappyPathOptions() => new() { JournalMode = JournalMode.Wal, ForeignKeys = true, BusyTimeoutMs = 5000, ConcurrentWrites = true };
 
     /// <summary>The most times <see cref="WriteAsync(Func{WriteTransaction, Task}, CancellationToken)"/> runs its delegate when the database is busy. Default 8; at least 1.</summary>
     public int MaxWriteAttempts { get; set; } = 8;

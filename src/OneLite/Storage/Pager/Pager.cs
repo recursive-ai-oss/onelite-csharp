@@ -171,7 +171,7 @@ public sealed partial class Pager : IDisposable, IAsyncDisposable
     public bool InTransaction => _state != TxState.None;
 
     /// <summary>True while a write transaction is open.</summary>
-    public bool InWriteTransaction => _state == TxState.Write;
+    public bool InWriteTransaction => _state == TxState.Write || _ccStep != 0;
 
     /// <summary>The error from the last call that returned <see cref="PagerStatus.Error"/>.</summary>
     public OneLiteException? Error => _error;
@@ -408,6 +408,7 @@ public sealed partial class Pager : IDisposable, IAsyncDisposable
     /// <summary>Drops the outstanding request without completing it (the caller will not re-enter the operation; call <see cref="Rollback"/> next if in a write transaction).</summary>
     public void Abandon()
     {
+        ConcAbandon();
         _pending = false;
         _hasComp = false;
         ClearProgress();

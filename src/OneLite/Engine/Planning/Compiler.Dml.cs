@@ -893,12 +893,12 @@ internal sealed partial class Compiler
                 }
 
                 pkCols = t.PrimaryKey.Columns;
-                Emit(Op.IdxProbe, w.Cursor, noConflict, w.RecBase, null, pkCols.Length);
+                Emit(Op.IdxProbe, w.Cursor, noConflict, w.RecBase, null, pkCols.Length | 0x200);
                 msg = UniqueMessage(t, t.PrimaryKey);
             }
             else
             {
-                Emit(Op.SeekRowid, w.Cursor, noConflict, w.RowidReg);
+                Emit(Op.SeekRowid, w.Cursor, noConflict, w.RowidReg, null, 0x200);
                 msg = RowidUniqueMessage(t);
             }
 
@@ -934,7 +934,7 @@ internal sealed partial class Compiler
                 Emit(Op.IfNot, x.Cond, noConflict, 1);
             }
 
-            Emit(Op.IdxProbe, x.Cursor, noConflict, x.KeyBase, null, x.Info.Columns.Length | 0x100);
+            Emit(Op.IdxProbe, x.Cursor, noConflict, x.KeyBase, null, x.Info.Columns.Length | 0x100 | 0x200);
             ConflictAction act = stmtMode ?? x.Info.OnConflict ?? ConflictAction.Abort;
             int u = hasUps ? FindUpsert(ups, t, x.Info.Columns, false) : -1;
             if (u >= 0 || act == ConflictAction.Replace)
@@ -1450,7 +1450,7 @@ internal sealed partial class Compiler
             string msg;
             if (t.WithoutRowid)
             {
-                Emit(Op.IdxProbe, w.Cursor, noConflict, w.RecBase, null, t.PrimaryKey!.Columns.Length);
+                Emit(Op.IdxProbe, w.Cursor, noConflict, w.RecBase, null, t.PrimaryKey!.Columns.Length | 0x200);
                 msg = UniqueMessage(t, t.PrimaryKey);
             }
             else
@@ -1459,7 +1459,7 @@ internal sealed partial class Compiler
                 int same = NewReg();
                 Emit(Op.Eq, w.RowidReg, w.OldRowid, same, null, CmpFlags(Affinity.None, CollKind.Binary));
                 Emit(Op.If, same, noConflict, 0);
-                Emit(Op.SeekRowid, w.Cursor, noConflict, w.RowidReg);
+                Emit(Op.SeekRowid, w.Cursor, noConflict, w.RowidReg, null, 0x200);
                 msg = RowidUniqueMessage(t);
             }
 
@@ -1513,7 +1513,7 @@ internal sealed partial class Compiler
                 exclusion = spec;
             }
 
-            Emit(Op.IdxProbe, x.Cursor, noConflict, x.KeyBase, exclusion, x.Info.Columns.Length | 0x100);
+            Emit(Op.IdxProbe, x.Cursor, noConflict, x.KeyBase, exclusion, x.Info.Columns.Length | 0x100 | 0x200);
             ConflictAction act = stmtMode ?? x.Info.OnConflict ?? ConflictAction.Abort;
             if (act == ConflictAction.Replace)
             {

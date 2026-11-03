@@ -634,6 +634,11 @@ public sealed partial class Pager
         _sps.Add(sp);
         _spLevel = _sps.Count;
         _spCur = sp.Serial;
+        if (Trace is { Active: true } tr)
+        {
+            tr.Add(BTree.TraceOp.SavepointOpen).Arg = _spLevel;
+        }
+
         return _spLevel;
     }
 
@@ -643,6 +648,11 @@ public sealed partial class Pager
     {
         Guard();
         CheckLevel(level);
+        if (Trace is { Active: true } tr)
+        {
+            tr.Add(BTree.TraceOp.SavepointRelease).Arg = level;
+        }
+
         for (int i = level - 1; i < _sps.Count; i++)
         {
             _spObjects.Push(_sps[i]);
@@ -725,6 +735,11 @@ public sealed partial class Pager
         }
 
         _rsIdx = 0;
+        if (Trace is { Active: true } tr)
+        {
+            tr.Add(BTree.TraceOp.SavepointRollback).Arg = level;
+        }
+
         return PagerStatus.Ok;
     }
 

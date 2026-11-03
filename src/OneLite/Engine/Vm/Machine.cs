@@ -1482,6 +1482,11 @@ internal sealed partial class Machine
             return RunResult.Done;
         }
 
+        if (_txStep == 0 && (_conn.ConcDoomed || _conn.Pager.ConcurrentAbandoned))
+        {
+            throw new OneLiteException(ResultCode.BusySnapshot, Pager.Msg(ResultCode.BusySnapshot), "this transaction's commit was refused or given up; roll it back");
+        }
+
         if ((ins.P5 & 64) != 0 && _txStep == 0 && !PragmaNeedsFile(_code[_pc + 1]))
         {
             return RunResult.Done;
@@ -1636,7 +1641,11 @@ internal sealed partial class Machine
             return RunResult.Done;
         }
 
-        BtStatus s = c.Bt!.MoveToRowid(target, out int cmp);
+        c.Bt!.TraceRequired = (ins.P5 & 0x200) != 0;
+        c.Bt.TraceExact = true;
+        BtStatus s = c.Bt.MoveToRowid(target, out int cmp);
+        c.Bt.TraceRequired = false;
+        c.Bt.TraceExact = false;
         if (s == BtStatus.Pending)
         {
             return RunResult.Pending;
