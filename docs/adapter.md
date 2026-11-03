@@ -18,6 +18,10 @@ Reference `Microsoft.Data.Sqlite.Core` (not `Microsoft.Data.Sqlite`, whose defau
 
 `sqlite3_libversion()` reports `3.53.4`, the SQLite release OneLite is compatible with; `sqlite3_libversion_number()` is `3053004`. `GetNativeLibraryName()` returns `OneLite (managed)`.
 
+## Foreign keys are on by default in the adapter
+
+The adapter starts every connection with `PRAGMA foreign_keys=ON` (`OneLiteBatteries.ForeignKeysByDefault`, default `true`, `src/OneLite.SQLitePCLRaw/OneLiteBatteries.cs:24`; applied in `Provider.Connection.cs:84`). It replaces `bundle_e_sqlite3`, whose native library is built with foreign keys on, and `Microsoft.Data.Sqlite` and EF Core rely on that. The core (`DatabaseOptions.ForeignKeys`, `src/OneLite/Engine/Connection.cs:63`) and `RecursiveAI.OneLite.Data` (`OneLiteConnection.cs:126`) keep SQLite's own default, off. Set `OneLiteBatteries.ForeignKeysByDefault = false` before opening connections to get off through the adapter; an explicit `PRAGMA foreign_keys` or `Foreign Keys=` connection-string key always wins. A test (`ForeignKeysDefaultOnlyInTheAdapter`) pins both defaults.
+
 ## How handles and strings work
 
 - A `sqlite3`, `sqlite3_stmt`, `sqlite3_blob` or backup handle is an index into a table of managed objects, so a handle that is closed, finalized or forgotten is detected (the call returns `SQLITE_MISUSE`) instead of crashing. Finalizers release anything an application leaks.
@@ -49,6 +53,7 @@ Each of these returns a documented result, never a silent success.
 | Shared-cache table locks (`SQLITE_LOCKED_SHAREDCACHE`) | A shared in-memory database is one engine database used through several connections; its writers do not take table locks, so a reader sees an uncommitted write instead of `SQLITE_LOCKED`. |
 | `EXPLAIN` | Bytecode listings are not produced (`unsupported: EXPLAIN`); `EXPLAIN QUERY PLAN` text differs. |
 | `PRAGMA function_list` / its table-valued form | Not implemented. |
+| `X REGEXP Y` | Calls the user function `regexp(Y, X)` as documented; with none registered it fails with "no such function: regexp" (as the native library words it). OneLite ships no `regexp` of its own. |
 
 ## Test results
 

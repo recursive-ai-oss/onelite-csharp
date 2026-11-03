@@ -17,6 +17,32 @@ public class MdsSmokeTests
     }
 
     [Fact]
+    public void ForeignKeysDefaultOnlyInTheAdapter()
+    {
+        // The core keeps SQLite's default (off); the adapter matches the bundled native library (on) unless told otherwise.
+        Assert.False(new DatabaseOptions().ForeignKeys);
+        static long Pragma()
+        {
+            using var c = new SqliteConnection("Data Source=:memory:");
+            c.Open();
+            using SqliteCommand cmd = c.CreateCommand();
+            cmd.CommandText = "pragma foreign_keys";
+            return (long)cmd.ExecuteScalar()!;
+        }
+
+        Assert.Equal(1, Pragma());
+        try
+        {
+            OneLiteBatteries.ForeignKeysByDefault = false;
+            Assert.Equal(0, Pragma());
+        }
+        finally
+        {
+            OneLiteBatteries.ForeignKeysByDefault = true;
+        }
+    }
+
+    [Fact]
     public void SelectOne()
     {
         using var c = new SqliteConnection("Data Source=:memory:");

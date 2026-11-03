@@ -5,6 +5,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- This package carries its own README (the shared one is dropped so the two do not collide in the package root). -->
+    <None Remove="$(MSBuildThisFileDirectory)../../PACKAGE.md" />
+    <None Include="PACKAGE.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="../OneLite/OneLite.csproj" />
     <!-- The one package this adapter adapts. -->
     <PackageReference Include="SQLitePCLRaw.core" />
