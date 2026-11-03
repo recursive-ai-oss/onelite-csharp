@@ -1,0 +1,15 @@
+<Project>
+
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+  <!-- The iOS build copies the runtime's dynamic libraries into the app bundle. In the shared artifacts layout those copies come out as
+       small text files that the loader rejects ("image not found" for libSystem.Globalization.Native.dylib). A conventional bin/obj tree works. -->
+  <PropertyGroup>
+    <UseArtifactsOutput>false</UseArtifactsOutput>
+    <MobileOutput Condition="'$(ONELITE_ARTIFACTS)' != ''">$(ONELITE_ARTIFACTS)/iOS/</MobileOutput>
+    <MobileOutput Condition="'$(ONELITE_ARTIFACTS)' == ''">$(MSBuildThisFileDirectory)../../artifacts/iOS/</MobileOutput>
+    <BaseOutputPath>$(MobileOutput)bin/</BaseOutputPath>
+    <BaseIntermediateOutputPath>$(MobileOutput)obj/</BaseIntermediateOutputPath>
+  </PropertyGroup>
+
+</Project>

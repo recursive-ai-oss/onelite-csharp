@@ -6,11 +6,11 @@ This table lists what has been measured and what is known to differ. Gaps are li
 
 How the numbers are produced: [sqllogictest.md](sqllogictest.md), [differential.md](differential.md), [interop-and-durability.md](interop-and-durability.md).
 
-## Summary (0.3.0-preview.1)
+## Summary (current main)
 
 | Area | sqllogictest | Differential testing against `sqlite3` | Known gaps |
 |---|---|---|---|
-| SQL engine (all groups) | 622 files, 7,420,713 records: 5,939,877 pass, 0 wrong answers, 1 explained failure; 1,480,834 records are written for other database engines and skipped | 4 seeds, 22 minutes each, about 12,000 generated cases and 0.8 M checks: 0 unexplained differences | documented classes below |
+| SQL engine (all groups) | 622 files, every statement run on OneLite: 5,939,878 of 5,939,879 run records pass, 1 explained failure; 1,480,834 records are written for other database engines and skipped | 4 seeds, 22 minutes each, about 12,000 generated cases and 0.8 M checks: 0 unexplained differences | documented classes below |
 | Expressions, affinity, collation, casts | `random/expr` 1,200,366 pass | 0 unexplained | text to REAL with 20 or more significant digits can differ in the last bit; UTF-16 text cast from a BLOB that spills to overflow pages |
 | Aggregates, GROUP BY, window functions | `random/aggregates` 1,292,350, `random/groupby` 133,338 pass | 0 unexplained | ties inside a window stage may come out in a different order; floating-point cancellation in windowed `sum` |
 | Joins, subqueries, CTEs, compound queries, views | `random/select` 1,244,323, `index/view` 109,229 pass | 0 unexplained | a correlated comparison such as `max(b.c) ... WHERE b.c = a.x` can return the text spelling of a value where `sqlite3` returns the converted number (plan-dependent in `sqlite3`); an `UPDATE` or `DELETE` of the inner table between the steps of a pending equality join on an unindexed column shows in OneLite and not in `sqlite3`, which reads a copy of it through an automatic index |
@@ -43,5 +43,5 @@ Process kills (SIGKILL at random moments) and fault injection through the VFS (t
 
 - Native extensions (`load_extension`) are not supported; managed extensions register through the core's interfaces.
 - Geopoly, sessions and changesets, `carray` and the shell's miscellaneous extensions are not implemented.
-- The `RecursiveAI.OneLite.SQLitePCLRaw` adapter and the `onelite` command-line tool are placeholders in this preview.
+- `Microsoft.Data.Sqlite` suite through the `RecursiveAI.OneLite.SQLitePCLRaw` adapter: 670 of 687 pass; the rest are `load_extension`, shared cache, `Password=` and `EXPLAIN` tests. See [adapter.md](adapter.md) and [platforms.md](platforms.md).
 - `ANALYZE` under `PRAGMA analysis_limit` and `PRAGMA optimize` always count every index entry, where the reference estimates on large indexes; see "Statistics and incremental vacuum" in the engine notes.

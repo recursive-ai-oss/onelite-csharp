@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The shipped libraries inside an Android app on an x86_64 emulator: tools/scripts/android_smoke.sh builds, installs and runs it. Not part of the
+       solution (it needs the android workload). The checks are the ones of the NativeAOT smoke app. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-android</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <!-- The core grants internal access to this assembly name (the NativeAOT smoke app uses it too; the two are never built together). -->
+    <AssemblyName>OneLite.AotSmoke</AssemblyName>
+    <RootNamespace>RecursiveAI.OneLite.AotSmoke</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <SupportedOSPlatformVersion>24</SupportedOSPlatformVersion>
+    <ApplicationId>dev.recursiveai.onelite.smoke</ApplicationId>
+    <ApplicationVersion>1</ApplicationVersion>
+    <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+    <!-- The emulator on an x64 host; pass -p:RuntimeIdentifier=android-arm64 for a device. -->
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">android-x64</RuntimeIdentifier>
+    <AndroidPackageFormat>apk</AndroidPackageFormat>
+    <PublishTrimmed>true</PublishTrimmed>
+    <TrimMode>full</TrimMode>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../OneLite.AotSmoke/Program.cs" Link="Program.cs" />
+    <Compile Include="../OneLite.AotSmoke/DataSmoke.cs" Link="DataSmoke.cs" />
+    <ProjectReference Include="../../src/OneLite/OneLite.csproj" />
+    <ProjectReference Include="../../src/OneLite.Data/OneLite.Data.csproj" />
+    <ProjectReference Include="../../src/OneLite.Generators/OneLite.Generators.csproj" ReferenceOutputAssembly="false" OutputItemType="Analyzer" />
+  </ItemGroup>
+
+</Project>
