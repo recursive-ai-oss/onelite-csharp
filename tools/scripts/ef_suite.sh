@@ -14,6 +14,7 @@ art=${ONELITE_ARTIFACTS:-$root/artifacts}
 export ONELITE_ARTIFACTS=$art
 dotnet build tests/OneLite.EfSuite -c Release -p:EfCoreTests="$EFCORE_TESTS" -v q -clp:NoSummary
 # Databases (and their -wal/-shm files) left by an earlier run would be replayed into the new ones.
-find "$art/bin/OneLite.EfSuite" -name '*.db*' -delete 2>/dev/null || true
+# (northwind.db is test data copied by the build, not a result.)
+find "$art/bin/OneLite.EfSuite" \( -name '*.db-wal' -o -name '*.db-shm' -o -name '*.db-journal' -o \( -name '*.db' ! -iname 'northwind*.db' \) \) -delete 2>/dev/null || true
 dll=$(find "$art/bin/OneLite.EfSuite" -name Microsoft.EntityFrameworkCore.Sqlite.FunctionalTests.dll | head -1)
 exec dotnet vstest "$dll" --logger:"trx;LogFileName=$art/ef-suite.trx" --ResultsDirectory:"$art/ef-results" "$@"
