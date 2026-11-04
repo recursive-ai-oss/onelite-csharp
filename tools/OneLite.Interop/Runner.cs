@@ -205,7 +205,7 @@ internal static class Runner
                     return new Result(c.Name, "write", "fail", $"layout {got}, the script asked for {want}", sw.ElapsedMilliseconds);
                 }
             }
-            string? diff = FirstDifference(File.ReadAllText(Path.Combine(corpus, c.ExpectedDump)), SqliteCli.Dump(chk));
+            string? diff = FirstDifference(SortStat1(File.ReadAllText(Path.Combine(corpus, c.ExpectedDump))), SortStat1(SqliteCli.Dump(chk)));
             PinnedSqlite.DeleteFileSet(db);
             PinnedSqlite.DeleteFileSet(chk);
             return diff == null ? new Result(c.Name, "write", "pass", "", sw.ElapsedMilliseconds) : new Result(c.Name, "write", "fail", ".dump differs: " + diff, sw.ElapsedMilliseconds);
@@ -214,6 +214,37 @@ internal static class Runner
         {
             return new Result(c.Name, "write", "fail", e.Message, sw.ElapsedMilliseconds);
         }
+    }
+
+    // The rows of sqlite_stat1 are written in the order ANALYZE visits the tables, which is the order of the reference's own in-memory hash of the
+    // schema (not documented), so a writer is compared on the set of those rows and on everything else exactly.
+    internal static string SortStat1(string dump)
+    {
+        string[] lines = dump.Split('\n');
+        var result = new List<string>(lines.Length);
+        var run = new List<string>();
+        void Flush()
+        {
+            run.Sort(StringComparer.Ordinal);
+            result.AddRange(run);
+            run.Clear();
+        }
+
+        foreach (string line in lines)
+        {
+            if (line.StartsWith("INSERT INTO sqlite_stat1 ", StringComparison.Ordinal))
+            {
+                run.Add(line);
+            }
+            else
+            {
+                Flush();
+                result.Add(line);
+            }
+        }
+
+        Flush();
+        return string.Join('\n', result);
     }
 
     private static string First(string s) => s.Length > 300 ? s[..300] : s.Trim();

@@ -16,7 +16,7 @@ How the numbers are produced: [sqllogictest.md](sqllogictest.md), [differential.
 | Joins, subqueries, CTEs, compound queries, views | `random/select` 1,244,323, `index/view` 109,229 pass | 0 unexplained | a correlated comparison such as `max(b.c) ... WHERE b.c = a.x` can return the text spelling of a value where `sqlite3` returns the converted number (plan-dependent in `sqlite3`); an `UPDATE` or `DELETE` of the inner table between the steps of a pending equality join on an unindexed column shows in OneLite and not in `sqlite3`, which reads a copy of it through an automatic index |
 | Indexes, ORDER BY, IN, BETWEEN, DELETE | `index/*` all pass (1,730,910 records) | 0 unexplained | rows returned before a runtime error can differ when the plans differ; which of two runtime errors is reported can differ when one is in an ORDER BY or GROUP BY term |
 | DDL, ALTER TABLE, triggers, generated columns, STRICT | covered by `evidence/*` (487 pass, 1 explained) | 0 unexplained | |
-| Pragmas, ATTACH | — | 0 unexplained | |
+| Pragmas, ATTACH | — | 0 unexplained | `sqlite_stat1` after `ANALYZE`: contents identical, but with four or more analyzed tables the rowid order of its rows (and so the line order of a `.dump`) can differ; it follows the reference's undocumented schema hash |
 | JSON, math functions, `generate_series` | — | 0 unexplained | |
 | FTS5 | — | 25-minute run plus six shorter seeds (7,000 cases): no `snippet` window differences; the cases that differ are a malformed-database quirk of the shell on `snippet()` of an UNINDEXED column (we return the text), about 1 in 1,500 cases where `snippet(t, -1, ...)` picks another column when an UNINDEXED column holds a match under `detail=column` or `none`, and one last-digit `bm25` difference on arm64 (see [fts5.md](fts5.md)) | `contentless_delete`, `tokendata` and locale options are not implemented |
 | FTS3 and FTS4 | — | 25-minute run: 264 cases, 0 differing | see [fts3.md](fts3.md): `matchinfo` hit totals for multi-phrase queries depend on file layout; `col:"phrase"` without a space |
@@ -31,7 +31,7 @@ The one explained sqllogictest failure: the script expects an empty result for `
 | Files written by `sqlite3` (every page type, overflow, freelists, auto-vacuum modes, encodings, page sizes, WAL states, hot journals) read by OneLite | all identical |
 | Files written by OneLite pass `sqlite3`'s `PRAGMA integrity_check` and give the same `.dump` | all pass |
 | Real-world databases (Chinook, Northwind, Sakila) | read and written both ways |
-| FTS5 and FTS3/4 tables, both directions | FTS3/4: 32 option, page-size and encoding combinations, 32,000 documents, all pass |
+| FTS5 and FTS3/4 tables, both directions | FTS3/4: 192 option, page-size (512 to 65536) and encoding (UTF-8, UTF-16le, UTF-16be) combinations, about 45,000 documents, all pass |
 | Live coexistence with `sqlite3` processes in WAL mode | 10,000 interleaved commits, consistent both ways |
 | SQLCipher 4 files (SQLCipher 4.5.6 and 4.20.0) | read and written both ways |
 

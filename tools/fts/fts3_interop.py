@@ -9,7 +9,7 @@ shell, and then checks that
   * after each engine has changed the other's file (inserts, deletes, 'optimize', 'merge=2,3') both files still pass the checks and the
     queries agree again.
 
-usage: fts3_interop.py --sqlrun <OneLite.SqlRun.dll> --shell <sqlite3> [--docs 3000] [--queries 300] [--seed 1] [--work DIR] [--only substring]
+usage: fts3_interop.py --sqlrun <OneLite.SqlRun.dll> --shell <sqlite3> [--docs 3000] [--queries 300] [--seed 1] [--work DIR] [--only substring] [--matrix default|full]
 """
 import argparse, os, random, sys, time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -28,6 +28,8 @@ COMBOS = [
     ("fts4-contentless", "fts4", "content=''", False),
 ]
 CONFIGS = [(4096, "utf8"), (1024, "utf16le"), (512, "utf8"), (8192, "utf16be")]
+# --matrix full: every page size against every text encoding
+FULL_CONFIGS = [(ps, enc) for ps in (512, 1024, 2048, 4096, 8192, 16384, 32768, 65536) for enc in ("utf8", "utf16le", "utf16be")]
 
 
 def build_script(page_size, module, opts, rows, modify):
@@ -127,7 +129,7 @@ def run_case(a, label, module, opts, modify, page_size, rows, queries, work):
     checks("fresh")
     compare("fresh")
     n = len(rows)
-    ins = [f"INSERT INTO t(docid,a,b) VALUES ({n + i},'{rows[i][1]}','{rows[i][2]} later');" for i in range(1, 200)]
+    ins = [f"INSERT INTO t(docid,a,b) VALUES ({n + i},'{rows[i][1]}','{rows[i][2]} later');" for i in range(1, min(200, n))]
     tail = ["DELETE FROM t WHERE docid % 5 = 1;"] if modify else []
     extra = "\n".join(ins + tail + ["INSERT INTO t(t) VALUES('optimize');", "INSERT INTO t(t) VALUES('merge=2,3');"]) + "\n"
     base.ours(a.sqlrun, sd, extra)
@@ -146,12 +148,13 @@ def main():
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--work", default="fts3_interop_work")
     ap.add_argument("--only", default="")
+    ap.add_argument("--matrix", choices=("default", "full"), default="default")
     a = ap.parse_args()
     os.makedirs(a.work, exist_ok=True)
     r = random.Random(a.seed)
     words = base.vocab(r)
     total_docs = cases = failed = 0
-    for page_size, enc in CONFIGS:
+    for page_size, enc in (FULL_CONFIGS if a.matrix == "full" else CONFIGS):
         base.ENCODING = enc
         for label, module, opts, modify in COMBOS:
             if a.only not in f"{label}-p{page_size}-{enc}":

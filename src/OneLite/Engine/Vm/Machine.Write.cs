@@ -3085,6 +3085,32 @@ internal sealed partial class Machine
                 break;
             }
             default:
+                if (arg is not null)
+                {
+                    // pragma encoding: the name is matched without regard to case and the hyphen is optional; "UTF-16" means the machine's order.
+                    // An unknown name is an error unless the connection already has the schema of a database that has pages: there the reference
+                    // treats the pragma as a plain read (observed with the pinned shell), as it does a known name.
+                    TextEncoding? want = arg.ToLowerInvariant() switch
+                    {
+                        "utf-8" or "utf8" => TextEncoding.Utf8,
+                        "utf-16" or "utf16" or "utf-16le" or "utf16le" => TextEncoding.Utf16Le,
+                        "utf-16be" or "utf16be" => TextEncoding.Utf16Be,
+                        _ => null,
+                    };
+                    if (want is null && (pg.PageCount == 0 || _conn.Catalog is null))
+                    {
+                        throw new OneLiteException(ResultCode.Error, "unsupported encoding: " + arg);
+                    }
+
+                    if (want is not null && pg.PageCount == 0)
+                    {
+                        if (pg.TrySetEncoding(want.Value))
+                        {
+                            _conn.RefreshContext();
+                        }
+                    }
+                }
+
                 SetText(ref R[d], ref _own[d], pg.DatabaseEncoding switch { TextEncoding.Utf16Le => "UTF-16le", TextEncoding.Utf16Be => "UTF-16be", _ => "UTF-8" });
                 break;
         }

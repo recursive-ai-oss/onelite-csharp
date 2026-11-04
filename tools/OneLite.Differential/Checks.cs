@@ -549,10 +549,11 @@ internal static class Classifier
             return "runtime-error-order";
         }
 
-        // Two runtime errors in a window query (an aggregate overflowing, a frame offset refused): which one comes first follows the order
-        // the reference evaluates in, which it does lazily for rows an outer query does not read.
+        // Two runtime errors in a window query (an aggregate overflowing, a frame offset refused) or a grouped one (an aggregate refusing its input
+        // at a step against another refusing it when its result is built): which one comes first follows the order the reference evaluates in,
+        // which it does lazily for rows an outer query does not read.
         if (ours.HasError && theirs.HasError && ours.Phase == "run" && theirs.Phase == "run" && ours.Message != theirs.Message
-            && (sql.Contains(" OVER ", StringComparison.Ordinal) || sql.Contains(" UNION ", StringComparison.Ordinal) || sql.Contains("ORDER BY", StringComparison.Ordinal)
+            && (sql.Contains(" OVER ", StringComparison.Ordinal) || sql.Contains("GROUP BY", StringComparison.Ordinal) || sql.Contains(" UNION ", StringComparison.Ordinal) || sql.Contains("ORDER BY", StringComparison.Ordinal)
                 || HasSecondaryIndex()))
         {
             return "runtime-error-order";
@@ -657,6 +658,18 @@ internal static class Classifier
             return "planner-index-choice";
         }
 
+        // json_group_array and group_concat list their values in the order the rows are read, and without an ORDER BY inside the aggregate that
+        // order is the planner's: the reference may read a covering or unique index, or a rowid range through a view's filter, where OneLite
+        // reads in table order. Same elements, another order; narrow to a setup with a secondary index, a UNIQUE column or WITHOUT ROWID.
+        if (!ours.HasError && !theirs.HasError && ours.Rows.Count == theirs.Rows.Count && ours.Rows.Count > 0 && Setup is { } gs
+            && Regex.IsMatch(gs, @"CREATE\s+(UNIQUE\s+)?INDEX|\bUNIQUE\b|WITHOUT\s+ROWID", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)
+            && Regex.IsMatch(sql, @"\b(json_group_array|group_concat|string_agg)\s*\(", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)
+            && !Regex.IsMatch(sql, @"\b(json_group_array|group_concat|string_agg)\s*\([^)]*ORDER\s+BY", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)
+            && DifferOnlyInListOrder(ours, theirs))
+        {
+            return "planner-index-choice";
+        }
+
         // Duplicates removed by UNION, INTERSECT, EXCEPT or DISTINCT keep the first of the values that compare equal (1 and 1.0, 'a' and
         // 'A' under NOCASE) in the order the rows were read, which depends on the index the reference reads them through.
         if (!ours.HasError && !theirs.HasError && ours.Rows.Count == theirs.Rows.Count && HasSecondaryIndex()
@@ -687,6 +700,56 @@ internal static class Classifier
 
         _ = diff;
         return Verdict.Unexplained;
+    }
+
+    // The elements of a TEXT cell (shown as T: and the hex of its UTF-8 bytes) with the outer brackets removed.
+    private static string ListBody(string key)
+    {
+        if (key.StartsWith("T:", StringComparison.Ordinal) && key.Length % 2 == 0)
+        {
+            try
+            {
+                key = System.Text.Encoding.UTF8.GetString(Convert.FromHexString(key.AsSpan(2)));
+            }
+            catch (FormatException)
+            {
+                // not hex: compare the shown text as it is
+            }
+        }
+
+        return key.Trim('[', ']');
+    }
+
+    // Every cell is equal, or is a text whose comma-separated elements (outer brackets ignored) are the same elements in another order.
+    private static bool DifferOnlyInListOrder(Outcome ours, Outcome theirs)
+    {
+        bool anyPermuted = false;
+        for (int i = 0; i < ours.Rows.Count; i++)
+        {
+            if (ours.Rows[i].Length != theirs.Rows[i].Length)
+            {
+                return false;
+            }
+
+            for (int j = 0; j < ours.Rows[i].Length; j++)
+            {
+                string a = ours.Rows[i][j].Key, b = theirs.Rows[i][j].Key;
+                if (a == b)
+                {
+                    continue;
+                }
+
+                string[] ta = ListBody(a).Split(','), tb = ListBody(b).Split(',');
+                if (ta.Length != tb.Length || ta.Length < 2 || !ta.Order(StringComparer.Ordinal).SequenceEqual(tb.Order(StringComparer.Ordinal)))
+                {
+                    return false;
+                }
+
+                anyPermuted = true;
+            }
+        }
+
+        return anyPermuted;
     }
 
     // Two shown REAL values (digits and a trailing "r") that differ by a few units in the last place.

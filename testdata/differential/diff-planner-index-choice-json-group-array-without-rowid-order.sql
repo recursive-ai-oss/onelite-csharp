@@ -1,6 +1,6 @@
 -- OneLite differential repro
 -- status: expected-fail
--- class: unexplained
+-- class: planner-index-choice
 -- engine: ours
 -- families: aggregate,expr
 -- utf16: false

@@ -55,6 +55,15 @@ internal static class Coexist
             }
         }
 
+        // Every expectation below is a rollback-mode one (a reader's SHARED lock blocks a commit, a writer's RESERVED lock blocks the other writer). In WAL
+        // a reader never blocks a commit, so WAL is checked by engine-coexist and the WAL kill runs instead (docs/interop-and-durability.md).
+        if (!journal.Equals("delete", StringComparison.OrdinalIgnoreCase) && !journal.Equals("truncate", StringComparison.OrdinalIgnoreCase)
+            && !journal.Equals("persist", StringComparison.OrdinalIgnoreCase))
+        {
+            Console.Error.WriteLine("coexist: --journal " + journal + " is not a rollback journal mode; use delete, truncate or persist (WAL: engine-coexist --journal wal)");
+            return 2;
+        }
+
         Directory.CreateDirectory(work);
         string db = Path.Combine(work, "live.db");
         PinnedSqlite.DeleteFileSet(db);

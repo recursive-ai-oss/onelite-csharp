@@ -1658,18 +1658,15 @@ internal sealed partial class Compiler
         }
 
         // Observed: IS, IS NOT and IS [NOT] DISTINCT FROM resolve the right operand's names before the left's, so a missing column is
-        // reported from the right one first.
-        int l, r;
-        if (b.Op is BinaryOp.Is or BinaryOp.IsNot)
+        // reported from the right one first; the operands still run left to right, so a runtime error of the left one comes first.
+        // The right operand is therefore compiled once for its errors and thrown away, then both are compiled in running order.
+        if (b.Op is BinaryOp.Is or BinaryOp.IsNot && _dryDepth == 0)
         {
-            r = CompileOperand(b, b.Right);
-            l = CompileOperand(b, b.Left);
+            DryRun(() => CompileOperand(b, b.Right));
         }
-        else
-        {
-            l = CompileOperand(b, b.Left);
-            r = CompileOperand(b, b.Right);
-        }
+
+        int l = CompileOperand(b, b.Left);
+        int r = CompileOperand(b, b.Right);
 
         // `x IS NULL` compares nothing by collation, so an unknown COLLATE on x is not looked up.
         bool nullTest = b.Op is BinaryOp.Is or BinaryOp.IsNot && StripParens(b.Right) is LiteralExpr { Kind: LiteralKind.Null };
