@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-11-04
+
+First stable release. The `RecursiveAI.OneLite.SQLitePCLRaw` adapter and the `RecursiveAI.OneLite.Cli` tool (`onelite`) are published for the first time. Known gaps (speed rows over the targets) are listed in the README and docs/benchmarks.md.
+
 ### Added
 
 - The percentile extension of the pinned shell: `median`, `percentile`, `percentile_cont` and `percentile_disc`, as aggregates and as window functions, with its errors for non-numeric or infinite input and for fractions that are out of range or differ between rows. `json_group_array`, `json_group_object` and their `jsonb_` forms work as window functions.

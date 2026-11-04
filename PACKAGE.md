@@ -4,7 +4,7 @@ A pure-managed, SQLite-compatible embedded SQL database for .NET, built on the b
 
 It aims to read and write SQLite database, journal and WAL files both ways and to behave identically to SQLite by default, with opt-in improvements (row-level concurrent writers, SQLCipher-compatible encryption, real async over a pluggable VFS, an exact-kNN vector table) that keep files standard.
 
-This is a preview: the storage layer, the SQL engine, ADO.NET (`RecursiveAI.OneLite.Data`), the happy-path API, FTS3/4/5, R*Tree, the `vec0` vector table, the backup API and SQLCipher-4-compatible encryption work. Measured compatibility and every known difference from SQLite 3.53.4: https://github.com/recursive-ai-oss/onelite-csharp/blob/main/docs/compatibility.md. APIs may change between previews.
+The storage layer, the SQL engine, ADO.NET (`RecursiveAI.OneLite.Data`), the happy-path API, FTS3/4/5, R*Tree, the `vec0` vector table, the backup API, SQLCipher-4-compatible encryption and opt-in `BEGIN CONCURRENT` are included. Measured compatibility and every known difference from SQLite 3.53.4: https://github.com/recursive-ai-oss/onelite-csharp/blob/main/docs/compatibility.md.
 
 - Repository: https://github.com/recursive-ai-oss/onelite-csharp
 - Project page: https://recursiveai.org/onelite/

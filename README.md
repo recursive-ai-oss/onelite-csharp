@@ -13,13 +13,13 @@ Improvements are opt-in and keep files standard: row-level `BEGIN CONCURRENT`, S
 
 ## Status
 
-Preview (`0.6.0-preview.2`). The storage layer, the SQL engine, `RecursiveAI.OneLite.Data` and the happy-path API work, as do FTS3/4/5, R*Tree, `vec0` (OneLite's own vector table: it follows sqlite-vec's SQL API but its files are not interchangeable with sqlite-vec's, see [docs/vec.md](docs/vec.md)), the backup API, SQLCipher-4-compatible encryption, and opt-in `BEGIN CONCURRENT` (row-level concurrent writers on standard WAL files, serializable by default; see [docs/concurrency.md](docs/concurrency.md)). Measured compatibility with SQLite 3.53.4, including every known difference, is in [docs/compatibility.md](docs/compatibility.md). Benchmarks against the native library are in [docs/benchmarks.md](docs/benchmarks.md). Still to come before 1.0: the `Microsoft.Data.Sqlite`/EF Core adapter, the `onelite` command-line tool, and speed work. APIs may change between previews.
+Version 1.0.0. The storage layer, the SQL engine, `RecursiveAI.OneLite.Data`, the happy-path API, FTS3/4/5, R*Tree, `vec0` (OneLite's own vector table: it follows sqlite-vec's SQL API but its files are not interchangeable with sqlite-vec's, see [docs/vec.md](docs/vec.md)), the backup API, SQLCipher-4-compatible encryption, opt-in `BEGIN CONCURRENT` (row-level concurrent writers on standard WAL files, serializable by default; see [docs/concurrency.md](docs/concurrency.md)), the `Microsoft.Data.Sqlite`/EF Core adapter and the `onelite` command-line tool all ship. Measured compatibility with SQLite 3.53.4, including every known difference, is in [docs/compatibility.md](docs/compatibility.md). Benchmarks against the native library are in [docs/benchmarks.md](docs/benchmarks.md).
+
+**Known gaps.** A few benchmark rows are slower than the native library by more than the project's targets (engine 1.5x, app 1.25x): `prepare_cold`, the first prepare of new statement text (x64 engine 2.69x, app 1.80x); `fts5_top10` (app 1.71x x64, 2.13x arm64; engine 1.94x arm64); and on arm64 `lookup_index` (engine 1.52x) and `insert_tx_100k` (engine 1.50x). The geometric means are below native on both machines (x64 engine 0.73x, app 0.74x; arm64 0.89x, 0.93x). See [docs/benchmarks.md](docs/benchmarks.md).
 
 ## Known issues
 
-**0.2.0-preview.1 can silently drop a write (data loss); upgrade to 0.2.0-preview.2 or later.** In a rollback-journal mode (`journal_mode` DELETE, TRUNCATE or PERSIST, the default for `Database.Open` and `OneLiteConnection`), an `INSERT`, `UPDATE` or `DELETE` in autocommit mode returned success with no change while another connection held a read, in the same process or another one. It now fails with `SQLITE_BUSY` ("database is locked") as SQLite does; WAL mode was never affected. Remaining differences between several connections on one file are listed in [docs/engine.md](docs/engine.md#known-differences-with-several-connections-on-one-file).
-
-**0.2.0-preview.1 could silently lose a key change; upgrade to 0.2.0-preview.2 or later.** `PRAGMA rekey` or `PRAGMA hexrekey` run through a call that reads one row and stops (`ExecuteScalar`, a reader closed early, `Statement.Step` once, the happy-path scalar and query methods) answered `ok` but kept the old key. `ExecuteNonQuery` and running the statement to completion were not affected. Upgrade to 0.2.0-preview.2, or after a rekey in preview.1 reopen the file with the new key to confirm it.
+The first version published on nuget.org with the SQL engine, 0.2.0-preview.1, can silently drop a write in a rollback-journal mode and can keep the old key after `PRAGMA rekey`; both were fixed in the next version. Use 1.0.0. Details are in [CHANGELOG.md](CHANGELOG.md) under 0.2.0-preview.2.
 
 ## How it is built
 
@@ -31,8 +31,8 @@ OneLite is a clean-room implementation. It is written from SQLite's public docum
 |---|---|
 | `RecursiveAI.OneLite` | The core: storage layer, engine layer and the happy path. No third-party dependencies. |
 | `RecursiveAI.OneLite.Data` | ADO.NET provider with real async. Depends on the core only. |
-| `RecursiveAI.OneLite.SQLitePCLRaw` | An `ISQLite3Provider` so `Microsoft.Data.Sqlite` and EF Core can run on OneLite. Depends on the core and `SQLitePCLRaw.core`. Not published yet. |
-| `RecursiveAI.OneLite.Cli` | The `onelite` command-line tool (`dotnet tool install`): a shell used like `sqlite3`, with `.dump`, `.import` and a read-only `.recover` ([docs/cli.md](docs/cli.md)). Not published yet. |
+| `RecursiveAI.OneLite.SQLitePCLRaw` | An `ISQLite3Provider` so `Microsoft.Data.Sqlite` and EF Core can run on OneLite. Depends on the core and `SQLitePCLRaw.core`. |
+| `RecursiveAI.OneLite.Cli` | The `onelite` command-line tool (`dotnet tool install`): a shell used like `sqlite3`, with `.dump`, `.import` and a read-only `.recover` ([docs/cli.md](docs/cli.md)). |
 
 ## Building
 
