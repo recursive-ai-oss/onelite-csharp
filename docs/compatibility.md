@@ -43,5 +43,5 @@ Process kills (SIGKILL at random moments) and fault injection through the VFS (t
 
 - Native extensions (`load_extension`) are not supported; managed extensions register through the core's interfaces.
 - Geopoly, sessions and changesets, `carray` and the shell's miscellaneous extensions are not implemented.
-- `Microsoft.Data.Sqlite` suite through the `RecursiveAI.OneLite.SQLitePCLRaw` adapter: 670 of 687 pass; the rest are `load_extension`, shared cache, `Password=` and `EXPLAIN` tests. See [adapter.md](adapter.md) and [platforms.md](platforms.md).
+- `Microsoft.Data.Sqlite` suite through the `RecursiveAI.OneLite.SQLitePCLRaw` adapter: 670 of 687 pass, 7 are skipped by the suite itself, and the 10 failures are `load_extension` (4), shared cache (2), `Password=` (2), `EXPLAIN` (1) and `pragma_function_list` (1) tests. See [adapter.md](adapter.md) and [platforms.md](platforms.md).
 - `ANALYZE` under `PRAGMA analysis_limit` and `PRAGMA optimize` always count every index entry, where the reference estimates on large indexes; see "Statistics and incremental vacuum" in the engine notes.
