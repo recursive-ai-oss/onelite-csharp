@@ -129,7 +129,7 @@ def run_case(a, label, module, opts, modify, page_size, rows, queries, work):
     checks("fresh")
     compare("fresh")
     n = len(rows)
-    ins = [f"INSERT INTO t(docid,a,b) VALUES ({n + i},'{rows[i][1]}','{rows[i][2]} later');" for i in range(1, 200)]
+    ins = [f"INSERT INTO t(docid,a,b) VALUES ({n + i},'{rows[i][1]}','{rows[i][2]} later');" for i in range(1, min(200, n))]
     tail = ["DELETE FROM t WHERE docid % 5 = 1;"] if modify else []
     extra = "\n".join(ins + tail + ["INSERT INTO t(t) VALUES('optimize');", "INSERT INTO t(t) VALUES('merge=2,3');"]) + "\n"
     base.ours(a.sqlrun, sd, extra)
