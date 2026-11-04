@@ -220,8 +220,7 @@ internal static class Runner
     // schema (not documented), so a writer is compared on the set of those rows and on everything else exactly.
     internal static string SortStat1(string dump)
     {
-        string[] lines = dump.Split('
-');
+        string[] lines = dump.Split('\n');
         var result = new List<string>(lines.Length);
         var run = new List<string>();
         void Flush()
@@ -245,8 +244,7 @@ internal static class Runner
         }
 
         Flush();
-        return string.Join('
-', result);
+        return string.Join('\n', result);
     }
 
     private static string First(string s) => s.Length > 300 ? s[..300] : s.Trim();

@@ -202,7 +202,8 @@ internal sealed partial class Compiler
             var idxs = new List<IndexInfo>(t.Indexes);
             if (t.WithoutRowid && t.PrimaryKey is { } pk)
             {
-                idxs.Add(pk);
+                // the primary key's tree is made with the table, before any CREATE INDEX
+                idxs.Insert(0, pk);
             }
 
             // newest index first

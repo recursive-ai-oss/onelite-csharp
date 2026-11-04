@@ -123,4 +123,16 @@ public sealed class EncodingAnalyzeTests : IDisposable
             Assert.Equal(SqliteCli.Dump(theirs), SqliteCli.Dump(ours));
         }
     }
+
+    [Fact]
+    public void AnalyzeListsAWithoutRowidTablesIndexesNewestFirstWithThePrimaryKeyLast()
+    {
+        Need();
+        string script = "CREATE TABLE w(k PRIMARY KEY, v, u) WITHOUT ROWID; CREATE INDEX wv ON w(v); CREATE INDEX wu ON w(u); " +
+            "INSERT INTO w VALUES(1,1,1),(2,1,2),(3,2,2); CREATE TABLE r(a UNIQUE, b); CREATE INDEX rb ON r(b); INSERT INTO r VALUES(1,1),(2,1); ANALYZE;";
+        string ours = P("w-o.db"), theirs = P("w-t.db");
+        Script(ours, script);
+        SqliteCli.ApplyScript(theirs, script);
+        Assert.Equal(SqliteCli.Dump(theirs), SqliteCli.Dump(ours));
+    }
 }
