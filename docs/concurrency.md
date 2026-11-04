@@ -66,11 +66,11 @@ The write lock is held while a commit replays, so its hold time grows with the s
 
 ## Durability and throughput
 
-A commit has the cost of an ordinary WAL commit. With `synchronous=FULL`, concurrent commits of one process share WAL syncs (group commit, `docs/wal.md`): a commit is acknowledged only after a sync that covers it, and readers see it only after that sync. Commits of different processes still take the write lock in turn and cost one sync each. `DatabaseOptions.ConcurrentGroupCommit = false` turns the sharing off. It has no effect on plain `BEGIN`, `BEGIN IMMEDIATE`, autocommit or `synchronous=NORMAL`. Concurrent writers help when transactions spend their time in the statements rather than in the commit; very short transactions on one machine gain nothing, and replay adds a little work to every commit that follows another.
+A commit has the cost of an ordinary WAL commit. With `synchronous=FULL` or `EXTRA`, concurrent commits of one process share WAL syncs (group commit, `docs/wal.md`): a commit is acknowledged only after a sync that covers it, and readers see it only after that sync. Commits of different processes still take the write lock in turn and cost one sync each. `DatabaseOptions.ConcurrentGroupCommit = false` turns the sharing off. It has no effect on plain `BEGIN`, `BEGIN IMMEDIATE`, autocommit or `synchronous=NORMAL`. Concurrent writers help when transactions spend their time in the statements rather than in the commit; very short transactions on one machine gain nothing, and replay adds a little work to every commit that follows another.
 
 ## When it helps
 
-Indicative numbers from one 16-core x64 machine (Linux, local NVMe, WAL, 4 KiB pages, default cache, other jobs running), threads of one process with one connection each, matched settings on both modes, 5 s per run, a few other jobs running on the machine. The table is `BEGIN CONCURRENT` commits per second divided by `BEGIN IMMEDIATE` commits per second. Each transaction reads 10 rows and updates 5 rows in the writer's own key range of a 400,000-row table; **B** is a busy loop of that many microseconds of application work inside the transaction.
+Indicative numbers from one 16-core x64 machine (Linux, local NVMe, WAL, 4 KiB pages, default cache), threads of one process with one connection each, matched settings on both modes, 5 s per run, a few other jobs running on the machine. The table is `BEGIN CONCURRENT` commits per second divided by `BEGIN IMMEDIATE` commits per second. Each transaction reads 10 rows and updates 5 rows in the writer's own key range of a 400,000-row table; **B** is a busy loop of that many microseconds of application work inside the transaction.
 
 | `synchronous=NORMAL` | W=2 | W=4 | W=8 |
 |---|---|---|---|

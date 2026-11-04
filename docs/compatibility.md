@@ -6,7 +6,7 @@ This table lists what has been measured and what is known to differ. Gaps are li
 
 How the numbers are produced: [sqllogictest.md](sqllogictest.md), [differential.md](differential.md), [interop-and-durability.md](interop-and-durability.md).
 
-## Summary (current main)
+## Summary (as of 1.0.0)
 
 | Area | sqllogictest | Differential testing against `sqlite3` | Known gaps |
 |---|---|---|---|

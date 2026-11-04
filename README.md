@@ -15,11 +15,14 @@ Improvements are opt-in and keep files standard: row-level `BEGIN CONCURRENT`, S
 
 Version 1.0.0. The storage layer, the SQL engine, `RecursiveAI.OneLite.Data`, the happy-path API, FTS3/4/5, R*Tree, `vec0` (OneLite's own vector table: it follows sqlite-vec's SQL API but its files are not interchangeable with sqlite-vec's, see [docs/vec.md](docs/vec.md)), the backup API, SQLCipher-4-compatible encryption, opt-in `BEGIN CONCURRENT` (row-level concurrent writers on standard WAL files, serializable by default; see [docs/concurrency.md](docs/concurrency.md)), the `Microsoft.Data.Sqlite`/EF Core adapter and the `onelite` command-line tool all ship. Measured compatibility with SQLite 3.53.4, including every known difference, is in [docs/compatibility.md](docs/compatibility.md). Benchmarks against the native library are in [docs/benchmarks.md](docs/benchmarks.md).
 
-**Known gaps.** A few benchmark rows are slower than the native library by more than the project's targets (engine 1.5x, app 1.25x): `prepare_cold`, the first prepare of new statement text (x64 engine 2.69x, app 1.80x); `fts5_top10` (app 1.71x x64, 2.13x arm64; engine 1.94x arm64); and on arm64 `lookup_index` (engine 1.52x) and `insert_tx_100k` (engine 1.50x). The geometric means are below native on both machines (x64 engine 0.73x, app 0.74x; arm64 0.89x, 0.93x). See [docs/benchmarks.md](docs/benchmarks.md).
+**Known gaps.** A few benchmark rows are slower than the native library by more than the project's targets (engine 1.5x, app 1.25x): `prepare_cold`, the first prepare of new statement text (x64 engine 2.69x, app 1.80x); `fts5_top10` (app 1.71x x64, 2.13x arm64; engine 1.94x arm64); and on arm64 `prepare_cold` (app 1.51x), `lookup_index` (engine 1.52x, app 1.35x) and `insert_tx_100k` (engine 1.50x). The geometric means are below native on both machines (x64 engine 0.73x, app 0.74x; arm64 0.89x, 0.93x; `open_time`, a report-only row, excluded). See [docs/benchmarks.md](docs/benchmarks.md).
 
 ## Known issues
 
-The first version published on nuget.org with the SQL engine, 0.2.0-preview.1, can silently drop a write in a rollback-journal mode and can keep the old key after `PRAGMA rekey`; both were fixed in the next version. Use 1.0.0. Details are in [CHANGELOG.md](CHANGELOG.md) under 0.2.0-preview.2.
+Two published versions have serious defects and are unlisted on nuget.org; use 1.0.0.
+
+- **0.2.0-preview.1** can silently drop a write in a rollback-journal mode and can keep the old key after `PRAGMA rekey`. Fixed in 0.2.0-preview.2 (details in [CHANGELOG.md](CHANGELOG.md)).
+- **0.6.0-preview.1** turned `ConcurrentWrites` on by default in `Database.HappyPathOptions()`, so `WriteAsync` ran `BEGIN CONCURRENT`, whose rowids are not in commit order: a poller reading `WHERE id > :last` can miss rows. Fixed in 0.6.0-preview.2, where it is off by default (see [docs/concurrency.md](docs/concurrency.md)).
 
 ## How it is built
 

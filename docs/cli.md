@@ -19,7 +19,7 @@ The tool runs on the engine layer only (`Database`, `Connection`, `Statement`, `
 
 Options: `-bail`, `-batch`, `-interactive`, `-echo`, `-readonly`, `-header` / `-noheader`, `-separator S`, `-newline S`, `-nullvalue S`, `-escape ascii|symbol|off`, `-cmd COMMAND`, `-init FILE`, `-version`, `-help`, and the mode options `-list -csv -tabs -ascii -line -json -column -box -table -markdown -html -quote`. OneLite's own: `-key PASSPHRASE` for a database in the SQLCipher 4 format (the same as `PRAGMA key`). The aligned modes (`column`, `box`, `table`, `markdown`, `html`) turn headers on, as they do in the `sqlite3` shell.
 
-Errors go to standard error with the message text of the pinned SQLite release (3.53.4): `Parse error near line N: ...` with the statement and a caret for errors that have a position, `Error near line N: ...` for errors while running, and `... in the 2nd command line argument` for arguments. OneLite adds a line `  did you mean: a, b?` when it has suggestions. The exit code is 1 after any error.
+Errors go to standard error with the message text of the pinned SQLite release (3.53.4): `Parse error near line N: ...` with the statement and a caret for errors that have a position, `Error near line N: ...` for errors while running, and `Parse error in 2nd command line argument: ...` (or `Error in ...` while running) for arguments. OneLite adds a line `  did you mean: a, b?` when it has suggestions. The exit code is 1 after any error.
 
 ## Dot-commands
 

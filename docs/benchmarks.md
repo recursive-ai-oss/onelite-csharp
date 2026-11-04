@@ -22,9 +22,9 @@ Reproduce with `bench/run.sh --rows <a,b|all> --levels engine,app --reps 3 --out
 ## Read these first
 
 - **`fsync` against `fdatasync`.** On Linux the pinned `libe_sqlite3` issues `fsync` for each commit sync and OneLite issues `fdatasync`. The number of syncs is the same (about 2,012 for 2 × 1,000 commits in `strace`), but `fdatasync` skips the file-metadata flush, so `wal_commit_full` (0.28× on x64) and `insert_autocommit` (0.85×) are faster than native for a reason that is not engine speed. It is a property of the reference build, not a durability gap by count. On macOS the two sides are close (1.9× and 1.1×).
-- **Concurrent writers.** The `BEGIN CONCURRENT` throughput row is not part of this baseline. It is pending until the feature's measurements are ready; there is no number for it here.
-- **Short rows include JIT.** `insert_tx_10k` runs about 80 ms, and the warm-up is a single run, so tier-0 code is part of the timing. `insert_tx_100k` shows the steadier ratio (3.9× against 18.7× on x64).
-- **Allocation.** The cached hot path allocates nothing per *row stepped* (`scan_filter` 0.2 B/op, `join` 0.4 B/op) and, since the tuning below, nothing per *statement execution* of a point lookup (bind, step, reset: 0 B at engine level). Preparing a statement that was prepared before on the connection allocates about 140 B; a first prepare about 23 KB. `fts5_top10` allocates 5.7 MB per query.
+- **Concurrent writers.** `BEGIN CONCURRENT` throughput is not a row of these tables; its indicative numbers are in [concurrency.md](concurrency.md).
+- **Short rows include JIT.** `insert_tx_10k` runs about 6 ms (6.40 ms on x64 in the 1.0 rows), and the warm-up is a single run, so tier-0 code is part of the timing. `insert_tx_100k` shows the steadier ratio (1.20x against 1.52x on x64).
+- **Allocation.** The cached hot path allocates nothing per *row stepped* (`scan_filter` 0.2 B/op, `join` 0.4 B/op) and, since the tuning below, nothing per *statement execution* of a point lookup (bind, step, reset: 0 B at engine level). Preparing a statement that was prepared before on the connection allocates about 140 B; a first prepare about 23 KB. `fts5_top10` allocates about 0.65 MB per query (5.7 MB before the FTS5 tuning).
 - **Mac load.** The Mac was not idle by itself: its 1-minute load average sat near 2 before, during and after both groups, with no other queue job running. Treat the arm64 numbers as slightly less quiet than the x64 ones.
 
 ## 1.0 rows (commit 0295e23)
@@ -55,9 +55,9 @@ The full suite after all tuning, at both levels, on both machines. Settings and 
 | fts5_top10 | 72.28 | 49.43 | 1.46x | | 76.37 | 44.70 | 1.71x |
 | vec0_knn | 93.86 | 273.18 | 0.34x | | 95.02 | 265.54 | 0.36x |
 
-Geometric mean over the 16 timed rows (`open_time` is in the mean as the tool computes it): engine **0.73x**, app **0.74x**. Engine rows over 1.5x: `prepare_cold` (2.69x). App rows over 1.25x: `prepare_cold` (1.80x), `fts5_top10` (1.71x), `open_time` (1.29x, report only).
+Geometric mean over the 16 timed rows, `open_time` (report only) excluded: engine **0.73x** (0.723), app **0.74x** (0.738); with `open_time` the means are 0.752 and 0.763. Engine rows over 1.5x: `prepare_cold` (2.69x). App rows over 1.25x: `prepare_cold` (1.80x), `fts5_top10` (1.71x), `open_time` (1.29x, report only).
 
-### Baseline, arm64: Apple M2, 8 cores, macOS 27.0.1
+### arm64: Apple M2, 8 cores, macOS 27.0.1
 
 .NET 10.0.11, reference SQLite 3.53.4, `Microsoft.Data.Sqlite` 10.0.14. Load average (1 min): group 1 2.77 before, 2.84 highest, 2.50 after; group 2 2.17 before, 2.17 highest, 1.75 after (the Mac is not idle by itself, as noted above). The sqlite-vec reference is not installed on this machine, so `vec0_knn` has no reference side here and is not in the mean.
 
@@ -81,7 +81,7 @@ Geometric mean over the 16 timed rows (`open_time` is in the mean as the tool co
 | fts5_top10 | 78.02 | 40.23 | 1.94x | | 85.35 | 40.07 | 2.13x |
 | vec0_knn | 111.90 | n/a | n/a | | 112.82 | n/a | n/a |
 
-Geometric mean over the 15 rows with a reference: engine **0.89x**, app **0.93x**. Engine rows over 1.5x: `fts5_top10` (1.94x), `lookup_index` (1.52x), `insert_tx_100k` (1.50x, at the line). App rows over 1.25x: `fts5_top10` (2.13x), `prepare_cold` (1.51x), `lookup_index` (1.35x).
+Geometric mean over the 15 arm64 rows with a reference, `open_time` (report only) excluded: engine **0.89x** (0.887), app **0.93x** (0.934); with `open_time` the means are 0.911 and 0.950. Engine rows over 1.5x: `fts5_top10` (1.94x), `lookup_index` (1.52x), `insert_tx_100k` (1.50x, at the line). App rows over 1.25x: `fts5_top10` (2.13x), `prepare_cold` (1.51x), `lookup_index` (1.35x).
 
 Not re-measured for 1.0: cold start (process start to first answer) and `BEGIN CONCURRENT` throughput; the earlier cold-start table stands, and concurrent-writer rows are in the concurrency notes.
 
