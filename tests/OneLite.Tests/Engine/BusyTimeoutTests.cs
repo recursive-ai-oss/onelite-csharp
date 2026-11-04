@@ -70,15 +70,27 @@ public sealed class BusyTimeoutTests : IDisposable
         using (db)
         using (b)
         {
+            // The committer waits too: in rollback mode its COMMIT needs EXCLUSIVE and can meet the SHARED lock the waiting writer
+            // takes between its retries; without a timeout that COMMIT gets SQLITE_BUSY at once (c3ref busy_timeout, lockingv3).
+            Run(a, "PRAGMA busy_timeout=2000");
             Run(a, "BEGIN IMMEDIATE");
+            Exception? committer = null;
             var t = new Thread(() =>
             {
-                Thread.Sleep(100);
-                Run(a, "COMMIT");
+                try
+                {
+                    Thread.Sleep(100);
+                    Run(a, "COMMIT");
+                }
+                catch (Exception ex)
+                {
+                    committer = ex;
+                }
             });
             t.Start();
             Run(b, "BEGIN IMMEDIATE");
             t.Join();
+            Assert.Null(committer);
             Run(b, "COMMIT");
         }
     }
