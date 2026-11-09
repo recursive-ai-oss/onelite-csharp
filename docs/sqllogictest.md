@@ -4,10 +4,30 @@
 
 Where the format description is silent, the runner's behaviour was settled by running the corpus's own expectations against the pinned `sqlite3` 3.53.4. Those decisions are listed under "Rendering decisions".
 
+## Reproducing the published count
+
+The published result (5,939,878 records passed, 1 explained failure, 1,480,834 skipped; table at the end) is OneLite running every statement of every script: the `onelite-rw` engine, which is the default. From a fresh clone, on Linux x64 or macOS arm64, with Python 3 and the .NET SDK named in `global.json`:
+
+```
+git clone https://github.com/recursive-ai-oss/onelite-csharp
+cd onelite-csharp
+python3 tools/scripts/fetch_oracles.py --skip-sqlcipher
+python3 tools/scripts/fetch_corpora.py --only sqllogictest
+dotnet build tools/OneLite.SqlLogicTest -c Release
+tools/scripts/sqllogictest_sweep.sh slt-out 4
+```
+
+- `fetch_oracles.py` downloads the pinned SQLite 3.53.4 precompiled tools from sqlite.org and the native library of the same release (from the `SQLite` NuGet package), checks their hashes and unpacks them under `~/onelite/oracles/`. The runner needs the native library even for OneLite: it prints the reference's version and compile options in the report header, and the `sqlite` engine runs on it. `--skip-sqlcipher` leaves out the SQLCipher oracle, which only the encryption tests use.
+- `fetch_corpora.py --only sqllogictest` downloads the 622 test scripts of the pinned corpus commit into `~/onelite/corpus/sqllogictest/` and checks each file's git hash. Set `GITHUB_TOKEN` if GitHub's unauthenticated rate limit stops it; a rerun resumes.
+- Set `ONELITE_HOME` to use another directory than `~/onelite` for both; the runner and the sweep script read it too.
+- The build writes to `artifacts/` in the clone (or to `$ONELITE_ARTIFACTS`).
+- `sqllogictest_sweep.sh OUT SHARDS` runs the corpus in `SHARDS` parallel processes (about 250 CPU-seconds in total, 90 s with 4 shards, on a recent x64 machine), then prints the report's totals and writes `OUT/summary.md`. The `total` row should read 622 files, 7,420,713 records, 5,939,878 passed, 1 failed, 1,480,834 skipped; the failure is the one explained in `known-differences.json`. The script exits 0 only when the report has no unexplained failure, missing file or stopped file.
+- `SLT_ENGINE=sqlite tools/scripts/sqllogictest_sweep.sh slt-native 4` runs the same corpus on the pinned native library instead; it gives the same counts.
+
 ## Running
 
 ```
-sqllogictest run    --corpus DIR --out DIR [--engine sqlite|onelite] [--shard i/n] [--filter GLOB[,GLOB]]
+sqllogictest run    --corpus DIR --out DIR [--engine onelite-rw|sqlite|onelite] [--shard i/n] [--filter GLOB[,GLOB]]
                     [--max-minutes N] [--force] [--scratch DIR]
 sqllogictest report --out DIR [--corpus DIR] [--known FILE]
 sqllogictest check-printf [COUNT [DUMP_FILE]]
@@ -18,11 +38,12 @@ sqllogictest check-printf [COUNT [DUMP_FILE]]
 - `--shard i/n` (1 ≤ i ≤ n) splits the filtered files by size: largest first onto the lightest shard, ties by name. The split depends only on the file list and sizes, so it is the same on every machine.
 - Each finished script writes `OUT/files/<path>.json` (renamed into place, so a killed run leaves whole files only). A rerun skips scripts that have a result, which makes a sweep resumable; `--force` redoes them. `--max-minutes` stops starting new scripts after that long and exits with code 3, so a long sweep runs as chunks that fit a time limit.
 - `report` merges the per-file results into `OUT/summary.json` and `OUT/summary.md` (header, totals, a table per directory, explained and unexplained failures with SQL, expected and actual). The exit code is 0 only when every record passed or is explained, no corpus file is missing and no file stopped early.
-- `tools/scripts/sqllogictest_sweep.sh OUT [SHARDS]` runs the shards as parallel processes and then the report.
+- `--engine` defaults to `onelite-rw` (see "Engines").
+- `tools/scripts/sqllogictest_sweep.sh OUT [SHARDS]` runs the shards as parallel processes and then the report. It reads `SLT_ENGINE` (default `onelite-rw`), `ONELITE_HOME`, `SLT_CORPUS`, `SLT_KNOWN` and `SLT_MAX_MINUTES`, and exits non-zero if a shard or the report fails.
 
 Groups in the report: `select*` (the top-level `select1..5.test`), `evidence`, `index/<name>`, `random/<name>`.
 
-**Counting.** A *record* is a `statement` or `query`; `halt` and `hash-threshold` are not counted. A record is *skipped* when its `skipif`/`onlyif` lines exclude it, *failed* when it ran and did not match (a malformed record counts as failed), *passed* otherwise. A file whose engine throws something other than a statement error (the OneLite stub throws "not implemented") stops with a `fatal` note instead of recording every remaining record as a failure.
+**Counting.** A *record* is a `statement` or `query`; `halt` and `hash-threshold` are not counted. A record is *skipped* when its `skipif`/`onlyif` lines exclude it, *failed* when it ran and did not match (a malformed record counts as failed), *passed* otherwise. A file whose engine throws something other than a statement error (for example an internal error) stops with a `fatal` note instead of recording every remaining record as a failure.
 
 **Known differences.** `testdata/sqllogictest/known-differences.json` lists failures that are understood and accepted, each as `{file, line, reason}`. `report --known` counts them as explained. An entry that does not occur in a run is listed as stale.
 
@@ -70,11 +91,14 @@ The runner talks to an engine through `ISltEngine` (name for conditionals, a hea
   | `pragma synchronous = off`, `cache_size = -131072` | speed only; the database is thrown away |
 
   Differences that do not apply: double-quoted string literals are off in both (`DQS=0`); `LIKE_DOESNT_MATCH_BLOBS` (library only) changes `LIKE` on blobs, which no script uses; `ENABLE_FTS3_PARENTHESIS` (library only) changes FTS3 query syntax, which no script uses. The shell has `STRICT_SUBTYPE`, `percentile`, `carray` and the `dbstat` and `bytecode` tables, which the library lacks; no script uses them.
-- **`onelite`**: a stub that opens and throws "not implemented" on first use, for the SQL engine to fill. Its `DialectName` is `sqlite` because the target is SQLite's behaviour.
+- **`onelite-rw`** (the default): OneLite runs every statement, setup included, on a fresh database file per script. This engine produced the published count.
+- **`onelite`**: read-only OneLite. The pinned native library writes each script's setup statements and OneLite runs the queries on that file. It was used before OneLite could write and is kept for checking the read path alone.
 
-## Results: the full corpus on the pinned library
+Every engine's `DialectName` is `sqlite`, because the target is SQLite's behaviour.
 
-Corpus mirror commit `c93ac416f05635ff5cc490009add936d9753d01d`, 622 scripts. Engine `sqlite` (library 3.53.4, source id `2026-07-24 19:02:57 bf7c7f30...9bc`), six shards on x64 Linux, and the whole corpus in one process on arm64 macOS. Both give the same counts:
+## Results: the full corpus
+
+Corpus mirror commit `c93ac416f05635ff5cc490009add936d9753d01d`, 622 scripts. The published count is engine `onelite-rw` at release 1.0.0, every statement on OneLite. The pinned native library (engine `sqlite`, library 3.53.4, source id `2026-07-24 19:02:57 bf7c7f30...9bc`) gives exactly the same counts, on x64 Linux and on arm64 macOS:
 
 | group | files | records | passed | failed | skipped |
 |---|--:|--:|--:|--:|--:|

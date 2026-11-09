@@ -5,7 +5,7 @@ using RecursiveAI.OneLite.Oracle;
 using RecursiveAI.OneLite.SqlLogicTest;
 
 // sqllogictest runner
-//   run    --corpus DIR --out DIR [--engine sqlite|onelite] [--shard i/n] [--filter GLOB[,GLOB]] [--max-minutes N] [--force] [--scratch DIR]
+//   run    --corpus DIR --out DIR [--engine onelite-rw|sqlite|onelite] [--shard i/n] [--filter GLOB[,GLOB]] [--max-minutes N] [--force] [--scratch DIR]
 //   report --out DIR [--corpus DIR] [--known FILE]
 //   check-printf [COUNT]   compare the %.3f renderer with the pinned library's printf
 // See docs/sqllogictest.md.
@@ -19,7 +19,7 @@ if (args.Length == 0 || args[0] is not ("run" or "report"))
     return 2;
 }
 
-string? corpus = null, outDir = null, scratch = null, known = null, engineName = "sqlite";
+string? corpus = null, outDir = null, scratch = null, known = null, engineName = "onelite-rw";
 int shard = 1, shards = 1;
 double maxMinutes = 0;
 bool force = false;
@@ -71,7 +71,7 @@ try
             "sqlite" => new SqliteNativeEngine(),
             "onelite" => new OneLiteEngine(),
             "onelite-rw" => new OneLiteWriteEngine(),
-            _ => throw new ArgumentException("--engine must be sqlite, onelite or onelite-rw"),
+            _ => throw new ArgumentException("--engine must be onelite-rw, sqlite or onelite"),
         },
         Shard = shard,
         Shards = shards,
